@@ -8,6 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- LINE LIFF SDK -->
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         :root {
             --white: #ffffff;
@@ -2024,17 +2026,16 @@
             ai: { name: 'AI 體態分析', icon: '🤖', color: 'ai' }
         };
 
+        // ============ LIFF Config ============
+        const LIFF_ID = '2008660081-DpwfJlqa';
+
         // ============ Data ============
-        // 從 URL 參數取得 LINE UID
-        const urlParams = new URLSearchParams(window.location.search);
-        const lineUidFromUrl = urlParams.get('uid');
-        
         // 目前登入的教練
         let currentUser = {
             id: '',
             name: '',
             avatar: '',
-            lineUid: lineUidFromUrl || '',
+            lineUid: '',
             role: 'teacher',
             specialties: []
         };
@@ -2053,30 +2054,40 @@
             document.getElementById('userAvatarSmall').textContent = '...';
             document.getElementById('userNameDisplay').textContent = '載入中';
             
-            // 檢查是否有 LINE UID 參數
-            if (!lineUidFromUrl) {
-                showInvalidLinkScreen();
-                return;
-            }
-            
-            // 載入最近使用的表情
-            loadRecentEmojis();
-            
-            showToast('載入中...');
-            
             try {
+                // 初始化 LIFF
+                await liff.init({ liffId: LIFF_ID });
+                console.log('LIFF initialized');
+                
+                // 檢查是否登入
+                if (!liff.isLoggedIn()) {
+                    document.getElementById('userNameDisplay').textContent = '請登入';
+                    liff.login({ redirectUri: window.location.href });
+                    return;
+                }
+                
+                // 取得 LINE Profile
+                const profile = await liff.getProfile();
+                console.log('LINE Profile:', profile);
+                const lineUid = profile.userId;
+                
+                // 載入最近使用的表情
+                loadRecentEmojis();
+                
+                showToast('載入中...');
+                
                 // 用 LINE UID 查詢教練
                 const { data: coach, error: queryError } = await supabaseClient
                     .from('coaches')
                     .select('*')
-                    .eq('line_uid', lineUidFromUrl)
+                    .eq('line_uid', lineUid)
                     .eq('status', 'approved')
                     .eq('is_active', true)
                     .single();
                 
                 if (queryError || !coach) {
                     // 找不到教練或未核准
-                    showUnauthorizedScreen();
+                    showUnauthorizedScreen(profile.displayName);
                     return;
                 }
                 
@@ -2133,29 +2144,8 @@
             }).join('');
         }
         
-        // 顯示無效連結畫面
-        function showInvalidLinkScreen() {
-            document.body.innerHTML = `
-                <div style="
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    min-height: 100vh;
-                    background: var(--bg);
-                    padding: 20px;
-                    text-align: center;
-                ">
-                    <div style="font-size: 64px; margin-bottom: 20px;">🔗</div>
-                    <h1 style="font-size: 24px; color: var(--pink-dark); margin-bottom: 12px;">無效的連結</h1>
-                    <p style="color: var(--text-secondary); margin-bottom: 8px;">請使用管理員提供的專屬連結</p>
-                    <p style="color: var(--text-muted); font-size: 14px;">連結格式：coach.html?uid=您的ID</p>
-                </div>
-            `;
-        }
-        
         // 顯示未授權畫面
-        function showUnauthorizedScreen() {
+        function showUnauthorizedScreen(displayName) {
             document.body.innerHTML = `
                 <div style="
                     display: flex;
@@ -2168,11 +2158,28 @@
                     text-align: center;
                 ">
                     <div style="font-size: 64px; margin-bottom: 20px;">🚫</div>
-                    <h1 style="font-size: 24px; color: var(--pink-dark); margin-bottom: 12px;">無法存取</h1>
+                    <h1 style="font-size: 24px; color: var(--pink-dark); margin-bottom: 12px;">${displayName || '您'}，無法存取</h1>
                     <p style="color: var(--text-secondary); margin-bottom: 8px;">您的帳號尚未核准或已停用</p>
                     <p style="color: var(--text-muted); font-size: 14px;">請聯繫管理員</p>
+                    <button onclick="liffLogout()" style="
+                        margin-top: 20px;
+                        padding: 12px 24px;
+                        background: var(--green);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        cursor: pointer;
+                    ">重新登入</button>
                 </div>
             `;
+        }
+        
+        function liffLogout() {
+            if (liff.isLoggedIn()) {
+                liff.logout();
+            }
+            window.location.reload();
         }
 
         // ============ Load Data from Supabase ============
