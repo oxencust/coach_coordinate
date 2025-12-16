@@ -2070,57 +2070,155 @@
                 const profile = await liff.getProfile();
                 console.log('LINE Profile:', profile);
                 const lineUid = profile.userId;
+                const displayName = profile.displayName;
+                const pictureUrl = profile.pictureUrl;
                 
                 // 載入最近使用的表情
                 loadRecentEmojis();
                 
                 showToast('載入中...');
                 
-                // 用 LINE UID 查詢教練
+                // 用 LINE UID 查詢教練（不限制 status）
                 const { data: coach, error: queryError } = await supabaseClient
                     .from('coaches')
                     .select('*')
                     .eq('line_uid', lineUid)
-                    .eq('status', 'approved')
-                    .eq('is_active', true)
                     .single();
                 
-                if (queryError || !coach) {
-                    // 找不到教練或未核准
-                    showUnauthorizedScreen(profile.displayName);
-                    return;
+                if (coach) {
+                    // 已有記錄，檢查狀態
+                    if (coach.status === 'approved' && coach.is_active) {
+                        // 已核准，進入系統
+                        setupCoachUser(coach);
+                    } else if (coach.status === 'pending') {
+                        // 待審核
+                        showPendingScreen(displayName);
+                    } else {
+                        // 被拒絕或停用
+                        showUnauthorizedScreen(displayName);
+                    }
+                } else {
+                    // 不存在，自動建立申請
+                    const avatar = displayName ? displayName.charAt(0) : '👤';
+                    
+                    const { data: newCoach, error: insertError } = await supabaseClient
+                        .from('coaches')
+                        .insert({
+                            name: displayName,
+                            avatar: avatar,
+                            line_uid: lineUid,
+                            status: 'pending',
+                            is_active: true,
+                            specialties: []
+                        })
+                        .select()
+                        .single();
+                    
+                    if (insertError) {
+                        console.error('Insert error:', insertError);
+                        showToast('申請失敗，請稍後再試');
+                        return;
+                    }
+                    
+                    // 顯示申請成功
+                    showApplySuccessScreen(displayName);
                 }
                 
-                // 設定用戶資訊
-                currentUser.id = coach.id;
-                currentUser.name = coach.name;
-                currentUser.avatar = coach.avatar;
-                currentUser.lineUid = coach.line_uid;
-                currentUser.specialties = coach.specialties || [];
-                
-                document.getElementById('userAvatarSmall').textContent = currentUser.avatar;
-                document.getElementById('userNameDisplay').textContent = currentUser.name;
-                
-                // 顯示教練專長
-                displaySpecialties(currentUser.specialties);
-                
-                // 載入教練和學員資料
-                await Promise.all([
-                    loadCoaches(),
-                    loadStudents()
-                ]);
-                
-                // 載入代課請求
-                await loadRequests();
-                
-                // 訂閱即時更新
-                subscribeToRequests();
-                
-                showToast('歡迎，' + currentUser.name + ' ✓');
             } catch (error) {
                 console.error('Init error:', error);
                 showToast('載入失敗，請重試');
             }
+        }
+        
+        // 設定教練用戶並載入資料
+        async function setupCoachUser(coach) {
+            currentUser.id = coach.id;
+            currentUser.name = coach.name;
+            currentUser.avatar = coach.avatar;
+            currentUser.lineUid = coach.line_uid;
+            currentUser.specialties = coach.specialties || [];
+            
+            document.getElementById('userAvatarSmall').textContent = currentUser.avatar;
+            document.getElementById('userNameDisplay').textContent = currentUser.name;
+            
+            // 顯示教練專長
+            displaySpecialties(currentUser.specialties);
+            
+            // 載入教練和學員資料
+            await Promise.all([
+                loadCoaches(),
+                loadStudents()
+            ]);
+            
+            // 載入代課請求
+            await loadRequests();
+            
+            // 訂閱即時更新
+            subscribeToRequests();
+            
+            showToast('歡迎，' + currentUser.name + ' ✓');
+        }
+        
+        // 顯示申請成功畫面
+        function showApplySuccessScreen(displayName) {
+            document.body.innerHTML = `
+                <div style="
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    background: var(--bg);
+                    padding: 20px;
+                    text-align: center;
+                ">
+                    <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
+                    <h1 style="font-size: 24px; color: var(--green-dark); margin-bottom: 12px;">申請已送出！</h1>
+                    <p style="color: var(--text-secondary); margin-bottom: 8px;">${displayName}，您的教練申請已送出</p>
+                    <p style="color: var(--text-muted); font-size: 14px;">請等待管理員審核</p>
+                    <button onclick="window.location.reload()" style="
+                        margin-top: 24px;
+                        padding: 12px 32px;
+                        background: var(--green);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        cursor: pointer;
+                    ">重新整理</button>
+                </div>
+            `;
+        }
+        
+        // 顯示審核中畫面
+        function showPendingScreen(displayName) {
+            document.body.innerHTML = `
+                <div style="
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    background: var(--bg);
+                    padding: 20px;
+                    text-align: center;
+                ">
+                    <div style="font-size: 64px; margin-bottom: 20px;">⏳</div>
+                    <h1 style="font-size: 24px; color: var(--yellow-dark); margin-bottom: 12px;">審核中</h1>
+                    <p style="color: var(--text-secondary); margin-bottom: 8px;">${displayName}，您的申請正在審核中</p>
+                    <p style="color: var(--text-muted); font-size: 14px;">請等待管理員核准</p>
+                    <button onclick="window.location.reload()" style="
+                        margin-top: 24px;
+                        padding: 12px 32px;
+                        background: var(--green);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        cursor: pointer;
+                    ">重新整理</button>
+                </div>
+            `;
         }
         
         // 顯示教練專長
@@ -2144,7 +2242,7 @@
             }).join('');
         }
         
-        // 顯示未授權畫面
+        // 顯示未授權畫面（被拒絕或停用）
         function showUnauthorizedScreen(displayName) {
             document.body.innerHTML = `
                 <div style="
@@ -2158,9 +2256,9 @@
                     text-align: center;
                 ">
                     <div style="font-size: 64px; margin-bottom: 20px;">🚫</div>
-                    <h1 style="font-size: 24px; color: var(--pink-dark); margin-bottom: 12px;">${displayName || '您'}，無法存取</h1>
-                    <p style="color: var(--text-secondary); margin-bottom: 8px;">您的帳號尚未核准或已停用</p>
-                    <p style="color: var(--text-muted); font-size: 14px;">請聯繫管理員</p>
+                    <h1 style="font-size: 24px; color: var(--pink-dark); margin-bottom: 12px;">無法存取</h1>
+                    <p style="color: var(--text-secondary); margin-bottom: 8px;">${displayName || '您'}，您的申請已被拒絕或帳號已停用</p>
+                    <p style="color: var(--text-muted); font-size: 14px;">如有疑問請聯繫管理員</p>
                     <button onclick="liffLogout()" style="
                         margin-top: 20px;
                         padding: 12px 24px;
