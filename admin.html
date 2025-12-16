@@ -876,11 +876,15 @@
             border-radius: 8px;
             font-size: 14px;
             z-index: 2000;
-            transition: transform 0.3s;
+            transition: transform 0.3s, opacity 0.3s;
+            opacity: 0;
+            pointer-events: none;
         }
 
         .toast.show {
             transform: translateX(-50%) translateY(0);
+            opacity: 1;
+            pointer-events: auto;
         }
 
         /* Empty State */
@@ -1111,14 +1115,18 @@
 
             /* Toast */
             .toast {
-                bottom: 80px;
+                bottom: 90px;
                 left: 16px;
                 right: 16px;
-                transform: translateX(0) translateY(100px);
+                transform: translateX(0) translateY(150px);
+                opacity: 0;
+                pointer-events: none;
             }
 
             .toast.show {
                 transform: translateX(0) translateY(0);
+                opacity: 1;
+                pointer-events: auto;
             }
 
             /* Chat Actions */
@@ -3739,11 +3747,23 @@
         }
 
         // ============ Toast ============
+        let toastTimeout = null;
+        
         function showToast(message) {
             const toast = document.getElementById('toast');
+            
+            // 清除之前的定時器
+            if (toastTimeout) {
+                clearTimeout(toastTimeout);
+            }
+            
             toast.textContent = message;
             toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 2500);
+            
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+                toastTimeout = null;
+            }, 2500);
         }
 
         // ============ Init ============
