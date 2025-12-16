@@ -467,23 +467,263 @@
             margin-bottom: 16px;
         }
 
-        /* Responsive */
+        /* ============ Mobile Responsive ============ */
         @media (max-width: 768px) {
-            .table-container {
+            /* Header */
+            .header {
+                padding: 12px 16px;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .header h1 {
+                font-size: 16px;
+                flex: 1;
+            }
+
+            #adminName {
+                display: none;
+            }
+
+            .logout-btn {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+
+            /* Tabs - 水平滾動 */
+            .tabs {
                 overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
             }
 
-            table {
-                min-width: 600px;
+            .tabs::-webkit-scrollbar {
+                display: none;
             }
 
+            .tab {
+                flex: none;
+                padding: 12px 14px;
+                font-size: 13px;
+                white-space: nowrap;
+            }
+
+            /* Content */
+            .content {
+                padding: 12px;
+            }
+
+            /* Action Bar */
             .action-bar {
                 flex-direction: column;
                 align-items: stretch;
+                gap: 10px;
+            }
+
+            .action-bar h2 {
+                font-size: 18px;
             }
 
             .search-box {
                 max-width: none;
+            }
+
+            .add-btn {
+                justify-content: center;
+                padding: 12px;
+            }
+
+            /* Table -> Card Style */
+            .table-container {
+                background: transparent;
+                box-shadow: none;
+            }
+
+            table {
+                display: block;
+            }
+
+            thead {
+                display: none;
+            }
+
+            tbody {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            tr {
+                display: flex;
+                flex-direction: column;
+                background: var(--card);
+                border-radius: 12px;
+                padding: 16px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }
+
+            tr:hover {
+                background: var(--card);
+            }
+
+            td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 0;
+                border-bottom: 1px solid var(--border);
+                font-size: 14px;
+            }
+
+            td:last-child {
+                border-bottom: none;
+                padding-top: 12px;
+                justify-content: flex-start;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--text-secondary);
+                font-size: 13px;
+            }
+
+            /* 隱藏待審核分隔行的 before */
+            tr[style*="background: #fff3cd"] td::before,
+            tr[style*="background: #e8f5e9"] td::before {
+                display: none;
+            }
+
+            tr[style*="background: #fff3cd"],
+            tr[style*="background: #e8f5e9"] {
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+
+            /* Avatar Cell */
+            .avatar-cell {
+                flex-direction: row;
+                justify-content: flex-start;
+            }
+
+            .avatar-cell::before {
+                display: none;
+            }
+
+            /* Action Buttons */
+            .edit-btn, .delete-btn {
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+
+            /* Modal - 全螢幕 */
+            .modal-overlay {
+                padding: 0;
+                align-items: flex-end;
+            }
+
+            .modal {
+                max-width: none;
+                max-height: 95vh;
+                border-radius: 16px 16px 0 0;
+                width: 100%;
+            }
+
+            .modal-header {
+                padding: 16px;
+                position: sticky;
+                top: 0;
+                background: var(--card);
+                z-index: 10;
+            }
+
+            .modal-body {
+                padding: 16px;
+                padding-bottom: 100px;
+            }
+
+            .modal-footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: var(--card);
+                padding: 12px 16px;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            }
+
+            .btn-cancel, .btn-save {
+                padding: 14px 20px;
+                font-size: 15px;
+                flex: 1;
+            }
+
+            /* Form */
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                padding: 14px;
+                font-size: 16px;
+            }
+
+            .checkbox-group {
+                gap: 16px;
+            }
+
+            .checkbox-item {
+                padding: 8px 0;
+            }
+
+            .checkbox-item input[type="checkbox"] {
+                width: 20px;
+                height: 20px;
+            }
+
+            /* Toast */
+            .toast {
+                bottom: 80px;
+                left: 16px;
+                right: 16px;
+                transform: translateX(0) translateY(100px);
+            }
+
+            .toast.show {
+                transform: translateX(0) translateY(0);
+            }
+
+            /* Chat Actions */
+            .admin-chat-actions {
+                flex-direction: column;
+                gap: 10px;
+                padding: 12px;
+            }
+
+            .chat-action-btns {
+                width: 100%;
+            }
+
+            .admin-action-btn {
+                flex: 1;
+                padding: 10px;
+                font-size: 13px;
+            }
+        }
+
+        /* 更小螢幕 */
+        @media (max-width: 380px) {
+            .tab {
+                padding: 10px 12px;
+                font-size: 12px;
+            }
+
+            .action-bar h2 {
+                font-size: 16px;
+            }
+
+            td {
+                font-size: 13px;
             }
         }
 
@@ -2463,6 +2703,9 @@
             const pendingAdmins = admins.filter(a => !a.is_active);
             const activeAdmins = admins.filter(a => a.is_active);
             
+            // 只有 username = 'admin' 的主管理員可以刪除其他管理員
+            const isSuperAdmin = currentAdmin && currentAdmin.username === 'admin';
+            
             if (admins.length === 0) {
                 tbody.innerHTML = `
                     <tr>
@@ -2497,8 +2740,8 @@
                             <td><span style="color: var(--warning);">⏳ 待審核</span></td>
                             <td>${createdAt}</td>
                             <td>
-                                <button class="edit-btn" style="background: var(--success);" onclick="approveAdmin('${a.id}', '${a.name}')">✓ 核准</button>
-                                <button class="delete-btn" onclick="deleteAdmin('${a.id}', '${a.name || '管理員'}')">✗ 拒絕</button>
+                                ${isSuperAdmin ? `<button class="edit-btn" style="background: var(--success);" onclick="approveAdmin('${a.id}', '${a.name}')">✓ 核准</button>` : ''}
+                                ${isSuperAdmin ? `<button class="delete-btn" onclick="deleteAdmin('${a.id}', '${a.name || '管理員'}')">✗ 拒絕</button>` : '<span style="color: var(--text-muted); font-size: 12px;">請主管理員審核</span>'}
                             </td>
                         </tr>
                     `;
@@ -2521,13 +2764,13 @@
                     const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
                     return `
                         <tr>
-                            <td>${a.name || '-'}${isCurrentAdmin ? ' <span style="color: var(--green);">(我)</span>' : ''}</td>
+                            <td>${a.name || '-'}${isCurrentAdmin ? ' <span style="color: var(--green);">(我)</span>' : ''}${a.username === 'admin' ? ' <span style="color: var(--blue);">👑</span>' : ''}</td>
                             <td><code style="font-size: 11px;">${a.line_uid || '-'}</code></td>
                             <td><span style="color: var(--success);">✓ 啟用</span></td>
                             <td>${createdAt}</td>
                             <td>
-                                <button class="edit-btn" onclick="editAdmin('${a.id}')">編輯</button>
-                                ${!isCurrentAdmin ? `<button class="delete-btn" onclick="deleteAdmin('${a.id}', '${a.name || '管理員'}')">刪除</button>` : ''}
+                                ${isSuperAdmin ? `<button class="edit-btn" onclick="editAdmin('${a.id}')">編輯</button>` : ''}
+                                ${isSuperAdmin && !isCurrentAdmin && a.username !== 'admin' ? `<button class="delete-btn" onclick="deleteAdmin('${a.id}', '${a.name || '管理員'}')">刪除</button>` : ''}
                             </td>
                         </tr>
                     `;
@@ -2649,6 +2892,27 @@
 
         // ============ Init ============
         document.addEventListener('DOMContentLoaded', checkAuth);
+
+        // 手機版表格標籤處理
+        function addTableLabels() {
+            document.querySelectorAll('table').forEach(table => {
+                const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent.trim());
+                table.querySelectorAll('tbody tr').forEach(row => {
+                    row.querySelectorAll('td').forEach((td, index) => {
+                        if (headers[index] && !td.hasAttribute('colspan')) {
+                            td.setAttribute('data-label', headers[index]);
+                        }
+                    });
+                });
+            });
+        }
+
+        // 監聽 DOM 變化，自動添加標籤
+        const observer = new MutationObserver(() => {
+            addTableLabels();
+        });
+        
+        observer.observe(document.body, { childList: true, subtree: true });
     </script>
 </body>
 </html>
