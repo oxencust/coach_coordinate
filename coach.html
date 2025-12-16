@@ -1,0 +1,3880 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>衡點 代課協調</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --white: #ffffff;
+            --gray: #808080;
+            --green: #7ac19a;
+            --green-light: #e2ede6;
+            --green-dark: #5f846f;
+            --pink: #f2ac98;
+            --pink-light: #faece8;
+            --pink-dark: #c67566;
+            --yellow: #ffe08b;
+            --yellow-light: #fcf4e3;
+            --yellow-dark: #ba9e60;
+            --blue: #9fcccc;
+            --blue-light: #daedec;
+            --blue-dark: #66888e;
+            --bg: #f8f9f8;
+            --card: #ffffff;
+            --text: #333333;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border: #e5e5e5;
+            --danger: #e05252;
+            --success: #5f846f;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 100%);
+            padding: 18px 20px;
+            color: var(--white);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(95, 132, 111, 0.3);
+        }
+
+        .header-content {
+            max-width: 500px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title h1 {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-title span {
+            font-size: 13px;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+        }
+
+        .user-avatar-small {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--white);
+            color: var(--green-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .user-info-area {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
+
+        .user-specialties {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .specialty-tag {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 500;
+            background: rgba(255,255,255,0.3);
+        }
+
+        .specialty-tag.pilates { background: rgba(76, 175, 80, 0.3); }
+        .specialty-tag.weight { background: rgba(233, 30, 99, 0.3); }
+        .specialty-tag.stretch { background: rgba(33, 150, 243, 0.3); }
+        .specialty-tag.ai { background: rgba(255, 193, 7, 0.3); }
+
+        /* Container */
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 16px;
+            padding-bottom: 100px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: var(--card);
+            border-radius: 14px;
+            padding: 4px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px 8px;
+            border: none;
+            background: transparent;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--gray);
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, var(--green-dark), var(--green));
+            color: var(--white);
+        }
+
+        .tab-badge {
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            background: var(--danger);
+            color: var(--white);
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+
+        .tab.active .tab-badge {
+            background: var(--white);
+            color: var(--danger);
+        }
+
+        /* Create Button */
+        .create-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--green-dark), var(--green));
+            border: none;
+            border-radius: 14px;
+            color: var(--white);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(95, 132, 111, 0.3);
+            transition: all 0.2s;
+        }
+
+        .create-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Request Cards */
+        .request-card {
+            background: var(--card);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            cursor: pointer;
+            transition: all 0.25s;
+            border-left: 4px solid transparent;
+        }
+
+        .request-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        }
+
+        .request-card.pilates { border-left-color: var(--green); }
+        .request-card.weight { border-left-color: var(--pink); }
+        .request-card.stretch { border-left-color: var(--blue); }
+        .request-card.ai { border-left-color: var(--yellow); }
+
+        .card-header {
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .teacher-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .course-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .course-avatar.pilates { background: linear-gradient(135deg, var(--green-dark), var(--green)); }
+        .course-avatar.weight { background: linear-gradient(135deg, var(--pink-dark), var(--pink)); }
+        .course-avatar.stretch { background: linear-gradient(135deg, var(--blue-dark), var(--blue)); }
+        .course-avatar.ai { background: linear-gradient(135deg, var(--yellow-dark), var(--yellow)); }
+
+        .course-info h3 { font-size: 15px; font-weight: 600; margin-bottom: 3px; }
+        .course-info p { font-size: 13px; color: var(--text-secondary); }
+
+        .status-tag {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-tag.pending { background: var(--yellow-light); color: var(--yellow-dark); }
+        .status-tag.discussing { background: var(--blue-light); color: var(--blue-dark); }
+        .status-tag.with-student { background: var(--pink-light); color: var(--pink-dark); }
+        .status-tag.resolved { background: var(--green-light); color: var(--green-dark); }
+        .status-tag.cancel_pending { background: #fff3e0; color: #e65100; }
+        .status-tag.cancelled { background: #f5f5f5; color: #9e9e9e; }
+
+        .card-body { padding: 0 16px 16px; }
+
+        .info-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            background: var(--bg);
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .info-item { display: flex; align-items: center; gap: 5px; }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+        }
+
+        .participants {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .participant-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--green);
+            color: var(--white);
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: -6px;
+            border: 2px solid var(--card);
+        }
+
+        .participant-avatar:first-child { margin-left: 0; }
+        .participant-avatar.student { background: var(--pink); }
+
+        .unread-count {
+            background: var(--danger);
+            color: var(--white);
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 10px;
+        }
+
+        /* Chat Modal */
+        .chat-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .chat-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .chat-modal {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 94vh;
+            background: var(--card);
+            border-radius: 24px 24px 0 0;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .chat-overlay.active .chat-modal {
+            transform: translateY(0);
+        }
+
+        .chat-handle {
+            width: 40px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            margin: 12px auto;
+        }
+
+        .chat-header {
+            padding: 0 20px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .chat-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .chat-title-row h2 {
+            font-size: 17px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .close-chat-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .close-chat-btn:hover { background: var(--border); }
+
+        /* Compact Chat Info Bar */
+        .chat-info-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chat-info-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .chat-info-summary {
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-info-expand {
+            font-size: 11px;
+            color: var(--text-muted);
+            transition: transform 0.3s;
+        }
+
+        .chat-info-bar.expanded .chat-info-expand {
+            transform: rotate(180deg);
+        }
+
+        .chat-info-card {
+            border-radius: 10px;
+            padding: 12px;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            opacity: 0;
+            margin-top: 0;
+        }
+
+        .chat-info-bar.expanded + .chat-info-card {
+            max-height: 120px;
+            opacity: 1;
+            margin-top: 10px;
+        }
+
+        .chat-info-card.pilates { background: var(--green-light); }
+        .chat-info-card.weight { background: var(--pink-light); }
+        .chat-info-card.stretch { background: var(--blue-light); }
+        .chat-info-card.ai { background: var(--yellow-light); }
+
+        .chat-info-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .chat-info-item { font-size: 12px; }
+        .chat-info-label { color: var(--text-muted); font-size: 10px; }
+        .chat-info-value { font-weight: 500; margin-top: 2px; }
+
+        /* Participants Bar */
+        .participants-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: var(--green-light);
+            font-size: 13px;
+            color: var(--green-dark);
+            transition: all 0.3s;
+        }
+
+        .participants-bar.with-student {
+            background: var(--pink-light);
+            color: var(--pink-dark);
+        }
+
+        .participants-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .participants-avatars {
+            display: flex;
+            flex-shrink: 0;
+        }
+
+        .p-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--green-dark);
+            color: var(--white);
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: -8px;
+            border: 2px solid var(--green-light);
+            transition: all 0.3s;
+        }
+
+        .participants-bar.with-student .p-avatar {
+            border-color: var(--pink-light);
+        }
+
+        .p-avatar:first-child { margin-left: 0; }
+        .p-avatar.student { background: var(--pink); }
+
+        .participants-names {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 12px;
+        }
+
+        .participants-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .invite-student-btn {
+            padding: 6px 12px;
+            background: var(--pink);
+            color: var(--white);
+            border: none;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+
+        .invite-student-btn:hover {
+            background: var(--pink-dark);
+        }
+
+        .end-chat-btn {
+            padding: 6px 14px;
+            background: var(--danger);
+            color: var(--white);
+            border: none;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 6px rgba(224, 82, 82, 0.3);
+        }
+
+        .end-chat-btn:hover {
+            background: #c94444;
+            transform: translateY(-1px);
+        }
+
+        .end-chat-btn.show {
+            display: flex;
+        }
+
+        /* Messages */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message {
+            max-width: 80%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message.sent { align-self: flex-end; }
+        .message.received { align-self: flex-start; }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+            padding-left: 4px;
+        }
+
+        .msg-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--green);
+            color: var(--white);
+            font-size: 10px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .msg-avatar.student { background: var(--pink); }
+
+        .msg-sender { font-size: 12px; color: var(--text-secondary); }
+        .msg-sender .role { 
+            font-size: 10px; 
+            background: var(--bg); 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            margin-left: 4px;
+        }
+
+        .message-bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .message.sent .message-bubble {
+            background: linear-gradient(135deg, var(--green-dark), var(--green));
+            color: var(--white);
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.received .message-bubble {
+            background: var(--bg);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.received.student .message-bubble {
+            background: var(--pink-light);
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+
+        .message.sent .message-time { text-align: right; }
+
+        /* System Message */
+        .system-message {
+            align-self: center;
+            background: var(--bg);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-muted);
+            text-align: center;
+            margin: 8px 0;
+        }
+
+        .system-message.success { background: var(--green-light); color: var(--green-dark); }
+        .system-message.info { background: var(--blue-light); color: var(--blue-dark); }
+        .system-message.student-joined { background: var(--pink-light); color: var(--pink-dark); }
+
+        /* Student Info Card in Chat */
+        .student-info-bubble {
+            align-self: center;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            margin: 12px 0;
+            width: 90%;
+            max-width: 300px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .student-info-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .student-info-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--pink);
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .student-info-name { font-size: 16px; font-weight: 600; }
+        .student-info-detail { font-size: 13px; color: var(--text-secondary); }
+
+        .student-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            background: var(--bg);
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 13px;
+        }
+
+        .student-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .student-info-label { font-size: 11px; color: var(--text-muted); }
+        .student-info-value { font-weight: 500; }
+
+        /* Typing */
+        .typing-indicator {
+            align-self: flex-start;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: var(--bg);
+            border-radius: 18px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .typing-indicator.show { opacity: 1; }
+
+        .typing-dots { display: flex; gap: 3px; }
+
+        .typing-dots span {
+            width: 6px;
+            height: 6px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite;
+        }
+
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-4px); }
+        }
+
+        /* Chat Reminder */
+        .chat-reminder {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #fff8e1, #ffecb3);
+            border-bottom: 1px solid #ffe082;
+            font-size: 13px;
+            color: #f57c00;
+        }
+
+        .chat-reminder.show {
+            display: flex;
+        }
+
+        .reminder-icon {
+            font-size: 16px;
+        }
+
+        .reminder-text {
+            flex: 1;
+        }
+
+        .finish-course-btn {
+            padding: 8px 14px;
+            background: var(--green);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .finish-course-btn:hover {
+            background: var(--green-dark);
+            transform: scale(1.02);
+        }
+
+        .finish-course-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Action Bar (replaces quick replies for teachers) */
+        .action-bar {
+            padding: 10px 20px;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            border-top: 1px solid var(--border);
+            background: var(--white);
+        }
+
+        .action-btn {
+            padding: 10px 16px;
+            border: 1.5px solid var(--green);
+            border-radius: 22px;
+            background: var(--white);
+            color: var(--green-dark);
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-btn:hover {
+            background: var(--green);
+            color: var(--white);
+        }
+
+        .action-btn.pink {
+            border-color: var(--pink);
+            color: var(--pink-dark);
+        }
+
+        .action-btn.pink:hover {
+            background: var(--pink);
+            color: var(--white);
+        }
+
+        .action-btn.confirm {
+            background: var(--green);
+            color: var(--white);
+            border-color: var(--green);
+        }
+
+        .action-btn.confirm:hover {
+            background: var(--green-dark);
+        }
+
+        .action-btn.cancel {
+            background: #f5f5f5;
+            color: #e74c3c;
+            border-color: #e74c3c;
+        }
+
+        .action-btn.cancel:hover {
+            background: #e74c3c;
+            color: var(--white);
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            padding: 8px 20px;
+            background: var(--white);
+            border-top: 1px solid var(--border);
+            display: none;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .typing-indicator.show {
+            display: flex;
+        }
+        
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .typing-dots span {
+            width: 6px;
+            height: 6px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dots span:nth-child(1) { animation-delay: 0s; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typingBounce {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+            30% {
+                transform: translateY(-6px);
+                opacity: 1;
+            }
+        }
+
+        /* Input Area */
+        .chat-input-area {
+            padding: 12px 20px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            background: var(--white);
+        }
+
+        .chat-input {
+            flex: 1;
+            border: 1.5px solid var(--border);
+            border-radius: 24px;
+            padding: 12px 18px;
+            font-size: 15px;
+            font-family: inherit;
+            outline: none;
+            resize: none;
+            min-height: 48px;
+            max-height: 120px;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input:focus { border-color: var(--green); }
+
+        .notify-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--yellow);
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .notify-btn:hover { transform: scale(1.05); background: var(--yellow-light); }
+        .notify-btn:active { transform: scale(0.95); }
+
+        .send-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--green-dark), var(--green));
+            border: none;
+            color: var(--white);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(95, 132, 111, 0.3);
+        }
+
+        .send-btn:hover { transform: scale(1.05); }
+
+        /* Emoji Panel */
+        .emoji-panel-wrapper {
+            position: relative;
+        }
+
+        .emoji-panel {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            background: var(--white);
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            z-index: 100;
+        }
+
+        .emoji-panel.show {
+            max-height: 60vh;
+        }
+
+        .emoji-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .emoji-panel-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .emoji-panel-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: var(--bg);
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .emoji-panel-body {
+            padding: 12px 16px;
+            max-height: calc(60vh - 60px);
+            overflow-y: auto;
+        }
+
+        .emoji-category {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 12px 0 8px 0;
+            font-weight: 500;
+        }
+
+        .emoji-category:first-child {
+            margin-top: 0;
+        }
+
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+
+        .emoji-btn {
+            width: 100%;
+            aspect-ratio: 1;
+            border: none;
+            background: transparent;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.15s;
+        }
+
+        .emoji-btn:hover {
+            background: var(--green-light);
+            transform: scale(1.15);
+        }
+
+        .emoji-btn:active {
+            transform: scale(0.95);
+        }
+
+        .emoji-input-btn {
+            width: 48px;
+            height: 48px;
+            border: none;
+            background: var(--bg);
+            font-size: 22px;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .emoji-input-btn:hover {
+            background: var(--green-light);
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1100;
+            display: flex;
+            align-items: flex-end;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-overlay.center {
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: var(--card);
+            width: 100%;
+            max-height: 85vh;
+            border-radius: 24px 24px 0 0;
+            overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-overlay.center .modal-content {
+            max-width: 400px;
+            border-radius: 20px;
+            transform: scale(0.9);
+        }
+
+        .modal-overlay.center.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: var(--card);
+            z-index: 10;
+        }
+
+        .modal-header h2 { font-size: 18px; font-weight: 600; }
+
+        .close-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+
+        .modal-body { padding: 20px; }
+
+        /* Form */
+        .form-group { margin-bottom: 20px; }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus { border-color: var(--green); }
+
+        .custom-time-group {
+            background: var(--green-light);
+            padding: 16px;
+            border-radius: 12px;
+            margin-top: -8px;
+        }
+
+        .custom-time-inputs {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .time-input {
+            flex: 1;
+            text-align: center;
+        }
+
+        .time-separator {
+            color: var(--text-secondary);
+            font-size: 18px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .course-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .course-option {
+            padding: 16px 12px;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .course-option .course-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .course-option.pilates .course-icon { background: var(--green-light); }
+        .course-option.weight .course-icon { background: var(--pink-light); }
+        .course-option.stretch .course-icon { background: var(--blue-light); }
+        .course-option.ai .course-icon { background: var(--yellow-light); }
+
+        .course-option .course-name { font-size: 14px; font-weight: 500; }
+
+        .course-option.pilates.selected { border-color: var(--green); background: var(--green-light); }
+        .course-option.weight.selected { border-color: var(--pink); background: var(--pink-light); }
+        .course-option.stretch.selected { border-color: var(--blue); background: var(--blue-light); }
+        .course-option.ai.selected { border-color: var(--yellow); background: var(--yellow-light); }
+
+        /* 自動選擇的課程樣式（教練只有一個專長時） */
+        .auto-selected-course {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .auto-selected-course .course-icon {
+            font-size: 24px;
+        }
+
+        .auto-selected-course .course-name {
+            font-size: 16px;
+        }
+
+        .auto-selected-course .auto-tag {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .auto-selected-course.pilates { background: var(--green-light); border: 2px solid var(--green); }
+        .auto-selected-course.weight { background: var(--pink-light); border: 2px solid var(--pink); }
+        .auto-selected-course.stretch { background: var(--blue-light); border: 2px solid var(--blue); }
+        .auto-selected-course.ai { background: var(--yellow-light); border: 2px solid var(--yellow); }
+
+        .student-list { max-height: 200px; overflow-y: auto; }
+
+        .student-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .student-option:hover { border-color: var(--green-light); }
+        .student-option.selected { border-color: var(--green); background: var(--green-light); }
+
+        .student-row { display: flex; align-items: center; gap: 12px; }
+
+        .student-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--green);
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .student-name { font-weight: 500; font-size: 15px; }
+        .student-detail { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+        .check-circle {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: transparent;
+        }
+
+        .student-option.selected .check-circle {
+            background: var(--green);
+            border-color: var(--green);
+            color: var(--white);
+        }
+
+        /* Info Hint */
+        .info-hint {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 14px;
+            background: var(--blue-light);
+            border-radius: 10px;
+            font-size: 13px;
+            color: var(--blue-dark);
+            margin-bottom: 10px;
+        }
+
+        .info-hint .hint-icon {
+            font-size: 16px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--green-dark), var(--green));
+            border: none;
+            border-radius: 14px;
+            color: var(--white);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(95, 132, 111, 0.3);
+        }
+
+        /* Search Student Modal */
+        .search-input-wrapper {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 14px 16px 14px 44px;
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .search-input:focus { border-color: var(--green); }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .search-results {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .search-result-item:hover {
+            background: var(--bg);
+        }
+
+        .result-info { display: flex; align-items: center; gap: 12px; }
+
+        .result-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--pink);
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .result-name { font-weight: 500; }
+        .result-detail { font-size: 13px; color: var(--text-secondary); }
+
+        .result-action {
+            padding: 8px 14px;
+            background: var(--pink);
+            color: var(--white);
+            border: none;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .result-action.invite {
+            background: var(--green);
+        }
+
+        /* Add Student Hint */
+        .add-student-hint {
+            padding: 12px;
+            background: var(--yellow-light);
+            border-radius: 10px;
+            margin-bottom: 12px;
+        }
+
+        .add-student-hint .hint-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .add-student-btn {
+            padding: 6px 12px;
+            background: var(--yellow);
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .add-student-form {
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 10px;
+            margin-bottom: 12px;
+        }
+
+        /* Invite Link Card */
+        .invite-card {
+            background: var(--pink-light);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .invite-card h3 {
+            font-size: 16px;
+            color: var(--pink-dark);
+            margin-bottom: 12px;
+        }
+
+        .invite-link-box {
+            background: var(--white);
+            border-radius: 10px;
+            padding: 14px;
+            font-size: 13px;
+            color: var(--text);
+            word-break: break-all;
+            margin-bottom: 16px;
+        }
+
+        .invite-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .invite-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .invite-btn.copy {
+            background: var(--pink);
+            color: var(--white);
+        }
+
+        .invite-btn.line {
+            background: #06C755;
+            color: var(--white);
+        }
+
+        /* End Chat Confirm */
+        .confirm-content {
+            padding: 24px;
+            text-align: center;
+        }
+
+        .confirm-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .confirm-content h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .confirm-content p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .confirm-btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .confirm-btn.cancel { background: var(--bg); color: var(--text-secondary); }
+        .confirm-btn.danger { background: var(--danger); color: var(--white); }
+        .confirm-btn.success { background: var(--green); color: var(--white); }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--green-dark);
+            color: var(--white);
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-icon { font-size: 56px; margin-bottom: 16px; }
+        .empty-state h3 { font-size: 16px; color: var(--text); margin-bottom: 8px; }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid var(--green-light);
+            border-top-color: var(--green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-title">
+                <h1>衡點</h1>
+                <span>代課協調</span>
+            </div>
+            <div class="user-info-area">
+                <div class="user-badge">
+                    <div class="user-avatar-small" id="userAvatarSmall">王</div>
+                    <span id="userNameDisplay">王教練</span>
+                </div>
+                <div class="user-specialties" id="userSpecialties"></div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="pending" onclick="switchTab('pending')">
+                待協調
+                <span class="tab-badge" id="pendingBadge">0</span>
+            </button>
+            <button class="tab" data-tab="discussing" onclick="switchTab('discussing')">
+                進行中
+                <span class="tab-badge" id="discussingBadge">0</span>
+            </button>
+            <button class="tab" data-tab="resolved" onclick="switchTab('resolved')">
+                已結束
+            </button>
+        </div>
+
+        <!-- Create Button -->
+        <button class="create-btn" onclick="openCreateModal()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            發起代課需求
+        </button>
+
+        <!-- Request List -->
+        <div id="requestList">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>載入中...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Modal -->
+    <div class="chat-overlay" id="chatOverlay" onclick="closeChatIfOutside(event)">
+        <div class="chat-modal" onclick="event.stopPropagation()">
+            <div class="chat-handle"></div>
+            
+            <div class="chat-header">
+                <div class="chat-title-row">
+                    <h2>
+                        <span id="chatIcon">🧘</span>
+                        <span id="chatTitleText">代課討論</span>
+                    </h2>
+                    <button class="close-chat-btn" onclick="closeChat()" title="返回">✕</button>
+                </div>
+                <!-- 精簡資訊列（點擊展開） -->
+                <div class="chat-info-bar" id="chatInfoBar" onclick="toggleChatInfo()">
+                    <div class="chat-info-left">
+                        <span class="chat-info-summary" id="chatInfoSummary">-</span>
+                    </div>
+                    <span class="chat-info-expand">▼ 詳情</span>
+                </div>
+                <!-- 展開後的詳細資訊 -->
+                <div class="chat-info-card" id="chatInfoCard">
+                    <div class="chat-info-grid" id="chatInfoGrid"></div>
+                </div>
+            </div>
+
+            <div class="participants-bar" id="participantsBar">
+                <div class="participants-left">
+                    <span>👥</span>
+                    <div class="participants-avatars" id="participantsAvatars"></div>
+                    <span class="participants-names" id="participantsNames"></span>
+                </div>
+                <div class="participants-right">
+                    <button class="invite-student-btn" id="inviteStudentBtn" onclick="openInviteStudent()">
+                        ➕ 邀請學員
+                    </button>
+                    <button class="end-chat-btn" id="endChatBtn" onclick="openEndChat()">
+                        🏁 結束對話
+                    </button>
+                </div>
+            </div>
+
+            <!-- 課程提醒 -->
+            <div class="chat-reminder" id="chatReminder">
+                <span class="reminder-icon">💡</span>
+                <span class="reminder-text">聊天室將於課程完成後才可關閉</span>
+                <button class="finish-course-btn" id="finishCourseBtn" onclick="finishCourse()">
+                    ✅ 課程已完成，結束對話
+                </button>
+            </div>
+
+            <div class="chat-messages" id="chatMessages"></div>
+
+            <div class="typing-indicator" id="typingIndicator">
+                <span id="typingName">有人</span>正在輸入
+                <div class="typing-dots"><span></span><span></span><span></span></div>
+            </div>
+
+            <div class="action-bar" id="actionBar">
+                <button class="action-btn pink" onclick="openSearchStudent()">🔍 查詢學員</button>
+                <button class="action-btn confirm" id="confirmSubstituteBtn" onclick="confirmSubstitute()" style="display:none;">✅ 確認接手</button>
+                <button class="action-btn cancel" id="cancelRequestBtn" onclick="requestCancelSubstitute()" style="display:none;">❌ 申請取消</button>
+            </div>
+
+            <!-- 表情選擇面板 -->
+            <div class="emoji-panel-wrapper">
+                <div class="emoji-panel" id="emojiPanel">
+                    <div class="emoji-panel-header">
+                        <span class="emoji-panel-title">選擇表情</span>
+                        <button class="emoji-panel-close" onclick="closeEmojiPanel()">✕</button>
+                    </div>
+                    <div class="emoji-panel-body">
+                        <div class="emoji-category">😀 常用</div>
+                        <div class="emoji-grid" id="recentEmojis">
+                            <button class="emoji-btn" onclick="sendEmoji('👍')">👍</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🙏')">🙏</button>
+                            <button class="emoji-btn" onclick="sendEmoji('😊')">😊</button>
+                            <button class="emoji-btn" onclick="sendEmoji('👋')">👋</button>
+                            <button class="emoji-btn" onclick="sendEmoji('💪')">💪</button>
+                            <button class="emoji-btn" onclick="sendEmoji('❤️')">❤️</button>
+                        </div>
+                        
+                        <div class="emoji-category">😄 表情</div>
+                        <div class="emoji-grid">
+                            <button class="emoji-btn" onclick="sendEmoji('😀')">😀</button>
+                            <button class="emoji-btn" onclick="sendEmoji('😄')">😄</button>
+                            <button class="emoji-btn" onclick="sendEmoji('😊')">😊</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🥰')">🥰</button>
+                            <button class="emoji-btn" onclick="sendEmoji('😎')">😎</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🤔')">🤔</button>
+                            <button class="emoji-btn" onclick="sendEmoji('😅')">😅</button>
+                            <button class="emoji-btn" onclick="sendEmoji('😢')">😢</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🥺')">🥺</button>
+                            <button class="emoji-btn" onclick="sendEmoji('😮')">😮</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🤗')">🤗</button>
+                            <button class="emoji-btn" onclick="sendEmoji('😇')">😇</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🙈')">🙈</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🤭')">🤭</button>
+                        </div>
+                        
+                        <div class="emoji-category">👋 手勢</div>
+                        <div class="emoji-grid">
+                            <button class="emoji-btn" onclick="sendEmoji('👍')">👍</button>
+                            <button class="emoji-btn" onclick="sendEmoji('👎')">👎</button>
+                            <button class="emoji-btn" onclick="sendEmoji('👌')">👌</button>
+                            <button class="emoji-btn" onclick="sendEmoji('✌️')">✌️</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🙏')">🙏</button>
+                            <button class="emoji-btn" onclick="sendEmoji('👋')">👋</button>
+                            <button class="emoji-btn" onclick="sendEmoji('💪')">💪</button>
+                            <button class="emoji-btn" onclick="sendEmoji('👏')">👏</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🤝')">🤝</button>
+                            <button class="emoji-btn" onclick="sendEmoji('✋')">✋</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🤞')">🤞</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🫶')">🫶</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🙌')">🙌</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🤙')">🤙</button>
+                        </div>
+                        
+                        <div class="emoji-category">❤️ 符號</div>
+                        <div class="emoji-grid">
+                            <button class="emoji-btn" onclick="sendEmoji('❤️')">❤️</button>
+                            <button class="emoji-btn" onclick="sendEmoji('💕')">💕</button>
+                            <button class="emoji-btn" onclick="sendEmoji('✨')">✨</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🔥')">🔥</button>
+                            <button class="emoji-btn" onclick="sendEmoji('⭐')">⭐</button>
+                            <button class="emoji-btn" onclick="sendEmoji('💯')">💯</button>
+                            <button class="emoji-btn" onclick="sendEmoji('✅')">✅</button>
+                            <button class="emoji-btn" onclick="sendEmoji('❓')">❓</button>
+                            <button class="emoji-btn" onclick="sendEmoji('❗')">❗</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🎉')">🎉</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🎊')">🎊</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🏆')">🏆</button>
+                            <button class="emoji-btn" onclick="sendEmoji('💝')">💝</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🌟')">🌟</button>
+                        </div>
+
+                        <div class="emoji-category">🏃 運動</div>
+                        <div class="emoji-grid">
+                            <button class="emoji-btn" onclick="sendEmoji('🏃')">🏃</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🧘')">🧘</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🏋️')">🏋️</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🤸')">🤸</button>
+                            <button class="emoji-btn" onclick="sendEmoji('💪')">💪</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🦵')">🦵</button>
+                            <button class="emoji-btn" onclick="sendEmoji('🏅')">🏅</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div class="typing-indicator" id="typingIndicator">
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <span id="typingText">有人正在輸入...</span>
+            </div>
+
+            <div class="chat-input-area">
+                <button class="emoji-input-btn" onclick="toggleEmojiPanel()">😊</button>
+                <textarea class="chat-input" id="chatInput" placeholder="輸入訊息..." rows="1"
+                    onkeydown="handleKeydown(event)" oninput="handleTyping()"></textarea>
+                <button class="notify-btn" onclick="forceNotify()" title="通知對方查看聊天室">📢</button>
+                <button class="send-btn" onclick="sendMessage()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Modal -->
+    <div class="modal-overlay" id="createModal" onclick="closeModalIfOutside(event, 'createModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>發起代課需求</h2>
+                <button class="close-btn" onclick="closeModal('createModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">日期</label>
+                        <input type="date" class="form-input" id="inputDate">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">時段</label>
+                        <select class="form-input" id="inputTime" onchange="toggleCustomTime()">
+                            <option value="">選擇時段</option>
+                            <option value="09:00-10:00">09:00-10:00</option>
+                            <option value="10:00-11:00">10:00-11:00</option>
+                            <option value="11:00-12:00">11:00-12:00</option>
+                            <option value="14:00-15:00">14:00-15:00</option>
+                            <option value="15:00-16:00">15:00-16:00</option>
+                            <option value="16:00-17:00">16:00-17:00</option>
+                            <option value="18:00-19:00">18:00-19:00</option>
+                            <option value="19:00-20:00">19:00-20:00</option>
+                            <option value="20:00-21:00">20:00-21:00</option>
+                            <option value="custom">✏️ 手動輸入</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 手動輸入時段 -->
+                <div class="form-group custom-time-group" id="customTimeGroup" style="display: none;">
+                    <label class="form-label">自訂時段</label>
+                    <div class="custom-time-inputs">
+                        <input type="time" class="form-input time-input" id="customTimeStart" value="09:00">
+                        <span class="time-separator">～</span>
+                        <input type="time" class="form-input time-input" id="customTimeEnd" value="10:00">
+                    </div>
+                </div>
+
+                <div class="form-group" id="courseTypeGroup">
+                    <label class="form-label">課程類型</label>
+                    <div class="course-grid" id="courseGrid">
+                        <!-- 動態生成 -->
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">原因 <span style="color: #e74c3c;">*</span></label>
+                    <input type="text" class="form-input" id="inputReason" placeholder="例：臨時有事需要請假" required>
+                </div>
+
+                <div class="info-hint">
+                    <span class="hint-icon">💡</span>
+                    <span class="hint-text">發起後可在聊天室中搜尋並邀請學員加入</span>
+                </div>
+
+                <button class="submit-btn" id="createRequestBtn" onclick="createRequest()">發送代課需求</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Invite Student Modal -->
+    <div class="modal-overlay" id="searchStudentModal" onclick="closeModalIfOutside(event, 'searchStudentModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>🔍 搜尋學員</h2>
+                <button class="close-btn" onclick="closeModal('searchStudentModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-input-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="studentSearchInput" 
+                        placeholder="輸入學員姓名或代號..." oninput="searchStudentForInvite()">
+                </div>
+                
+                <!-- 新增學員提示 -->
+                <div class="add-student-hint" id="addStudentHint" style="display: none;">
+                    <div class="hint-content">
+                        <span>找不到學員？</span>
+                        <button class="add-student-btn" onclick="showAddStudentForm()">➕ 新增學員</button>
+                    </div>
+                </div>
+                
+                <!-- 新增學員表單 -->
+                <div class="add-student-form" id="addStudentForm" style="display: none;">
+                    <div style="font-size: 13px; font-weight: 500; margin-bottom: 8px;">新增學員</div>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="newStudentNameInput" placeholder="輸入學員姓名" 
+                            style="flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;">
+                        <button onclick="addNewStudentForInvite()" 
+                            style="padding: 10px 16px; background: var(--green); color: white; border: none; border-radius: 6px; font-weight: 500; cursor: pointer;">
+                            新增
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="search-results" id="searchResults"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite Student Modal -->
+    <div class="modal-overlay center" id="inviteStudentModal">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>邀請學員加入討論</h2>
+                <button class="close-btn" onclick="closeModal('inviteStudentModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="invite-card">
+                    <h3>📱 邀請 <span id="inviteStudentName">學員</span> 加入</h3>
+                    
+                    <!-- 邀請連結 -->
+                    <div style="margin: 16px 0;">
+                        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;">邀請連結：</div>
+                        <div class="invite-link-box" id="inviteLinkBox" style="font-size: 12px; word-break: break-all;">
+                            載入中...
+                        </div>
+                    </div>
+                    
+                    <!-- 學員提醒文字 -->
+                    <div style="padding: 10px 12px; background: linear-gradient(135deg, #F3E8FF, #E9D5FF); border-radius: 8px; margin-bottom: 16px; font-size: 12px; color: #7B5EA7;">
+                        💡 學員進入後會看到：「如有任何問題，可隨時透過此連結進入聊天室與教練溝通」
+                    </div>
+                    
+                    <!-- 提示訊息 -->
+                    <div id="inviteHint" style="padding: 12px; background: var(--yellow-light); border-radius: 8px; margin-bottom: 16px; font-size: 13px; display: none;">
+                        <div style="font-weight: 500; margin-bottom: 4px;">💡 學員尚未綁定 LINE</div>
+                        <div style="color: var(--text-secondary);">請複製連結，手動傳送給學員</div>
+                    </div>
+                    
+                    <div class="invite-actions">
+                        <button class="invite-btn copy" onclick="copyInviteLink()">📋 複製連結</button>
+                        <button class="invite-btn line" id="lineInviteBtn" onclick="sendLineInvite()">💬 LINE 發送</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- End Chat Modal -->
+    <div class="modal-overlay center" id="endChatModal">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="confirm-content">
+                <div class="confirm-icon">👋</div>
+                <h3>結束這次代課討論？</h3>
+                <p>結束後，所有參與者都會收到通知，對話紀錄將會保留。</p>
+                <div class="confirm-buttons">
+                    <button class="confirm-btn cancel" onclick="closeModal('endChatModal')">繼續討論</button>
+                    <button class="confirm-btn success" onclick="endChat()">確認結束</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============ Supabase Config ============
+        const SUPABASE_URL = 'https://mnjilhpztnowaplggvkk.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uamlsaHB6dG5vd2FwbGdndmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDA0ODYsImV4cCI6MjA4MTI3NjQ4Nn0.X3e9DF3iT2KUR9ma3_Ins01vG607R155v0xia8hO_Qg';
+        
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============ Config ============
+        const COURSE_CONFIG = {
+            pilates: { name: '皮拉提斯', icon: '🧘', color: 'pilates' },
+            weight: { name: '重量訓練', icon: '🏋️', color: 'weight' },
+            stretch: { name: '伸展課程', icon: '🤸', color: 'stretch' },
+            ai: { name: 'AI 體態分析', icon: '🤖', color: 'ai' }
+        };
+
+        // ============ Data ============
+        // 從 URL 參數取得 LINE UID
+        const urlParams = new URLSearchParams(window.location.search);
+        const lineUidFromUrl = urlParams.get('uid');
+        
+        // 目前登入的教練
+        let currentUser = {
+            id: '',
+            name: '',
+            avatar: '',
+            lineUid: lineUidFromUrl || '',
+            role: 'teacher',
+            specialties: []
+        };
+
+        let allStudents = [];
+        let allCoaches = [];
+        let requests = [];
+        let currentRequest = null;
+        let currentTab = 'pending';
+        let selectedCourse = null;
+        let selectedStudent = null;
+        let messagesSubscription = null;
+
+        // ============ Init ============
+        async function init() {
+            document.getElementById('userAvatarSmall').textContent = '...';
+            document.getElementById('userNameDisplay').textContent = '載入中';
+            
+            // 檢查是否有 LINE UID 參數
+            if (!lineUidFromUrl) {
+                showInvalidLinkScreen();
+                return;
+            }
+            
+            // 載入最近使用的表情
+            loadRecentEmojis();
+            
+            showToast('載入中...');
+            
+            try {
+                // 用 LINE UID 查詢教練
+                const { data: coach, error: queryError } = await supabaseClient
+                    .from('coaches')
+                    .select('*')
+                    .eq('line_uid', lineUidFromUrl)
+                    .eq('status', 'approved')
+                    .eq('is_active', true)
+                    .single();
+                
+                if (queryError || !coach) {
+                    // 找不到教練或未核准
+                    showUnauthorizedScreen();
+                    return;
+                }
+                
+                // 設定用戶資訊
+                currentUser.id = coach.id;
+                currentUser.name = coach.name;
+                currentUser.avatar = coach.avatar;
+                currentUser.lineUid = coach.line_uid;
+                currentUser.specialties = coach.specialties || [];
+                
+                document.getElementById('userAvatarSmall').textContent = currentUser.avatar;
+                document.getElementById('userNameDisplay').textContent = currentUser.name;
+                
+                // 顯示教練專長
+                displaySpecialties(currentUser.specialties);
+                
+                // 載入教練和學員資料
+                await Promise.all([
+                    loadCoaches(),
+                    loadStudents()
+                ]);
+                
+                // 載入代課請求
+                await loadRequests();
+                
+                // 訂閱即時更新
+                subscribeToRequests();
+                
+                showToast('歡迎，' + currentUser.name + ' ✓');
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('載入失敗，請重試');
+            }
+        }
+        
+        // 顯示教練專長
+        function displaySpecialties(specialties) {
+            const container = document.getElementById('userSpecialties');
+            if (!specialties || specialties.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            const specialtyConfig = {
+                'pilates': { name: '皮拉提斯', icon: '🧘' },
+                'weight': { name: '重訓', icon: '💪' },
+                'stretch': { name: '伸展', icon: '🤸' },
+                'ai': { name: 'AI體態', icon: '🤖' }
+            };
+            
+            container.innerHTML = specialties.map(s => {
+                const config = specialtyConfig[s] || { name: s, icon: '📋' };
+                return `<span class="specialty-tag ${s}">${config.icon} ${config.name}</span>`;
+            }).join('');
+        }
+        
+        // 顯示無效連結畫面
+        function showInvalidLinkScreen() {
+            document.body.innerHTML = `
+                <div style="
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    background: var(--bg);
+                    padding: 20px;
+                    text-align: center;
+                ">
+                    <div style="font-size: 64px; margin-bottom: 20px;">🔗</div>
+                    <h1 style="font-size: 24px; color: var(--pink-dark); margin-bottom: 12px;">無效的連結</h1>
+                    <p style="color: var(--text-secondary); margin-bottom: 8px;">請使用管理員提供的專屬連結</p>
+                    <p style="color: var(--text-muted); font-size: 14px;">連結格式：coach.html?uid=您的ID</p>
+                </div>
+            `;
+        }
+        
+        // 顯示未授權畫面
+        function showUnauthorizedScreen() {
+            document.body.innerHTML = `
+                <div style="
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    background: var(--bg);
+                    padding: 20px;
+                    text-align: center;
+                ">
+                    <div style="font-size: 64px; margin-bottom: 20px;">🚫</div>
+                    <h1 style="font-size: 24px; color: var(--pink-dark); margin-bottom: 12px;">無法存取</h1>
+                    <p style="color: var(--text-secondary); margin-bottom: 8px;">您的帳號尚未核准或已停用</p>
+                    <p style="color: var(--text-muted); font-size: 14px;">請聯繫管理員</p>
+                </div>
+            `;
+        }
+
+        // ============ Load Data from Supabase ============
+        async function loadCoaches() {
+            const { data, error } = await supabaseClient
+                .from('coaches')
+                .select('*')
+                .eq('is_active', true);
+            
+            if (error) throw error;
+            allCoaches = data;
+            console.log('Loaded coaches:', allCoaches);
+        }
+
+        async function loadStudents() {
+            const { data, error } = await supabaseClient
+                .from('students')
+                .select('*')
+                .neq('is_active', false);
+            
+            if (error) {
+                console.error('Load students error:', error);
+                allStudents = [];
+                return;
+            }
+            allStudents = (data || []).map(s => ({
+                id: s.id,
+                name: s.name,
+                avatar: s.avatar,
+                code: s.code,
+                course: `第 ${s.current_course_count || 0} 堂`,
+                phone: s.phone,
+                notes: s.notes,
+                line_uid: s.line_uid
+            }));
+            console.log('Loaded students:', allStudents);
+        }
+
+        async function loadRequests() {
+            const { data, error } = await supabaseClient
+                .from('substitute_requests_full')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            
+            // 取得當前教練的專長
+            const mySpecialties = currentUser.specialties || [];
+            
+            // 過濾：只顯示自己發起的 + 自己專長的代課請求
+            const filteredData = data.filter(r => {
+                // 自己發起的，一定顯示
+                if (r.original_coach_id === currentUser.id) return true;
+                // 自己是代課教練的，一定顯示
+                if (r.substitute_coach_id === currentUser.id) return true;
+                // 別人發起的，只顯示跟自己專長相同的
+                if (mySpecialties.length === 0) return true; // 沒設定專長就全部顯示
+                return mySpecialties.includes(r.course_type);
+            });
+            
+            // 轉換資料格式
+            requests = await Promise.all(filteredData.map(async r => {
+                // 載入訊息
+                const messages = await loadMessages(r.id);
+                
+                // 載入參與者
+                const participants = await loadParticipants(r.id);
+                
+                return {
+                    id: r.id,
+                    originalTeacher: { 
+                        id: r.original_coach_id, 
+                        name: r.original_coach_name, 
+                        avatar: r.original_coach_avatar 
+                    },
+                    substituteTeacher: r.substitute_coach_id ? { 
+                        id: r.substitute_coach_id, 
+                        name: r.substitute_coach_name, 
+                        avatar: r.substitute_coach_avatar 
+                    } : null,
+                    student: {
+                        id: r.student_id,
+                        name: r.student_name,
+                        avatar: r.student_avatar,
+                        phone: r.student_phone,
+                        notes: r.student_notes,
+                        course: `第 ${r.student_course_count} 堂`
+                    },
+                    course_date: r.course_date,
+                    course_time: r.course_time,
+                    course_type: r.course_type,
+                    reason: r.reason,
+                    status: mapStatus(r.status),
+                    studentJoined: r.student_joined,
+                    participants: participants,
+                    messages: messages,
+                    unread: 0
+                };
+            }));
+            
+            console.log('Loaded requests:', requests);
+            renderRequests();
+            updateBadges();
+        }
+
+        async function loadMessages(requestId) {
+            const { data, error } = await supabaseClient
+                .from('messages')
+                .select(`
+                    *,
+                    sender_coach:coaches!sender_coach_id(id, name, avatar),
+                    sender_student:students!sender_student_id(id, name, avatar)
+                `)
+                .eq('request_id', requestId)
+                .order('created_at', { ascending: true });
+            
+            if (error) {
+                console.error('Load messages error:', error);
+                return [];
+            }
+            
+            return data.map(m => {
+                const time = new Date(m.created_at);
+                const timeStr = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+                
+                if (m.message_type === 'system') {
+                    return {
+                        id: m.id,
+                        type: 'system',
+                        subtype: m.system_subtype,
+                        content: m.content,
+                        time: timeStr
+                    };
+                }
+                
+                const sender = m.sender_coach || m.sender_student;
+                return {
+                    id: m.id,
+                    sender: {
+                        id: sender?.id,
+                        name: sender?.name || '未知',
+                        avatar: sender?.avatar || '?',
+                        role: m.sender_coach_id ? 'teacher' : 'student'
+                    },
+                    content: m.content,
+                    time: timeStr
+                };
+            });
+        }
+
+        async function loadParticipants(requestId) {
+            const { data, error } = await supabaseClient
+                .from('request_participants')
+                .select(`
+                    *,
+                    coach:coaches(id, name, avatar),
+                    student:students(id, name, avatar)
+                `)
+                .eq('request_id', requestId);
+            
+            if (error) {
+                console.error('Load participants error:', error);
+                return [];
+            }
+            
+            return data.map(p => {
+                const person = p.coach || p.student;
+                return {
+                    id: person?.id,
+                    name: person?.name || '未知',
+                    avatar: person?.avatar || '?',
+                    role: p.role
+                };
+            });
+        }
+
+        function mapStatus(dbStatus) {
+            const statusMap = {
+                'pending': 'pending',
+                'discussing': 'discussing',
+                'with_student': 'with-student',
+                'resolved': 'resolved'
+            };
+            return statusMap[dbStatus] || dbStatus;
+        }
+
+        // ============ Realtime Subscriptions ============
+        let globalMessagesSubscription = null;
+        
+        function subscribeToRequests() {
+            supabaseClient
+                .channel('requests-changes')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'substitute_requests' },
+                    (payload) => {
+                        console.log('Request change:', payload);
+                        loadRequests(); // 重新載入所有請求
+                    }
+                )
+                .subscribe();
+            
+            // 全域訂閱所有訊息，用於更新未讀數量
+            subscribeToAllMessages();
+        }
+        
+        function subscribeToAllMessages() {
+            if (globalMessagesSubscription) {
+                globalMessagesSubscription.unsubscribe();
+            }
+            
+            globalMessagesSubscription = supabaseClient
+                .channel('all-messages')
+                .on(
+                    'postgres_changes',
+                    { 
+                        event: 'INSERT', 
+                        schema: 'public', 
+                        table: 'messages'
+                    },
+                    async (payload) => {
+                        console.log('New message (global):', payload);
+                        const newMessage = payload.new;
+                        
+                        // 找到對應的請求
+                        const targetRequest = requests.find(r => r.id === newMessage.request_id);
+                        if (!targetRequest) return;
+                        
+                        // 如果是自己發的訊息，不算未讀
+                        if (newMessage.sender_coach_id === currentUser.id) return;
+                        
+                        // 如果目前不在這個聊天室，增加未讀數量
+                        if (!currentRequest || currentRequest.id !== newMessage.request_id) {
+                            targetRequest.unread = (targetRequest.unread || 0) + 1;
+                            renderRequests();
+                            
+                            // 顯示通知 toast
+                            showToast(`💬 ${targetRequest.student.name} 的討論有新訊息`);
+                        } else {
+                            // 如果在聊天室內，重新載入訊息
+                            const messages = await loadMessages(newMessage.request_id);
+                            currentRequest.messages = messages;
+                            renderMessages();
+                        }
+                    }
+                )
+                .subscribe();
+        }
+
+        function subscribeToMessages(requestId) {
+            // 取消之前的訂閱
+            if (messagesSubscription) {
+                messagesSubscription.unsubscribe();
+            }
+            
+            messagesSubscription = supabaseClient
+                .channel(`messages-${requestId}`)
+                .on(
+                    'postgres_changes',
+                    { 
+                        event: 'INSERT', 
+                        schema: 'public', 
+                        table: 'messages',
+                        filter: `request_id=eq.${requestId}`
+                    },
+                    async (payload) => {
+                        console.log('New message:', payload);
+                        // 重新載入訊息並更新 UI
+                        if (currentRequest && currentRequest.id === requestId) {
+                            const messages = await loadMessages(requestId);
+                            currentRequest.messages = messages;
+                            renderMessages();
+                            // 自動滾動到底部
+                            scrollToBottom();
+                        }
+                    }
+                )
+                .subscribe();
+        }
+
+        // ============ Send Message to Supabase ============
+        async function sendMessageToSupabase(requestId, content) {
+            const { data, error } = await supabaseClient
+                .from('messages')
+                .insert({
+                    request_id: requestId,
+                    sender_coach_id: currentUser.id,
+                    message_type: 'text',
+                    content: content
+                })
+                .select()
+                .single();
+            
+            if (error) {
+                console.error('Send message error:', error);
+                throw error;
+            }
+            
+            return data;
+        }
+
+        // ============ Create Request to Supabase ============
+        async function createRequestToSupabase(requestData) {
+            const { data, error } = await supabaseClient
+                .from('substitute_requests')
+                .insert({
+                    course_type: requestData.course_type,
+                    course_date: requestData.course_date,
+                    course_time: requestData.course_time,
+                    reason: requestData.reason,
+                    original_coach_id: currentUser.id,
+                    student_id: requestData.student_id
+                })
+                .select()
+                .single();
+            
+            if (error) {
+                console.error('Create request error:', error);
+                throw error;
+            }
+            
+            // 通知同專長的教練
+            try {
+                const response = await supabaseClient.functions.invoke('notify-coaches', {
+                    body: {
+                        request_id: data.id,
+                        course_type: requestData.course_type,
+                        course_date: requestData.course_date,
+                        course_time: requestData.course_time,
+                        original_coach_id: currentUser.id,
+                        original_coach_name: currentUser.name,
+                        student_name: '待指定'
+                    }
+                });
+                
+                if (response.data?.notified_count > 0) {
+                    showToast(`已通知 ${response.data.notified_count} 位教練`);
+                }
+            } catch (notifyError) {
+                console.error('Notify coaches error:', notifyError);
+                // 不阻擋主流程
+            }
+            
+            return data;
+        }
+
+        // ============ Update Request Status ============
+        async function updateRequestStatus(requestId, status, extraFields = {}) {
+            const updateData = { 
+                status: status,
+                ...extraFields
+            };
+            
+            const { data, error } = await supabaseClient
+                .from('substitute_requests')
+                .update(updateData)
+                .eq('id', requestId)
+                .select()
+                .single();
+            
+            if (error) {
+                console.error('Update request error:', error);
+                throw error;
+            }
+            
+            return data;
+        }
+
+        // ============ Tab ============
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+            renderRequests();
+        }
+
+        // ============ Render Requests ============
+        function renderRequests() {
+            const container = document.getElementById('requestList');
+            let filtered;
+            
+            if (currentTab === 'pending') {
+                filtered = requests.filter(r => r.status === 'pending');
+            } else if (currentTab === 'discussing') {
+                filtered = requests.filter(r => r.status === 'discussing' || r.status === 'with-student');
+            } else {
+                filtered = requests.filter(r => r.status === 'resolved');
+            }
+
+            if (filtered.length === 0) {
+                const empty = {
+                    pending: { icon: '✨', title: '沒有待協調需求', desc: '太棒了！' },
+                    discussing: { icon: '💬', title: '沒有進行中的討論', desc: '' },
+                    resolved: { icon: '📋', title: '尚無結束的討論', desc: '' }
+                }[currentTab];
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">${empty.icon}</div>
+                        <h3>${empty.title}</h3>
+                        <p>${empty.desc}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(req => {
+                const config = COURSE_CONFIG[req.course_type];
+                const statusText = {
+                    pending: '待協調',
+                    discussing: '教練討論中',
+                    'with-student': '學員已加入',
+                    resolved: '已結束',
+                    cancel_pending: '待取消確認',
+                    cancelled: '已取消'
+                }[req.status] || req.status;
+
+                return `
+                    <div class="request-card ${config.color}" onclick="openChat('${req.id}')">
+                        <div class="card-header">
+                            <div class="teacher-row">
+                                <div class="course-avatar ${config.color}">${config.icon}</div>
+                                <div class="course-info">
+                                    <h3>${config.name}</h3>
+                                    <p>${req.originalTeacher.name} 需要代課</p>
+                                </div>
+                            </div>
+                            <span class="status-tag ${req.status}">${statusText}</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="info-row">
+                                <div class="info-item">📅 ${formatDate(req.course_date)}</div>
+                                <div class="info-item">⏰ ${req.course_time}</div>
+                                <div class="info-item">👤 ${req.student.name}</div>
+                            </div>
+                            <div class="card-footer">
+                                <div class="participants">
+                                    ${req.participants.map(p => `
+                                        <div class="participant-avatar ${p.role === 'student' ? 'student' : ''}">${p.avatar}</div>
+                                    `).join('')}
+                                    <span style="font-size:12px;color:var(--text-muted);margin-left:4px;">${req.participants.length} 人</span>
+                                </div>
+                                ${req.unread > 0 ? `<span class="unread-count">${req.unread} 新訊息</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateBadges() {
+            document.getElementById('pendingBadge').textContent = requests.filter(r => r.status === 'pending').length;
+            document.getElementById('discussingBadge').textContent = requests.filter(r => r.status === 'discussing' || r.status === 'with-student').length;
+        }
+
+        // ============ Chat ============
+        async function openChat(requestId) {
+            currentRequest = requests.find(r => r.id === requestId);
+            if (!currentRequest) return;
+
+            currentRequest.unread = 0;
+            renderRequests();
+
+            const config = COURSE_CONFIG[currentRequest.course_type];
+            
+            document.getElementById('chatIcon').textContent = config.icon;
+            document.getElementById('chatTitleText').textContent = `${config.name} 代課討論`;
+            
+            // 精簡資訊摘要
+            const substituteInfo = currentRequest.substituteTeacher 
+                ? ` → ${currentRequest.substituteTeacher.name}` 
+                : '';
+            document.getElementById('chatInfoSummary').textContent = 
+                `${formatDate(currentRequest.course_date)} ${currentRequest.course_time} · ${currentRequest.originalTeacher.name}${substituteInfo} · ${currentRequest.student.name}`;
+            
+            const infoCard = document.getElementById('chatInfoCard');
+            infoCard.className = `chat-info-card ${config.color}`;
+            
+            document.getElementById('chatInfoGrid').innerHTML = `
+                <div class="chat-info-item">
+                    <div class="chat-info-label">日期</div>
+                    <div class="chat-info-value">${formatDate(currentRequest.course_date)}</div>
+                </div>
+                <div class="chat-info-item">
+                    <div class="chat-info-label">時段</div>
+                    <div class="chat-info-value">${currentRequest.course_time}</div>
+                </div>
+                <div class="chat-info-item">
+                    <div class="chat-info-label">原教練</div>
+                    <div class="chat-info-value">${currentRequest.originalTeacher.name}</div>
+                </div>
+                <div class="chat-info-item">
+                    <div class="chat-info-label">學員</div>
+                    <div class="chat-info-value">${currentRequest.student.name}</div>
+                </div>
+            `;
+
+            // Participants
+            document.getElementById('participantsAvatars').innerHTML = currentRequest.participants.map(p => `
+                <div class="p-avatar ${p.role === 'student' ? 'student' : ''}">${p.avatar}</div>
+            `).join('');
+            
+            // 顯示參與者名稱
+            document.getElementById('participantsNames').textContent = 
+                currentRequest.participants.map(p => p.name).join('、');
+
+            // 參與者列樣式和按鈕控制
+            const participantsBar = document.getElementById('participantsBar');
+            const inviteBtn = document.getElementById('inviteStudentBtn');
+            const endBtn = document.getElementById('endChatBtn');
+            const actionBar = document.getElementById('actionBar');
+            const confirmBtn = document.getElementById('confirmSubstituteBtn');
+            const cancelBtn = document.getElementById('cancelRequestBtn');
+            const chatReminder = document.getElementById('chatReminder');
+            const finishCourseBtn = document.getElementById('finishCourseBtn');
+            
+            // 判斷是否為原教練
+            const isOriginalCoach = currentRequest.originalTeacher.id === currentUser.id;
+            
+            // 先隱藏所有按鈕和提醒
+            inviteBtn.style.display = 'none';
+            confirmBtn.style.display = 'none';
+            cancelBtn.style.display = 'none';
+            endBtn.classList.remove('show');
+            chatReminder.classList.remove('show');
+            
+            if (currentRequest.status === 'resolved') {
+                // 已結束：隱藏所有操作按鈕
+                participantsBar.classList.remove('with-student');
+                actionBar.style.display = 'none';
+                
+            } else if (currentRequest.status === 'cancelled') {
+                // 已取消：隱藏所有操作按鈕
+                participantsBar.classList.remove('with-student');
+                actionBar.style.display = 'none';
+                
+            } else if (currentRequest.status === 'cancel_pending') {
+                // 待取消確認：隱藏操作按鈕，顯示等待訊息
+                participantsBar.classList.remove('with-student');
+                actionBar.style.display = 'none';
+                
+            } else if (currentRequest.studentJoined) {
+                // 學員已加入：粉色背景，顯示提醒和結束按鈕
+                participantsBar.classList.add('with-student');
+                endBtn.classList.add('show');
+                actionBar.style.display = 'flex';
+                
+                // 顯示課程提醒（只有原教練可以結束）
+                if (isOriginalCoach) {
+                    chatReminder.classList.add('show');
+                }
+                
+            } else if (currentRequest.status === 'discussing' && currentRequest.substituteTeacher?.id === currentUser.id) {
+                // 討論中且我是代課教練：顯示「確認接手」按鈕（會通知學員）
+                participantsBar.classList.remove('with-student');
+                confirmBtn.style.display = 'flex';
+                // 只有原教練可以邀請學員
+                if (isOriginalCoach) {
+                    inviteBtn.style.display = 'flex';
+                }
+                actionBar.style.display = 'flex';
+                
+            } else {
+                // 其他狀態：顯示基本操作按鈕
+                participantsBar.classList.remove('with-student');
+                // 只有原教練可以邀請學員
+                if (isOriginalCoach) {
+                    inviteBtn.style.display = 'flex';
+                    // 原教練在學員未邀請前可以申請取消
+                    // 如果已邀請學員（有 student_id），則不能取消
+                    if (!currentRequest.student?.id) {
+                        cancelBtn.style.display = 'flex';
+                    } else {
+                        cancelBtn.style.display = 'none';
+                    }
+                }
+                actionBar.style.display = 'flex';
+            }
+
+            // 先顯示聊天室
+            document.getElementById('chatOverlay').classList.add('active');
+            document.body.style.overflow = 'hidden';
+            
+            // 顯示載入中
+            document.getElementById('chatMessages').innerHTML = `
+                <div class="message system">
+                    <div class="system-text">載入訊息中...</div>
+                </div>
+            `;
+            
+            // 重新載入最新訊息
+            const latestMessages = await loadMessages(requestId);
+            currentRequest.messages = latestMessages;
+            renderMessages();
+            
+            setTimeout(scrollToBottom, 100);
+            
+            // 訂閱此聊天室的即時訊息
+            subscribeToMessages(requestId);
+            
+            // 訂閱 typing 狀態
+            subscribeToTyping(requestId);
+            
+            // 開始在線狀態追蹤
+            startPresenceTracking();
+        }
+
+        function closeChat() {
+            document.getElementById('chatOverlay').classList.remove('active');
+            document.body.style.overflow = '';
+            
+            // 停止自己的 typing 狀態
+            stopTyping();
+            
+            // 停止在線狀態追蹤
+            stopPresenceTracking();
+            
+            // 取消訊息訂閱
+            if (messagesSubscription) {
+                messagesSubscription.unsubscribe();
+                messagesSubscription = null;
+            }
+            
+            // 取消 typing 訂閱
+            unsubscribeTyping();
+            
+            currentRequest = null;
+            // 重置展開狀態
+            document.getElementById('chatInfoBar').classList.remove('expanded');
+        }
+
+        function toggleChatInfo() {
+            document.getElementById('chatInfoBar').classList.toggle('expanded');
+        }
+
+        function closeChatIfOutside(e) {
+            if (e.target.id === 'chatOverlay') {
+                closeChat();
+            }
+        }
+
+        function renderMessages() {
+            const container = document.getElementById('chatMessages');
+            
+            container.innerHTML = currentRequest.messages.map(msg => {
+                if (msg.type === 'system') {
+                    return `<div class="system-message ${msg.subtype || ''}">${msg.content}</div>`;
+                }
+
+                if (msg.type === 'student-info') {
+                    return `
+                        <div class="student-info-bubble">
+                            <div class="student-info-header">
+                                <div class="student-info-avatar">${msg.student.name.charAt(0)}</div>
+                                <div>
+                                    <div class="student-info-name">${msg.student.name}</div>
+                                    <div class="student-info-detail">${msg.student.course}</div>
+                                </div>
+                            </div>
+                            <div class="student-info-grid">
+                                <div class="student-info-item">
+                                    <div class="student-info-label">電話</div>
+                                    <div class="student-info-value">${msg.student.phone}</div>
+                                </div>
+                                <div class="student-info-item">
+                                    <div class="student-info-label">備註</div>
+                                    <div class="student-info-value">${msg.student.notes || '-'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const isSelf = msg.sender.id === currentUser.id;
+                const isStudent = msg.sender.role === 'student';
+
+                return `
+                    <div class="message ${isSelf ? 'sent' : 'received'} ${isStudent ? 'student' : ''}">
+                        ${!isSelf ? `
+                            <div class="message-header">
+                                <span class="msg-avatar ${isStudent ? 'student' : ''}">${msg.sender.avatar}</span>
+                                <span class="msg-sender">
+                                    ${msg.sender.name}
+                                    ${isStudent ? '<span class="role">學員</span>' : ''}
+                                </span>
+                            </div>
+                        ` : ''}
+                        <div class="message-bubble">${msg.content}</div>
+                        <div class="message-time">${msg.time}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function scrollToBottom() {
+            const c = document.getElementById('chatMessages');
+            c.scrollTop = c.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const content = input.value.trim();
+            if (!content || !currentRequest) return;
+            input.value = '';
+            
+            // 停止 typing 狀態
+            stopTyping();
+
+            try {
+                // 發送到 Supabase
+                await sendMessageToSupabase(currentRequest.id, content);
+                
+                // 如果是 pending 狀態，更新為 discussing
+                if (currentRequest.status === 'pending') {
+                    await updateRequestStatus(currentRequest.id, 'discussing', {
+                        substitute_coach_id: currentUser.id
+                    });
+                }
+                
+                // 發送 LINE 通知給其他參與者
+                notifyNewMessage(content);
+                
+                // Realtime 會自動更新 UI
+            } catch (error) {
+                console.error('Send message error:', error);
+                showToast('發送失敗，請重試');
+            }
+        }
+        
+        // 通知新訊息（不等待結果）
+        function notifyNewMessage(content, forceNotify = false) {
+            fetch(`${SUPABASE_URL}/functions/v1/notify-new-message`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({
+                    request_id: currentRequest.id,
+                    sender_type: 'coach',
+                    sender_id: currentUser.id,
+                    sender_name: currentUser.name,
+                    message_content: content,
+                    force_notify: forceNotify
+                })
+            }).catch(err => console.log('Notify error:', err));
+        }
+
+        // 強制通知對方
+        async function forceNotify() {
+            if (!currentRequest) return;
+            
+            showToast('正在通知對方...');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-new-message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        request_id: currentRequest.id,
+                        sender_type: 'coach',
+                        sender_id: currentUser.id,
+                        sender_name: currentUser.name,
+                        message_content: '📢 請查看聊天室',
+                        force_notify: true
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.notified > 0) {
+                    showToast(`已通知 ${result.notified} 人 ✓`);
+                } else {
+                    showToast('沒有需要通知的人');
+                }
+            } catch (err) {
+                console.error('Force notify error:', err);
+                showToast('通知失敗');
+            }
+        }
+
+        // ============ 在線狀態追蹤 ============
+        let presenceInterval = null;
+
+        async function updatePresence() {
+            if (!currentRequest || !currentUser.id) return;
+            
+            try {
+                await supabaseClient
+                    .from('user_presence')
+                    .upsert({
+                        user_type: 'coach',
+                        user_id: currentUser.id,
+                        request_id: currentRequest.id,
+                        last_active_at: new Date().toISOString()
+                    }, {
+                        onConflict: 'user_type,user_id,request_id'
+                    });
+            } catch (err) {
+                console.log('Presence update error:', err);
+            }
+        }
+
+        function startPresenceTracking() {
+            updatePresence();
+            presenceInterval = setInterval(updatePresence, 30000); // 每 30 秒更新
+        }
+
+        function stopPresenceTracking() {
+            if (presenceInterval) {
+                clearInterval(presenceInterval);
+                presenceInterval = null;
+            }
+        }
+
+        function sendQuick(content) {
+            document.getElementById('chatInput').value = content;
+            sendMessage();
+        }
+
+        // ============ Emoji Panel Functions ============
+        let emojiPanelOpen = false;
+        let recentEmojis = ['👍', '🙏', '😊', '👋', '💪', '❤️'];
+        
+        // 從 localStorage 載入最近使用的表情
+        function loadRecentEmojis() {
+            const saved = localStorage.getItem('coachRecentEmojis');
+            if (saved) {
+                recentEmojis = JSON.parse(saved);
+                renderRecentEmojis();
+            }
+        }
+        
+        // 儲存最近使用的表情
+        function saveRecentEmojis() {
+            localStorage.setItem('coachRecentEmojis', JSON.stringify(recentEmojis));
+        }
+        
+        // 渲染最近使用的表情
+        function renderRecentEmojis() {
+            const container = document.getElementById('recentEmojis');
+            if (container) {
+                container.innerHTML = recentEmojis.map(emoji => 
+                    `<button class="emoji-btn" onclick="sendEmoji('${emoji}')">${emoji}</button>`
+                ).join('');
+            }
+        }
+        
+        // 展開/收合表情面板
+        function toggleEmojiPanel() {
+            emojiPanelOpen = !emojiPanelOpen;
+            document.getElementById('emojiPanel').classList.toggle('show', emojiPanelOpen);
+        }
+        
+        // 關閉表情面板
+        function closeEmojiPanel() {
+            emojiPanelOpen = false;
+            document.getElementById('emojiPanel').classList.remove('show');
+        }
+        
+        // 發送表情
+        function sendEmoji(emoji) {
+            sendQuick(emoji);
+            closeEmojiPanel();
+            
+            // 更新最近使用
+            const index = recentEmojis.indexOf(emoji);
+            if (index > -1) {
+                recentEmojis.splice(index, 1);
+            }
+            recentEmojis.unshift(emoji);
+            if (recentEmojis.length > 6) {
+                recentEmojis.pop();
+            }
+            saveRecentEmojis();
+            renderRecentEmojis();
+        }
+
+        function handleKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // ============ Typing Indicator ============
+        let typingChannel = null;
+        let typingTimeout = null;
+        let isTyping = false;
+        
+        function handleTyping() {
+            if (!currentRequest || !typingChannel) return;
+            
+            // 如果還沒發送 typing 狀態，發送一次
+            if (!isTyping) {
+                isTyping = true;
+                typingChannel.send({
+                    type: 'broadcast',
+                    event: 'typing',
+                    payload: {
+                        user_id: currentUser.id,
+                        user_name: currentUser.name,
+                        is_typing: true
+                    }
+                });
+            }
+            
+            // 清除之前的 timeout
+            if (typingTimeout) {
+                clearTimeout(typingTimeout);
+            }
+            
+            // 2 秒後停止 typing 狀態
+            typingTimeout = setTimeout(() => {
+                stopTyping();
+            }, 2000);
+        }
+        
+        function stopTyping() {
+            if (!currentRequest || !typingChannel || !isTyping) return;
+            
+            isTyping = false;
+            typingChannel.send({
+                type: 'broadcast',
+                event: 'typing',
+                payload: {
+                    user_id: currentUser.id,
+                    user_name: currentUser.name,
+                    is_typing: false
+                }
+            });
+        }
+        
+        function subscribeToTyping(requestId) {
+            // 取消之前的訂閱
+            if (typingChannel) {
+                typingChannel.unsubscribe();
+            }
+            
+            typingChannel = supabaseClient
+                .channel(`typing-${requestId}`)
+                .on('broadcast', { event: 'typing' }, (payload) => {
+                    const data = payload.payload;
+                    
+                    // 忽略自己的 typing 事件
+                    if (data.user_id === currentUser.id) return;
+                    
+                    const indicator = document.getElementById('typingIndicator');
+                    const typingText = document.getElementById('typingText');
+                    
+                    if (data.is_typing) {
+                        typingText.textContent = `${data.user_name} 正在輸入...`;
+                        indicator.classList.add('show');
+                        
+                        // 滾動到底部
+                        const messagesContainer = document.getElementById('chatMessages');
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    } else {
+                        indicator.classList.remove('show');
+                    }
+                })
+                .subscribe();
+        }
+        
+        function unsubscribeTyping() {
+            if (typingChannel) {
+                typingChannel.unsubscribe();
+                typingChannel = null;
+            }
+            // 隱藏 typing indicator
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                indicator.classList.remove('show');
+            }
+        }
+
+        // ============ Search Student ============
+        function openSearchStudent() {
+            document.getElementById('studentSearchInput').value = '';
+            document.getElementById('searchResults').innerHTML = allStudents.map(s => renderSearchResult(s)).join('');
+            openModal('searchStudentModal');
+        }
+
+        function searchStudent() {
+            const query = document.getElementById('studentSearchInput').value.toLowerCase();
+            const results = allStudents.filter(s => s.name.toLowerCase().includes(query));
+            document.getElementById('searchResults').innerHTML = results.map(s => renderSearchResult(s)).join('');
+        }
+
+        function renderSearchResult(student) {
+            return `
+                <div class="search-result-item">
+                    <div class="result-info">
+                        <div class="result-avatar">${student.name.charAt(0)}</div>
+                        <div>
+                            <div class="result-name">${student.name}</div>
+                            <div class="result-detail">${student.course} · ${student.phone || '未填電話'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function shareStudentInfo(studentId) {
+            const student = allStudents.find(s => s.id === studentId);
+            if (!student || !currentRequest) return;
+
+            // Add student info card to chat
+            currentRequest.messages.push({
+                id: Date.now(),
+                type: 'student-info',
+                student: student,
+                time: formatTime(new Date())
+            });
+
+            // Add system message
+            currentRequest.messages.push({
+                id: Date.now() + 1,
+                type: 'system',
+                subtype: 'info',
+                content: `📋 ${currentUser.name} 分享了 ${student.name} 的資料`,
+                time: formatTime(new Date())
+            });
+
+            closeModal('searchStudentModal');
+            renderMessages();
+            scrollToBottom();
+            showToast('已分享學員資料');
+        }
+
+        // ============ Invite Student ============
+        const STUDENT_LIFF_ID = '2008660081-kPTCVzbD';
+        
+        async function openInviteStudent() {
+            if (!currentRequest) return;
+            
+            // 如果已經有學員，直接顯示邀請 Modal
+            if (currentRequest.student?.id || currentRequest.student_id) {
+                await showInviteModal();
+                return;
+            }
+            
+            // 沒有學員，打開搜尋學員 Modal
+            document.getElementById('studentSearchInput').value = '';
+            document.getElementById('searchResults').innerHTML = `
+                <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    <div style="font-size: 32px; margin-bottom: 8px;">👆</div>
+                    <p>輸入學員姓名或代號搜尋</p>
+                </div>
+            `;
+            document.getElementById('addStudentHint').style.display = 'none';
+            document.getElementById('addStudentForm').style.display = 'none';
+            openModal('searchStudentModal');
+        }
+        
+        // 搜尋學員（用於邀請）
+        function searchStudentForInvite() {
+            const query = document.getElementById('studentSearchInput').value.toLowerCase().trim();
+            const resultsContainer = document.getElementById('searchResults');
+            const addHint = document.getElementById('addStudentHint');
+            
+            if (!query) {
+                resultsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                        <div style="font-size: 32px; margin-bottom: 8px;">👆</div>
+                        <p>輸入學員姓名或代號搜尋</p>
+                    </div>
+                `;
+                addHint.style.display = 'none';
+                return;
+            }
+            
+            // 搜尋姓名和代號
+            const results = allStudents.filter(s => 
+                s.name.toLowerCase().includes(query) ||
+                (s.code && s.code.toLowerCase().includes(query))
+            );
+            
+            if (results.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                        <div style="font-size: 32px; margin-bottom: 8px;">😕</div>
+                        <p>找不到符合「${query}」的學員</p>
+                    </div>
+                `;
+                addHint.style.display = 'block';
+            } else {
+                addHint.style.display = 'none';
+                resultsContainer.innerHTML = results.map(s => `
+                    <div class="search-result-item" onclick="selectStudentForInvite('${s.id}')">
+                        <div class="result-info">
+                            <div class="result-avatar">${s.avatar || s.name.charAt(0)}</div>
+                            <div>
+                                <div class="result-name">${s.name}${s.code ? ` <span style="color: var(--text-muted); font-size: 12px;">(${s.code})</span>` : ''}</div>
+                                <div class="result-detail">${s.phone || '未填電話'}</div>
+                            </div>
+                        </div>
+                        <button class="result-action invite">📱 邀請</button>
+                    </div>
+                `).join('');
+            }
+        }
+        
+        function showAddStudentForm() {
+            document.getElementById('addStudentForm').style.display = 'block';
+            document.getElementById('newStudentNameInput').focus();
+        }
+        
+        async function addNewStudentForInvite() {
+            const nameInput = document.getElementById('newStudentNameInput');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                showToast('請輸入學員姓名');
+                return;
+            }
+            
+            try {
+                showToast('新增學員中...');
+                
+                const { data: newStudent, error } = await supabaseClient
+                    .from('students')
+                    .insert({
+                        name: name,
+                        avatar: name.charAt(0),
+                        is_active: true
+                    })
+                    .select()
+                    .single();
+                
+                if (error) throw error;
+                
+                // 加入本地列表
+                allStudents.push({
+                    id: newStudent.id,
+                    name: newStudent.name,
+                    avatar: newStudent.avatar,
+                    phone: '',
+                    notes: ''
+                });
+                
+                showToast('✅ 已新增學員');
+                nameInput.value = '';
+                document.getElementById('addStudentForm').style.display = 'none';
+                
+                // 直接選擇這個新學員
+                await selectStudentForInvite(newStudent.id);
+                
+            } catch (error) {
+                console.error('Add student error:', error);
+                showToast('新增失敗：' + error.message);
+            }
+        }
+        
+        // 選擇學員並邀請
+        async function selectStudentForInvite(studentId) {
+            const student = allStudents.find(s => s.id === studentId);
+            if (!student || !currentRequest) return;
+            
+            try {
+                showToast('綁定學員中...');
+                
+                // 更新代課請求的學員
+                const { error } = await supabaseClient
+                    .from('substitute_requests')
+                    .update({ student_id: studentId })
+                    .eq('id', currentRequest.id);
+                
+                if (error) throw error;
+                
+                // 更新本地資料
+                currentRequest.student = student;
+                currentRequest.student_id = studentId;
+                
+                // 重新載入請求列表
+                await loadRequests();
+                
+                // 關閉搜尋 Modal
+                closeModal('searchStudentModal');
+                
+                // 顯示邀請 Modal
+                await showInviteModal();
+                
+            } catch (error) {
+                console.error('Select student error:', error);
+                showToast('綁定學員失敗：' + error.message);
+            }
+        }
+        
+        // 顯示邀請 Modal
+        async function showInviteModal() {
+            const studentName = currentRequest.student?.name || '學員';
+            document.getElementById('inviteStudentName').textContent = studentName;
+            
+            // 產生邀請連結
+            const inviteLink = `https://liff.line.me/${STUDENT_LIFF_ID}?room=${currentRequest.id}`;
+            document.getElementById('inviteLinkBox').textContent = inviteLink;
+            
+            // 查詢學員是否有 LINE UID
+            const studentId = currentRequest.student?.id || currentRequest.student_id;
+            const { data: student } = await supabaseClient
+                .from('students')
+                .select('line_uid')
+                .eq('id', studentId)
+                .single();
+            
+            const hasLineUid = student && student.line_uid;
+            
+            // 根據是否有 LINE UID 顯示不同 UI
+            const hintEl = document.getElementById('inviteHint');
+            const lineBtnEl = document.getElementById('lineInviteBtn');
+            
+            if (hasLineUid) {
+                hintEl.style.display = 'none';
+                lineBtnEl.style.display = 'block';
+                lineBtnEl.disabled = false;
+            } else {
+                hintEl.style.display = 'block';
+                lineBtnEl.style.display = 'none';
+            }
+            
+            openModal('inviteStudentModal');
+        }
+
+        function copyInviteLink() {
+            const link = document.getElementById('inviteLinkBox').textContent;
+            navigator.clipboard.writeText(link).then(() => {
+                showToast('已複製連結！');
+            });
+        }
+
+        // ============ Request Cancel Substitute ============
+        async function requestCancelSubstitute() {
+            if (!currentRequest) return;
+            
+            // 如果已邀請學員，不能取消
+            if (currentRequest.student?.id) {
+                showToast('已邀請學員，無法申請取消');
+                return;
+            }
+            
+            // 請用戶填寫取消原因
+            const cancelReason = prompt(`請填寫取消原因：\n\n課程：${COURSE_CONFIG[currentRequest.course_type].name}\n日期：${formatDate(currentRequest.course_date)}`);
+            
+            // 如果用戶按取消或沒填原因
+            if (!cancelReason || !cancelReason.trim()) {
+                showToast('請填寫取消原因');
+                return;
+            }
+            
+            try {
+                showToast('正在申請取消...');
+                
+                // 更新狀態為待取消
+                const { error } = await supabaseClient
+                    .from('substitute_requests')
+                    .update({ status: 'cancel_pending' })
+                    .eq('id', currentRequest.id);
+                
+                if (error) throw error;
+                
+                // 發送系統訊息（包含取消原因）
+                await supabaseClient
+                    .from('messages')
+                    .insert({
+                        request_id: currentRequest.id,
+                        message_type: 'system',
+                        system_subtype: 'cancel_requested',
+                        content: `📤 ${currentUser.name} 已申請取消此代課請求\n原因：${cancelReason.trim()}\n等待管理員確認`
+                    });
+                
+                showToast('✅ 已申請取消，等待管理員確認');
+                
+                // 重新載入
+                await loadRequests();
+                
+                // 更新當前請求狀態
+                currentRequest.status = 'cancel_pending';
+                
+                // 隱藏取消按鈕
+                document.getElementById('cancelRequestBtn').style.display = 'none';
+                document.getElementById('actionBar').style.display = 'none';
+                
+                // 重新載入訊息
+                const latestMessages = await loadMessages(currentRequest.id);
+                currentRequest.messages = latestMessages;
+                renderMessages();
+                
+            } catch (error) {
+                console.error('Request cancel error:', error);
+                showToast('申請取消失敗：' + error.message);
+            }
+        }
+
+        // ============ Finish Course & End Chat ============
+        async function finishCourse() {
+            if (!currentRequest) return;
+            
+            const config = COURSE_CONFIG[currentRequest.course_type];
+            const studentName = currentRequest.student.name;
+            const courseDate = formatDate(currentRequest.course_date);
+            
+            // 確認對話框
+            if (!confirm(`確定要結束此代課討論嗎？\n\n課程：${config.name}\n日期：${courseDate}\n學員：${studentName}\n\n結束後將發送感謝訊息給學員，聊天室將關閉。`)) {
+                return;
+            }
+            
+            try {
+                showToast('正在結束對話...');
+                
+                // 發送感謝訊息給學員
+                const thankYouMessage = `🎉 親愛的 ${studentName} 您好：
+
+您的 ${config.name} 課程已順利完成！🎊
+
+感謝您的信任與配合，非常榮幸能為您服務。
+如有任何問題或需要，歡迎隨時與我們聯繫。
+
+祝您身體健康，我們下次見！💪
+- 衡點健康團隊`;
+
+                await supabaseClient
+                    .from('messages')
+                    .insert({
+                        request_id: currentRequest.id,
+                        message_type: 'system',
+                        system_subtype: 'course_completed',
+                        content: thankYouMessage
+                    });
+                
+                // 更新狀態為已結束
+                const { error } = await supabaseClient
+                    .from('substitute_requests')
+                    .update({ status: 'resolved' })
+                    .eq('id', currentRequest.id);
+                
+                if (error) throw error;
+                
+                showToast('✅ 課程已完成，聊天室已結束');
+                
+                // 重新載入
+                await loadRequests();
+                
+                // 更新當前請求狀態
+                currentRequest.status = 'resolved';
+                
+                // 隱藏操作按鈕和提醒
+                document.getElementById('chatReminder').classList.remove('show');
+                document.getElementById('actionBar').style.display = 'none';
+                document.getElementById('endChatBtn').classList.remove('show');
+                
+                // 重新載入訊息
+                const latestMessages = await loadMessages(currentRequest.id);
+                currentRequest.messages = latestMessages;
+                renderMessages();
+                
+            } catch (error) {
+                console.error('Finish course error:', error);
+                showToast('結束失敗：' + error.message);
+            }
+        }
+
+        // ============ Confirm Substitute ============
+        async function confirmSubstitute() {
+            if (!currentRequest) return;
+            
+            // 確認對話框
+            if (!confirm(`確定要接手 ${currentRequest.student.name} 的 ${COURSE_CONFIG[currentRequest.course_type].name} 課程嗎？\n\n確認後會發送 LINE 通知給學員。`)) {
+                return;
+            }
+            
+            try {
+                showToast('正在通知學員...');
+                
+                // 呼叫 Edge Function 通知學員
+                const response = await fetch(
+                    'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/notify-student',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${supabaseClient.supabaseKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            request_id: currentRequest.id,
+                            substitute_coach_id: currentUser.id
+                        })
+                    }
+                );
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('✅ 已通知學員：' + data.student_name);
+                    
+                    // 重新載入請求列表（狀態已更新）
+                    await loadRequests();
+                    
+                    // 重新載入訊息（會顯示系統訊息）
+                    await loadMessages(currentRequest.id);
+                    
+                    // 更新按鈕狀態
+                    document.getElementById('confirmSubstituteBtn').style.display = 'none';
+                } else {
+                    throw new Error(data.error || '通知失敗');
+                }
+                
+            } catch (error) {
+                console.error('Confirm substitute error:', error);
+                showToast('確認接手失敗：' + error.message);
+            }
+        }
+
+        async function sendLineInvite() {
+            if (!currentRequest) return;
+            
+            try {
+                showToast('正在發送邀請...');
+                
+                // 呼叫 Edge Function 發送邀請
+                const response = await fetch(
+                    'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/invite-student',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${supabaseClient.supabaseKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            request_id: currentRequest.id,
+                            coach_id: currentUser.id
+                        })
+                    }
+                );
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    closeModal('inviteStudentModal');
+                    
+                    // 更新邀請連結框
+                    document.getElementById('inviteLinkBox').textContent = data.invite_link;
+                    
+                    // 根據是否發送了 LINE 顯示不同訊息
+                    const studentName = currentRequest.student?.name || currentRequest.student_name;
+                    if (data.line_sent) {
+                        showToast('✅ 已發送 LINE 邀請給 ' + studentName);
+                    } else {
+                        showToast('📋 已產生連結，請手動傳送給 ' + studentName);
+                    }
+                    
+                    // 重新載入訊息（會顯示系統訊息）
+                    await loadMessages(currentRequest.id);
+                } else {
+                    throw new Error(data.error || '發送失敗');
+                }
+                
+            } catch (error) {
+                console.error('Send invite error:', error);
+                showToast('發送邀請失敗：' + error.message);
+            }
+        }
+
+        // ============ End Chat ============
+        function openEndChat() {
+            openModal('endChatModal');
+        }
+
+        async function endChat() {
+            if (!currentRequest) return;
+
+            try {
+                // 更新狀態為 resolved
+                await updateRequestStatus(currentRequest.id, 'resolved');
+                
+                // 發送結束系統訊息
+                await supabaseClient
+                    .from('messages')
+                    .insert({
+                        request_id: currentRequest.id,
+                        message_type: 'system',
+                        content: `✅ ${currentUser.name} 已結束討論`,
+                        system_subtype: 'chat_ended'
+                    });
+
+                closeModal('endChatModal');
+                
+                // 隱藏操作按鈕
+                document.getElementById('actionBar').style.display = 'none';
+                document.getElementById('endChatBtn').classList.remove('show');
+                document.getElementById('participantsBar').classList.remove('with-student');
+                
+                showToast('✅ 對話已結束');
+                
+                // Realtime 會自動更新
+            } catch (error) {
+                console.error('End chat error:', error);
+                showToast('操作失敗，請重試');
+            }
+        }
+
+        // ============ Create Request ============
+        function toggleCustomTime() {
+            const select = document.getElementById('inputTime');
+            const customGroup = document.getElementById('customTimeGroup');
+            
+            if (select.value === 'custom') {
+                customGroup.style.display = 'block';
+            } else {
+                customGroup.style.display = 'none';
+            }
+        }
+
+        function getSelectedTime() {
+            const select = document.getElementById('inputTime');
+            if (select.value === 'custom') {
+                const start = document.getElementById('customTimeStart').value;
+                const end = document.getElementById('customTimeEnd').value;
+                return `${start}-${end}`;
+            }
+            return select.value;
+        }
+
+        function openCreateModal() {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('inputDate').value = tomorrow.toISOString().split('T')[0];
+            
+            // 重置選擇
+            selectedCourse = null;
+            selectedStudent = null;
+            
+            // 根據教練專長動態生成課程選項
+            renderCourseOptions();
+            
+            openModal('createModal');
+        }
+        
+        function renderCourseOptions() {
+            const container = document.getElementById('courseGrid');
+            const courseTypeGroup = document.getElementById('courseTypeGroup');
+            const specialties = currentUser.specialties || [];
+            
+            // 課程設定
+            const courseConfig = {
+                'pilates': { icon: '🧘', name: '皮拉提斯' },
+                'weight': { icon: '🏋️', name: '重量訓練' },
+                'stretch': { icon: '🤸', name: '伸展課程' },
+                'ai': { icon: '🤖', name: 'AI 體態分析' }
+            };
+            
+            // 如果沒有專長資料，顯示所有選項
+            const coursesToShow = specialties.length > 0 ? specialties : ['pilates', 'weight', 'stretch', 'ai'];
+            
+            // 如果只有一個專長，自動選擇並隱藏選擇區域
+            if (coursesToShow.length === 1) {
+                selectedCourse = coursesToShow[0];
+                courseTypeGroup.innerHTML = `
+                    <label class="form-label">課程類型</label>
+                    <div class="auto-selected-course ${selectedCourse}">
+                        <span class="course-icon">${courseConfig[selectedCourse].icon}</span>
+                        <span class="course-name">${courseConfig[selectedCourse].name}</span>
+                        <span class="auto-tag"></span>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 有多個專長，顯示選項讓教練選擇
+            courseTypeGroup.innerHTML = `
+                <label class="form-label">課程類型</label>
+                <div class="course-grid" id="courseGrid"></div>
+            `;
+            
+            const gridContainer = document.getElementById('courseGrid');
+            gridContainer.innerHTML = coursesToShow.map(type => {
+                const config = courseConfig[type];
+                return `
+                    <div class="course-option ${type}" data-type="${type}" onclick="selectCourse(this)">
+                        <div class="course-icon">${config.icon}</div>
+                        <div class="course-name">${config.name}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectCourse(el) {
+            document.querySelectorAll('.course-option').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedCourse = el.dataset.type;
+        }
+
+        async function createRequest() {
+            const date = document.getElementById('inputDate').value;
+            const timeSelect = document.getElementById('inputTime').value;
+            const time = getSelectedTime();
+            const reason = document.getElementById('inputReason').value.trim();
+            const submitBtn = document.getElementById('createRequestBtn');
+
+            // 驗證（不需要學員）
+            if (!date || !timeSelect || !selectedCourse) {
+                showToast('請填寫完整資訊');
+                return;
+            }
+            
+            // 原因必填
+            if (!reason) {
+                showToast('請填寫請假原因');
+                return;
+            }
+
+            // 如果是自訂時段，驗證開始和結束時間
+            if (timeSelect === 'custom') {
+                const start = document.getElementById('customTimeStart').value;
+                const end = document.getElementById('customTimeEnd').value;
+                if (!start || !end) {
+                    showToast('請輸入開始和結束時間');
+                    return;
+                }
+                if (start >= end) {
+                    showToast('結束時間必須晚於開始時間');
+                    return;
+                }
+            }
+
+            // 禁用按鈕，顯示建立中
+            submitBtn.disabled = true;
+            submitBtn.textContent = '建立中...';
+
+            try {
+                const message = `各位好，${formatDate(date)} ${time} 我需要請假，${reason}，有人可以幫忙嗎？🙏`;
+
+                await createRequestToSupabase({
+                    course_type: selectedCourse,
+                    course_date: date,
+                    course_time: time,
+                    reason: reason,
+                    student_id: null,  // 學員稍後邀請
+                    message: message
+                });
+
+                closeModal('createModal');
+                resetForm();
+                switchTab('pending');
+                showToast('已發送代課需求！');
+                
+                // Realtime 會自動更新列表
+            } catch (error) {
+                console.error('Create request error:', error);
+                showToast('建立失敗，請重試');
+            } finally {
+                // 恢復按鈕
+                submitBtn.disabled = false;
+                submitBtn.textContent = '發送代課需求';
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('inputTime').value = '';
+            document.getElementById('inputReason').value = '';
+            document.getElementById('customTimeGroup').style.display = 'none';
+            document.getElementById('customTimeStart').value = '09:00';
+            document.getElementById('customTimeEnd').value = '10:00';
+            document.querySelectorAll('.course-option, .student-option').forEach(e => e.classList.remove('selected'));
+            selectedCourse = null;
+            selectedStudent = null;
+        }
+
+        // ============ Modal Helpers ============
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function closeModalIfOutside(e, id) {
+            if (e.target.id === id) closeModal(id);
+        }
+
+        // ============ Utils ============
+        function formatDate(dateStr) {
+            const d = new Date(dateStr);
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            return `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]})`;
+        }
+
+        function formatTime(date) {
+            if (typeof date === 'string') return date;
+            return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        // ============ Init ============
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
