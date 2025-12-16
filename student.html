@@ -1030,41 +1030,29 @@
                     .single();
                 
                 if (studentError || !student) {
-                    // 找不到學員，自動建立
-                    console.log('自動建立學員帳號');
-                    
-                    const { data: newStudent, error: insertError } = await supabaseClient
-                        .from('students')
-                        .insert({
-                            name: profile.displayName,
-                            avatar: profile.displayName.charAt(0),
-                            line_uid: profile.userId,
-                            notes: '自動建立'
-                        })
-                        .select()
-                        .single();
-                    
-                    if (insertError) {
-                        console.error('建立學員帳號失敗:', insertError);
-                        alert('無法建立帳號，請稍後再試');
-                        return;
-                    }
-                    
-                    currentStudent = {
-                        id: newStudent.id,
-                        name: newStudent.name,
-                        avatar: newStudent.avatar,
-                        lineUid: profile.userId
-                    };
+                    // 找不到學員，顯示錯誤
+                    console.error('找不到學員資料');
+                    alert('無法存取：找不到學員資料，請聯繫行政人員');
+                    return;
                 } else {
                     // 找到學員
-                    // 如果學員沒有 LINE UID，更新它
+                    // 如果學員沒有 LINE UID，自動綁定
                     if (!student.line_uid) {
-                        console.log('更新學員 LINE UID');
+                        console.log('自動綁定學員 LINE UID');
                         await supabaseClient
                             .from('students')
-                            .update({ line_uid: profile.userId })
+                            .update({ 
+                                line_uid: profile.userId,
+                                line_display_name: profile.displayName
+                            })
                             .eq('id', student.id);
+                        
+                        showToast('已綁定您的 LINE 帳號 ✓');
+                    } else if (student.line_uid !== profile.userId) {
+                        // LINE UID 不符，可能是別人點了連結
+                        console.error('LINE UID 不符');
+                        alert('此連結已綁定其他帳號，請聯繫教練或行政人員');
+                        return;
                     }
                     
                     currentStudent = {
@@ -1438,6 +1426,11 @@
         // 強制通知對方
         async function forceNotify() {
             if (!requestId || !currentStudent) return;
+            
+            // 確認彈窗
+            if (!confirm('確定要通知教練嗎？\n\n教練將收到 LINE 推播通知，提醒他們查看聊天室。')) {
+                return;
+            }
             
             showToast('正在通知教練...');
             
