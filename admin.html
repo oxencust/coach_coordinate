@@ -23,7 +23,7 @@
             --yellow-light: #fcf4e3;
             --blue: #9fcccc;
             --blue-light: #daedec;
-            --bg: #f8f9f8;
+            --bg: #f5f6f8;
             --card: #ffffff;
             --text: #333333;
             --text-secondary: #666666;
@@ -31,6 +31,7 @@
             --border: #e5e5e5;
             --danger: #e05252;
             --success: #5f846f;
+            --warning: #f0ad4e;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -40,6 +41,7 @@
             background: var(--bg);
             min-height: 100vh;
             color: var(--text);
+            -webkit-tap-highlight-color: transparent;
         }
 
         /* Login Screen */
@@ -102,37 +104,127 @@
         /* Main Layout */
         .admin-container {
             display: none;
+            padding-bottom: 80px; /* 給底部導航留空間 */
         }
 
         .header {
-            background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 100%);
-            padding: 18px 20px;
-            color: var(--white);
+            background: white;
+            padding: 12px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 50;
         }
 
         .header h1 {
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 600;
+            color: var(--green-dark);
         }
 
         .logout-btn {
-            background: rgba(255,255,255,0.2);
+            background: var(--bg);
             border: none;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
+            color: var(--text-secondary);
+            padding: 8px 14px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
         }
 
-        /* Tabs */
-        .tabs {
+        /* 底部導航列 */
+        /* 底部導航 - 預設隱藏，登入後在手機版顯示 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 70px;
+            background: white;
+            display: none;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid var(--border);
+            padding-bottom: env(safe-area-inset-bottom, 10px);
+            z-index: 100;
+        }
+
+        /* 登入後在手機版顯示底部導航 */
+        @media (max-width: 768px) {
+            body.logged-in .bottom-nav {
+                display: flex;
+            }
+        }
+
+        .nav-item {
             display: flex;
-            background: var(--card);
-            border-bottom: 1px solid var(--border);
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.2s;
+        }
+
+        .nav-item:active {
+            background: var(--green-light);
+        }
+
+        .nav-item.active {
+            background: var(--green-light);
+        }
+
+        .nav-icon {
+            font-size: 22px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .nav-item.active .nav-label {
+            color: var(--green-dark);
+            font-weight: 500;
+        }
+
+        .nav-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: var(--danger);
+            color: white;
+            font-size: 10px;
+            padding: 2px 5px;
+            border-radius: 8px;
+            min-width: 16px;
+            text-align: center;
+        }
+
+        /* 頂部 Tabs - 電腦版保留 */
+        .tabs {
+            display: none;
+        }
+
+        @media (min-width: 769px) {
+            .tabs {
+                display: flex;
+                background: var(--card);
+                border-bottom: 1px solid var(--border);
+            }
+
+            .bottom-nav {
+                display: none;
+            }
+
+            .admin-container {
+                padding-bottom: 0;
+            }
         }
 
         .tab {
@@ -153,7 +245,7 @@
 
         /* Content */
         .content {
-            padding: 20px;
+            padding: 12px;
             max-width: 1200px;
             margin: 0 auto;
         }
@@ -166,18 +258,70 @@
             display: block;
         }
 
+        /* 快速篩選 */
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .filter-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-chip {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            border: 1px solid var(--border);
+            background: white;
+            color: var(--text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .filter-chip:active {
+            transform: scale(0.95);
+        }
+
+        .filter-chip.active {
+            background: var(--green);
+            color: white;
+            border-color: var(--green);
+        }
+
+        .filter-chip .count {
+            background: rgba(0,0,0,0.1);
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 4px;
+        }
+
+        .filter-chip.active .count {
+            background: rgba(255,255,255,0.3);
+        }
+
         /* Action Bar */
         .action-bar {
             display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .action-bar-top {
+            display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            gap: 12px;
-            flex-wrap: wrap;
         }
 
         .action-bar h2 {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
         }
 
@@ -196,20 +340,304 @@
         }
 
         .search-box {
-            flex: 1;
-            max-width: 300px;
-            padding: 10px 14px;
+            width: 100%;
+            padding: 12px 16px;
             border: 1px solid var(--border);
-            border-radius: 8px;
+            border-radius: 12px;
+            font-size: 15px;
+            background: white;
+        }
+
+        /* 浮動新增按鈕 - 預設隱藏，登入後在手機版顯示 */
+        .fab {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 100%);
+            color: white;
+            border: none;
+            font-size: 28px;
+            box-shadow: 0 4px 15px rgba(122, 193, 154, 0.4);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: transform 0.2s;
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+        /* 登入後在手機版顯示浮動按鈕 */
+        @media (max-width: 768px) {
+            body.logged-in .fab {
+                display: flex;
+            }
+        }
+
+        /* 卡片列表 */
+        .card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* 區塊標題 */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #fff3cd;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .section-header.green {
+            background: #e8f5e9;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #856404;
+        }
+
+        .section-header.green .section-title {
+            color: #2e7d32;
+        }
+
+        .section-count {
+            background: var(--warning);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        .section-count.green {
+            background: var(--green);
+        }
+
+        .section-toggle {
+            font-size: 12px;
+            color: var(--text-muted);
+            transition: transform 0.3s;
+        }
+
+        .section-header.collapsed .section-toggle {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            display: block;
+        }
+
+        .section-content.collapsed {
+            display: none;
+        }
+
+        /* 卡片樣式 */
+        .data-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .data-card:active {
+            background: #f8f8f8;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .card-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--green-light) 0%, #c8e6c9 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .card-avatar.pink {
+            background: linear-gradient(135deg, var(--pink-light) 0%, #f8bbd9 100%);
+        }
+
+        .card-avatar.yellow {
+            background: linear-gradient(135deg, var(--yellow-light) 0%, #ffecb3 100%);
+        }
+
+        .card-avatar.blue {
+            background: linear-gradient(135deg, var(--blue-light) 0%, #bbdefb 100%);
+        }
+
+        .card-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .card-name {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .card-meta {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .card-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f5f5f5;
             font-size: 14px;
         }
 
-        /* Table */
+        .card-row:last-of-type {
+            border-bottom: none;
+        }
+
+        .card-label {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .card-value {
+            text-align: right;
+            max-width: 60%;
+            word-break: break-all;
+        }
+
+        .card-value code {
+            font-size: 11px;
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .card-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            flex: 1;
+            min-width: 80px;
+            transition: transform 0.1s;
+        }
+
+        .card-btn:active {
+            transform: scale(0.97);
+        }
+
+        .card-btn.primary {
+            background: var(--green);
+            color: white;
+        }
+
+        .card-btn.secondary {
+            background: var(--blue-light);
+            color: #1976d2;
+        }
+
+        .card-btn.danger {
+            background: var(--pink-light);
+            color: var(--pink-dark);
+        }
+
+        .card-btn.warning {
+            background: var(--yellow-light);
+            color: #856404;
+        }
+
+        .card-badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: var(--green-light);
+            color: var(--green-dark);
+        }
+
+        .card-badge.pending {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .card-badge.danger {
+            background: var(--pink-light);
+            color: var(--pink-dark);
+        }
+
+        /* Table - 電腦版 */
         .table-container {
             background: var(--card);
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: none;
+        }
+
+        @media (min-width: 769px) {
+            .table-container {
+                display: block;
+            }
+            .card-list {
+                display: none;
+            }
+            .filter-bar {
+                display: none;
+            }
+            .search-box {
+                max-width: 300px;
+            }
+            .action-bar {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .action-bar h2 {
+                font-size: 16px;
+            }
+            .add-btn {
+                display: none;
+            }
         }
 
         table {
@@ -884,6 +1312,9 @@
                 <div class="action-bar">
                     <h2>⏳ 待審核教練</h2>
                 </div>
+                <!-- 手機版卡片列表 -->
+                <div class="card-list" id="pendingCardList"></div>
+                <!-- 電腦版表格 -->
                 <div class="table-container">
                     <table>
                         <thead>
@@ -903,10 +1334,15 @@
             <!-- Students Tab -->
             <div class="tab-content active" id="studentsTab">
                 <div class="action-bar">
-                    <h2>學員列表</h2>
-                    <input type="text" class="search-box" placeholder="搜尋學員..." id="studentSearch" oninput="filterStudents()">
-                    <button class="add-btn" onclick="openStudentModal()">+ 新增學員</button>
+                    <div class="action-bar-top">
+                        <h2>👤 學員管理</h2>
+                        <button class="add-btn" onclick="openStudentModal()">+ 新增學員</button>
+                    </div>
+                    <input type="text" class="search-box" placeholder="🔍 搜尋學員姓名、代號..." id="studentSearch" oninput="filterStudents()">
                 </div>
+                <!-- 手機版卡片列表 -->
+                <div class="card-list" id="studentsCardList"></div>
+                <!-- 電腦版表格 -->
                 <div class="table-container">
                     <table>
                         <thead>
@@ -928,10 +1364,15 @@
             <!-- Coaches Tab -->
             <div class="tab-content" id="coachesTab">
                 <div class="action-bar">
-                    <h2>教練列表</h2>
-                    <input type="text" class="search-box" placeholder="搜尋教練..." id="coachSearch" oninput="filterCoaches()">
-                    <button class="add-btn" onclick="openCoachModal()">+ 新增教練</button>
+                    <div class="action-bar-top">
+                        <h2>👨‍🏫 教練管理</h2>
+                        <button class="add-btn" onclick="openCoachModal()">+ 新增教練</button>
+                    </div>
+                    <input type="text" class="search-box" placeholder="🔍 搜尋教練姓名、專長..." id="coachSearch" oninput="filterCoaches()">
                 </div>
+                <!-- 手機版卡片列表 -->
+                <div class="card-list" id="coachesCardList"></div>
+                <!-- 電腦版表格 -->
                 <div class="table-container">
                     <table>
                         <thead>
@@ -953,9 +1394,12 @@
             <!-- Requests Tab -->
             <div class="tab-content" id="requestsTab">
                 <div class="action-bar">
-                    <h2>代課請求</h2>
-                    <input type="text" class="search-box" placeholder="搜尋..." id="requestSearch" oninput="filterRequests()">
+                    <h2>📋 代課請求</h2>
+                    <input type="text" class="search-box" placeholder="🔍 搜尋學員、教練..." id="requestSearch" oninput="filterRequests()">
                 </div>
+                <!-- 手機版卡片列表 -->
+                <div class="card-list" id="requestsCardList"></div>
+                <!-- 電腦版表格 -->
                 <div class="table-container">
                     <table>
                         <thead>
@@ -979,9 +1423,14 @@
             <!-- Admins Tab -->
             <div class="tab-content" id="adminsTab">
                 <div class="action-bar">
-                    <h2>🔐 管理員</h2>
-                    <button class="add-btn" onclick="openAdminModal()">+ 新增管理員</button>
+                    <div class="action-bar-top">
+                        <h2>🔐 管理員</h2>
+                        <button class="add-btn" onclick="openAdminModal()">+ 新增管理員</button>
+                    </div>
                 </div>
+                <!-- 手機版卡片列表 -->
+                <div class="card-list" id="adminsCardList"></div>
+                <!-- 電腦版表格 -->
                 <div class="table-container">
                     <table>
                         <thead>
@@ -1225,6 +1674,35 @@
         </div>
     </div>
 
+    <!-- 浮動新增按鈕 -->
+    <button class="fab" id="fabBtn" onclick="handleFabClick()">+</button>
+
+    <!-- 底部導航列 -->
+    <div class="bottom-nav" id="bottomNav">
+        <div class="nav-item" data-tab="pending" onclick="switchTabMobile('pending')">
+            <span class="nav-icon">⏳</span>
+            <span class="nav-label">待審核</span>
+            <span class="nav-badge" id="navPendingCount" style="display: none;">0</span>
+        </div>
+        <div class="nav-item" data-tab="students" onclick="switchTabMobile('students')">
+            <span class="nav-icon">👤</span>
+            <span class="nav-label">學員</span>
+        </div>
+        <div class="nav-item active" data-tab="coaches" onclick="switchTabMobile('coaches')">
+            <span class="nav-icon">👨‍🏫</span>
+            <span class="nav-label">教練</span>
+        </div>
+        <div class="nav-item" data-tab="requests" onclick="switchTabMobile('requests')">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">代課</span>
+        </div>
+        <div class="nav-item" data-tab="admins" onclick="switchTabMobile('admins')">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">設定</span>
+            <span class="nav-badge" id="navAdminCount" style="display: none;">0</span>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div class="toast" id="toast"></div>
 
@@ -1293,15 +1771,23 @@
                 // 登入成功
                 currentAdmin = data;
                 sessionStorage.setItem('adminId', data.id);
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('adminContainer').style.display = 'block';
-                document.getElementById('adminName').textContent = '👤 ' + (data.name || data.username);
+                showAdminUI(data.name || data.username);
                 loadAllData();
                 
             } catch (err) {
                 console.error('Login error:', err);
                 showLoginError('登入失敗，請稍後再試');
             }
+        }
+        
+        // 顯示管理介面（登入成功後）
+        function showAdminUI(displayName) {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('adminContainer').style.display = 'block';
+            document.getElementById('adminName').textContent = '👤 ' + displayName;
+            
+            // 標記已登入，讓 CSS 控制底部導航顯示
+            document.body.classList.add('logged-in');
         }
 
         // LINE 登入
@@ -1331,9 +1817,7 @@
                         // 已核准，登入成功
                         currentAdmin = admin;
                         sessionStorage.setItem('adminId', admin.id);
-                        document.getElementById('loginScreen').style.display = 'none';
-                        document.getElementById('adminContainer').style.display = 'block';
-                        document.getElementById('adminName').textContent = '👤 ' + (admin.name || displayName);
+                        showAdminUI(admin.name || displayName);
                         loadAllData();
                     } else {
                         // 待審核
@@ -1402,6 +1886,7 @@
         function logout() {
             currentAdmin = null;
             sessionStorage.removeItem('adminId');
+            sessionStorage.setItem('manualLogout', 'true');  // 標記手動登出
             try {
                 if (liff.isLoggedIn()) {
                     liff.logout();
@@ -1412,6 +1897,12 @@
 
         // 檢查是否已登入
         async function checkAuth() {
+            // 如果是手動登出，不自動登入
+            if (sessionStorage.getItem('manualLogout') === 'true') {
+                sessionStorage.removeItem('manualLogout');
+                return;
+            }
+            
             // 先檢查 session
             const adminId = sessionStorage.getItem('adminId');
             if (adminId) {
@@ -1425,9 +1916,7 @@
                     
                     if (data) {
                         currentAdmin = data;
-                        document.getElementById('loginScreen').style.display = 'none';
-                        document.getElementById('adminContainer').style.display = 'block';
-                        document.getElementById('adminName').textContent = '👤 ' + (data.name || data.username);
+                        showAdminUI(data.name || data.username);
                         loadAllData();
                         return;
                     }
@@ -1451,9 +1940,7 @@
                     if (admin) {
                         currentAdmin = admin;
                         sessionStorage.setItem('adminId', admin.id);
-                        document.getElementById('loginScreen').style.display = 'none';
-                        document.getElementById('adminContainer').style.display = 'block';
-                        document.getElementById('adminName').textContent = '👤 ' + (admin.name || profile.displayName);
+                        showAdminUI(admin.name || profile.displayName);
                         loadAllData();
                     }
                 }
@@ -1466,8 +1953,81 @@
         function switchTab(tabName) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            const tabEl = document.querySelector(`.tabs [data-tab="${tabName}"]`);
+            if (tabEl) tabEl.classList.add('active');
             document.getElementById(`${tabName}Tab`).classList.add('active');
+            
+            // 同步底部導航
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const navItem = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
+            if (navItem) navItem.classList.add('active');
+            
+            // 更新浮動按鈕顯示
+            updateFabVisibility(tabName);
+        }
+
+        // 移動端底部導航切換
+        function switchTabMobile(tabName) {
+            switchTab(tabName);
+        }
+
+        // 處理浮動按鈕點擊
+        function handleFabClick() {
+            const activeTab = document.querySelector('.tab-content.active');
+            if (!activeTab) return;
+            
+            const tabId = activeTab.id;
+            if (tabId === 'studentsTab') {
+                openStudentModal();
+            } else if (tabId === 'coachesTab') {
+                openCoachModal();
+            } else if (tabId === 'adminsTab') {
+                openAdminModal();
+            }
+        }
+
+        // 更新浮動按鈕顯示
+        function updateFabVisibility(tabName) {
+            const fab = document.getElementById('fabBtn');
+            if (!fab) return;
+            
+            // 只在學員、教練、管理員頁面顯示
+            if (['students', 'coaches', 'admins'].includes(tabName)) {
+                fab.style.display = 'flex';
+            } else {
+                fab.style.display = 'none';
+            }
+        }
+
+        // 更新導航徽章
+        function updateNavBadges() {
+            // 待審核教練數量
+            const pendingCount = pendingCoaches.length;
+            const navPending = document.getElementById('navPendingCount');
+            const tabPending = document.getElementById('pendingCount');
+            
+            if (navPending) {
+                navPending.textContent = pendingCount;
+                navPending.style.display = pendingCount > 0 ? 'block' : 'none';
+            }
+            if (tabPending) {
+                tabPending.textContent = pendingCount;
+                tabPending.style.display = pendingCount > 0 ? 'inline' : 'none';
+            }
+            
+            // 待審核管理員數量
+            const pendingAdmins = admins.filter(a => !a.is_active).length;
+            const navAdmin = document.getElementById('navAdminCount');
+            const tabAdmin = document.getElementById('pendingAdminCount');
+            
+            if (navAdmin) {
+                navAdmin.textContent = pendingAdmins;
+                navAdmin.style.display = pendingAdmins > 0 ? 'block' : 'none';
+            }
+            if (tabAdmin) {
+                tabAdmin.textContent = pendingAdmins;
+                tabAdmin.style.display = pendingAdmins > 0 ? 'inline' : 'none';
+            }
         }
 
         // ============ 操作紀錄 ============
@@ -1641,6 +2201,10 @@
         // ============ Render ============
         function renderPendingCoaches() {
             const tbody = document.getElementById('pendingTable');
+            const cardList = document.getElementById('pendingCardList');
+            
+            // 更新導航徽章
+            updateNavBadges();
             
             if (pendingCoaches.length === 0) {
                 tbody.innerHTML = `
@@ -1653,9 +2217,16 @@
                         </td>
                     </tr>
                 `;
+                if (cardList) cardList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">✅</div>
+                        <p>沒有待審核的教練</p>
+                    </div>
+                `;
                 return;
             }
 
+            // 表格版（電腦）
             tbody.innerHTML = pendingCoaches.map(c => `
                 <tr>
                     <td>
@@ -1689,6 +2260,47 @@
                     </td>
                 </tr>
             `).join('');
+
+            // 卡片版（手機）
+            if (cardList) {
+                cardList.innerHTML = pendingCoaches.map(c => `
+                    <div class="data-card" style="border-left: 4px solid var(--warning);">
+                        <div class="card-header">
+                            <div class="card-avatar" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);">
+                                ${c.line_display_name?.charAt(0) || c.name?.charAt(0) || '?'}
+                            </div>
+                            <div class="card-info">
+                                <div class="card-name">
+                                    ${c.line_display_name || c.name || '-'}
+                                    <span class="card-badge pending">待審核</span>
+                                </div>
+                                <div class="card-meta">申請於 ${formatDateTime(c.created_at)}</div>
+                            </div>
+                        </div>
+                        <div style="padding: 12px 0; border-top: 1px solid #f0f0f0;">
+                            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">選擇課程類型：</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
+                                    <input type="checkbox" id="pending_pilates_${c.id}" style="width: 18px; height: 18px;"> 🧘 皮拉提斯
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
+                                    <input type="checkbox" id="pending_weight_${c.id}" style="width: 18px; height: 18px;"> 💪 重訓
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
+                                    <input type="checkbox" id="pending_stretch_${c.id}" style="width: 18px; height: 18px;"> 🤸 伸展
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
+                                    <input type="checkbox" id="pending_ai_${c.id}" style="width: 18px; height: 18px;"> 🤖 AI分析
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="card-btn primary" onclick="approveCoach('${c.id}', '${c.line_display_name || c.name}')">✓ 核准</button>
+                            <button class="card-btn danger" onclick="rejectCoach('${c.id}', '${c.line_display_name || c.name}')">✗ 拒絕</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
         }
         
         function formatDateTime(dateStr) {
@@ -1754,6 +2366,7 @@
 
         function renderStudents() {
             const tbody = document.getElementById('studentsTable');
+            const cardList = document.getElementById('studentsCardList');
             
             if (students.length === 0) {
                 tbody.innerHTML = `
@@ -1766,9 +2379,16 @@
                         </td>
                     </tr>
                 `;
+                if (cardList) cardList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">👤</div>
+                        <p>尚無學員資料</p>
+                    </div>
+                `;
                 return;
             }
 
+            // 表格版（電腦）
             tbody.innerHTML = students.map(s => `
                 <tr>
                     <td>
@@ -1789,10 +2409,31 @@
                     </td>
                 </tr>
             `).join('');
+
+            // 卡片版（手機）
+            if (cardList) {
+                cardList.innerHTML = students.map(s => `
+                    <div class="data-card">
+                        <div class="card-header">
+                            <div class="card-avatar">${s.avatar || s.name?.charAt(0) || '?'}</div>
+                            <div class="card-info">
+                                <div class="card-name">${s.name || '-'}</div>
+                                <div class="card-meta">${s.code || '無代號'} • ${s.phone || '無電話'}</div>
+                            </div>
+                        </div>
+                        ${s.notes ? `<div class="card-row"><span class="card-label">備註</span><span class="card-value">${s.notes}</span></div>` : ''}
+                        <div class="card-actions">
+                            <button class="card-btn secondary" onclick="editStudent('${s.id}')">編輯</button>
+                            <button class="card-btn danger" onclick="deleteStudent('${s.id}', '${s.name}')">刪除</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
         }
 
         function renderCoaches() {
             const tbody = document.getElementById('coachesTable');
+            const cardList = document.getElementById('coachesCardList');
             
             if (coaches.length === 0) {
                 tbody.innerHTML = `
@@ -1805,9 +2446,16 @@
                         </td>
                     </tr>
                 `;
+                if (cardList) cardList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">👨‍🏫</div>
+                        <p>尚無教練資料</p>
+                    </div>
+                `;
                 return;
             }
 
+            // 表格版（電腦）
             tbody.innerHTML = coaches.map(c => `
                 <tr>
                     <td>
@@ -1839,6 +2487,39 @@
                     </td>
                 </tr>
             `).join('');
+
+            // 卡片版（手機）
+            if (cardList) {
+                const specialtyIcons = { 'pilates': '🧘', 'weight': '💪', 'stretch': '🤸', 'ai': '🤖' };
+                const specialtyColors = { 'pilates': '', 'weight': 'pink', 'stretch': 'yellow', 'ai': 'blue' };
+                
+                cardList.innerHTML = coaches.map(c => {
+                    const mainSpecialty = (c.specialties || [])[0] || 'pilates';
+                    const avatarColor = specialtyColors[mainSpecialty] || '';
+                    const specialtiesText = (c.specialties || []).map(s => `${specialtyIcons[s] || ''} ${courseTypeNames[s] || s}`).join(' • ') || '未設定';
+                    
+                    return `
+                        <div class="data-card">
+                            <div class="card-header">
+                                <div class="card-avatar ${avatarColor}">${c.avatar || c.name?.charAt(0) || '?'}</div>
+                                <div class="card-info">
+                                    <div class="card-name">
+                                        ${c.name || '-'}
+                                        <span class="card-badge ${c.is_active ? '' : 'danger'}">${c.is_active ? '啟用' : '停用'}</span>
+                                    </div>
+                                    <div class="card-meta">${specialtiesText}</div>
+                                </div>
+                            </div>
+                            ${c.phone ? `<div class="card-row"><span class="card-label">電話</span><span class="card-value">${c.phone}</span></div>` : ''}
+                            <div class="card-actions">
+                                <button class="card-btn secondary" onclick="editCoach('${c.id}')">編輯</button>
+                                ${c.line_uid ? `<button class="card-btn warning" onclick="copyCoachLink('${c.line_uid}', '${c.name}')">📋 複製連結</button>` : ''}
+                                <button class="card-btn danger" onclick="deleteCoach('${c.id}', '${c.name}')">刪除</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
         }
         
         function copyCoachLink(lineUid, coachName) {
@@ -1855,6 +2536,7 @@
 
         function renderRequests() {
             const tbody = document.getElementById('requestsTable');
+            const cardList = document.getElementById('requestsCardList');
             
             if (requests.length === 0) {
                 tbody.innerHTML = `
@@ -1867,9 +2549,16 @@
                         </td>
                     </tr>
                 `;
+                if (cardList) cardList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">📋</div>
+                        <p>尚無代課請求</p>
+                    </div>
+                `;
                 return;
             }
 
+            // 表格版（電腦）
             tbody.innerHTML = requests.map(r => {
                 // 根據狀態決定操作按鈕
                 let actionButtons = `
@@ -1926,6 +2615,79 @@
                     </tr>
                 `;
             }).join('');
+
+            // 卡片版（手機）
+            if (cardList) {
+                const courseIcons = { 'pilates': '🧘', 'weight': '💪', 'stretch': '🤸', 'ai': '🤖' };
+                const courseColors = { 'pilates': '', 'weight': 'pink', 'stretch': 'yellow', 'ai': 'blue' };
+                
+                cardList.innerHTML = requests.map(r => {
+                    const icon = courseIcons[r.course_type] || '📋';
+                    const avatarColor = courseColors[r.course_type] || '';
+                    
+                    // 狀態樣式
+                    let statusBadge = '';
+                    let cardBorder = '';
+                    if (r.status === 'pending') {
+                        statusBadge = '<span class="card-badge pending">等待中</span>';
+                        cardBorder = 'border-left: 4px solid var(--warning);';
+                    } else if (r.status === 'discussing') {
+                        statusBadge = '<span class="card-badge" style="background: #e3f2fd; color: #1565c0;">討論中</span>';
+                        cardBorder = 'border-left: 4px solid #1565c0;';
+                    } else if (r.status === 'with-student') {
+                        statusBadge = '<span class="card-badge" style="background: #fce4ec; color: #c2185b;">學員已加入</span>';
+                        cardBorder = 'border-left: 4px solid #c2185b;';
+                    } else if (r.status === 'resolved') {
+                        statusBadge = '<span class="card-badge">已解決</span>';
+                        cardBorder = 'border-left: 4px solid var(--green);';
+                    } else if (r.status === 'cancel_pending') {
+                        statusBadge = '<span class="card-badge pending">待取消確認</span>';
+                        cardBorder = 'border-left: 4px solid var(--danger);';
+                    } else if (r.status === 'cancelled') {
+                        statusBadge = '<span class="card-badge danger">已取消</span>';
+                        cardBorder = 'border-left: 4px solid var(--gray);';
+                    }
+                    
+                    // 操作按鈕
+                    let cardButtons = `<button class="card-btn secondary" onclick="openChatRoom('${r.id}', '${r.student_name}', '${r.course_date}')">💬 聊天室</button>`;
+                    
+                    if (r.status === 'cancel_pending') {
+                        cardButtons = `
+                            <button class="card-btn danger" onclick="confirmCancelRequest('${r.id}', '${r.student_name}')">✓ 確認取消</button>
+                            <button class="card-btn secondary" onclick="openChatRoom('${r.id}', '${r.student_name}', '${r.course_date}')">💬</button>
+                        `;
+                    }
+                    
+                    if (r.status === 'cancelled' || r.status === 'resolved') {
+                        cardButtons += `<button class="card-btn danger" onclick="deleteRequest('${r.id}', '${r.student_name}')">🗑️ 刪除</button>`;
+                    }
+                    
+                    return `
+                        <div class="data-card" style="${cardBorder}">
+                            <div class="card-header">
+                                <div class="card-avatar ${avatarColor}">${icon}</div>
+                                <div class="card-info">
+                                    <div class="card-name">${r.student_name || '-'} ${statusBadge}</div>
+                                    <div class="card-meta">${r.course_date || '-'} ${r.course_time || ''} • ${courseTypeNames[r.course_type] || '-'}</div>
+                                </div>
+                            </div>
+                            <div class="card-row">
+                                <span class="card-label">原教練</span>
+                                <span class="card-value">${r.original_coach_name || '-'}</span>
+                            </div>
+                            ${r.substitute_coach_name ? `
+                            <div class="card-row">
+                                <span class="card-label">代課教練</span>
+                                <span class="card-value">${r.substitute_coach_name}</span>
+                            </div>
+                            ` : ''}
+                            <div class="card-actions">
+                                ${cardButtons}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
         }
 
         // ============ Filter ============
@@ -2698,13 +3460,17 @@
 
         function renderAdmins() {
             const tbody = document.getElementById('adminsTable');
+            const cardList = document.getElementById('adminsCardList');
             
             // 分類：待審核 vs 已啟用
-            const pendingAdmins = admins.filter(a => !a.is_active);
+            const pendingAdminsData = admins.filter(a => !a.is_active);
             const activeAdmins = admins.filter(a => a.is_active);
             
             // 只有 username = 'admin' 的主管理員可以刪除其他管理員
             const isSuperAdmin = currentAdmin && currentAdmin.username === 'admin';
+            
+            // 更新導航徽章
+            updateNavBadges();
             
             if (admins.length === 0) {
                 tbody.innerHTML = `
@@ -2717,21 +3483,28 @@
                         </td>
                     </tr>
                 `;
+                if (cardList) cardList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">🔐</div>
+                        <p>尚無管理員資料</p>
+                    </div>
+                `;
                 return;
             }
             
+            // ===== 表格版（電腦）=====
             let html = '';
             
             // 待審核區塊
-            if (pendingAdmins.length > 0) {
+            if (pendingAdminsData.length > 0) {
                 html += `
                     <tr style="background: #fff3cd;">
                         <td colspan="5" style="font-weight: bold; color: #856404;">
-                            ⏳ 待審核 (${pendingAdmins.length})
+                            ⏳ 待審核 (${pendingAdminsData.length})
                         </td>
                     </tr>
                 `;
-                html += pendingAdmins.map(a => {
+                html += pendingAdminsData.map(a => {
                     const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
                     return `
                         <tr style="background: #fffdf0;">
@@ -2750,7 +3523,7 @@
             
             // 已啟用區塊
             if (activeAdmins.length > 0) {
-                if (pendingAdmins.length > 0) {
+                if (pendingAdminsData.length > 0) {
                     html += `
                         <tr style="background: #e8f5e9;">
                             <td colspan="5" style="font-weight: bold; color: #2e7d32;">
@@ -2778,14 +3551,97 @@
             }
             
             tbody.innerHTML = html;
+
+            // ===== 卡片版（手機）=====
+            if (cardList) {
+                let cardHtml = '';
+                
+                // 待審核區塊
+                if (pendingAdminsData.length > 0) {
+                    cardHtml += `<div class="section-header" onclick="toggleSection(this)">
+                        <div class="section-title">⏳ 待審核 <span class="section-count">${pendingAdminsData.length}</span></div>
+                        <span class="section-toggle">▼</span>
+                    </div>
+                    <div class="section-content">`;
+                    
+                    cardHtml += pendingAdminsData.map(a => {
+                        const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
+                        return `
+                            <div class="data-card" style="border-left: 4px solid var(--warning);">
+                                <div class="card-header">
+                                    <div class="card-avatar" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);">
+                                        ${a.name?.charAt(0) || '?'}
+                                    </div>
+                                    <div class="card-info">
+                                        <div class="card-name">${a.name || '-'} <span class="card-badge pending">待審核</span></div>
+                                        <div class="card-meta">申請於 ${createdAt}</div>
+                                    </div>
+                                </div>
+                                <div class="card-actions">
+                                    ${isSuperAdmin ? `<button class="card-btn primary" onclick="approveAdmin('${a.id}', '${a.name}')">✓ 核准</button>` : ''}
+                                    ${isSuperAdmin ? `<button class="card-btn danger" onclick="deleteAdmin('${a.id}', '${a.name || '管理員'}')">✗ 拒絕</button>` : '<span style="color: var(--text-muted); font-size: 12px;">請主管理員審核</span>'}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    cardHtml += '</div>';
+                }
+                
+                // 已啟用區塊
+                if (activeAdmins.length > 0) {
+                    cardHtml += `<div class="section-header green" onclick="toggleSection(this)">
+                        <div class="section-title">✓ 已啟用 <span class="section-count green">${activeAdmins.length}</span></div>
+                        <span class="section-toggle">▼</span>
+                    </div>
+                    <div class="section-content">`;
+                    
+                    cardHtml += activeAdmins.map(a => {
+                        const isCurrentAdmin = currentAdmin && a.id === currentAdmin.id;
+                        const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
+                        return `
+                            <div class="data-card">
+                                <div class="card-header">
+                                    <div class="card-avatar">${a.name?.charAt(0) || '?'}</div>
+                                    <div class="card-info">
+                                        <div class="card-name">
+                                            ${a.name || '-'}
+                                            ${isCurrentAdmin ? '<span style="color: var(--green); font-size: 12px;">(我)</span>' : ''}
+                                            ${a.username === 'admin' ? '<span style="color: var(--blue);">👑</span>' : ''}
+                                        </div>
+                                        <div class="card-meta">建立於 ${createdAt}</div>
+                                    </div>
+                                </div>
+                                ${isSuperAdmin ? `
+                                <div class="card-actions">
+                                    <button class="card-btn secondary" onclick="editAdmin('${a.id}')">編輯</button>
+                                    ${!isCurrentAdmin && a.username !== 'admin' ? `<button class="card-btn danger" onclick="deleteAdmin('${a.id}', '${a.name || '管理員'}')">刪除</button>` : ''}
+                                </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                    cardHtml += '</div>';
+                }
+                
+                cardList.innerHTML = cardHtml;
+            }
             
             // 更新待審核數量
             const pendingCountEl = document.getElementById('pendingAdminCount');
-            if (pendingAdmins.length > 0) {
-                pendingCountEl.textContent = pendingAdmins.length;
+            if (pendingAdminsData.length > 0) {
+                pendingCountEl.textContent = pendingAdminsData.length;
                 pendingCountEl.style.display = 'inline';
             } else {
                 pendingCountEl.style.display = 'none';
+            }
+        }
+        
+        // 摺疊區塊切換
+        function toggleSection(header) {
+            header.classList.toggle('collapsed');
+            const content = header.nextElementSibling;
+            if (content && content.classList.contains('section-content')) {
+                content.classList.toggle('collapsed');
             }
         }
 
