@@ -605,24 +605,14 @@
             <h1>🏋️ 衡點健康</h1>
             <p>管理後台</p>
             <div class="login-error" id="loginError"></div>
-            
-            <!-- 帳號密碼登入 -->
-            <div id="passwordLoginSection">
+            <div id="loginForm">
                 <input type="text" id="usernameInput" placeholder="請輸入帳號" autocomplete="username">
                 <input type="password" id="passwordInput" placeholder="請輸入密碼" onkeypress="if(event.key==='Enter')passwordLogin()" autocomplete="current-password">
-                <button onclick="passwordLogin()">帳號密碼登入</button>
+                <button onclick="passwordLogin()">登入</button>
                 <div style="margin: 16px 0; color: var(--text-muted); font-size: 14px;">— 或 —</div>
-                <button onclick="startLiffLogin()" style="background: #06C755;">使用 LINE 登入</button>
+                <button onclick="lineLogin()" style="background: #06C755;">使用 LINE 登入</button>
             </div>
-            
-            <!-- LINE UID 顯示區（登入失敗時顯示） -->
-            <div id="lineUidSection" style="display: none;">
-                <div style="margin-bottom: 12px; color: var(--text-secondary);">您的 LINE UID：</div>
-                <code id="showLineUid" style="background: #f0f0f0; padding: 8px 12px; border-radius: 4px; font-size: 11px; word-break: break-all; display: block;"></code>
-                <div style="margin-top: 8px; font-size: 12px; color: #999;">請將此 UID 提供給管理員設定</div>
-                <button onclick="copyLineUid()" style="margin-top: 12px; background: var(--blue);">複製 UID</button>
-                <button onclick="backToLogin()" style="margin-top: 8px; background: var(--gray);">返回登入</button>
-            </div>
+            <div id="statusScreen" style="display: none;"></div>
         </div>
     </div>
 
@@ -1033,7 +1023,6 @@
 
         // ============ LIFF Config ============
         const LIFF_ID = '2008660081-8gEltNAP';
-        let currentLineUid = null;
 
         // ============ Auth ============
         
@@ -1063,6 +1052,7 @@
                 
                 // 登入成功
                 currentAdmin = data;
+                sessionStorage.setItem('adminId', data.id);
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('adminContainer').style.display = 'block';
                 document.getElementById('adminName').textContent = '👤 ' + (data.name || data.username);
@@ -1074,123 +1064,89 @@
             }
         }
 
-        // 開始 LINE 登入
-        async function startLiffLogin() {
+        // LINE 登入
+        async function lineLogin() {
             try {
-                showLoginError('正在連接 LINE...');
-                document.getElementById('loginError').style.color = '#666';
-                
                 await liff.init({ liffId: LIFF_ID });
-                console.log('LIFF init success');
                 
                 if (!liff.isLoggedIn()) {
-                    console.log('Not logged in, redirecting...');
                     liff.login({ redirectUri: window.location.href });
                     return;
                 }
                 
-                // 已登入，驗證身份
+                // 已登入，取得 profile
                 const profile = await liff.getProfile();
-                currentLineUid = profile.userId;
-                await verifyAdmin(profile.userId, profile.displayName);
+                const lineUid = profile.userId;
+                const displayName = profile.displayName;
                 
-            } catch (error) {
-                console.error('LIFF error:', error);
-                document.getElementById('loginError').style.color = 'var(--danger)';
-                showLoginError('LINE 登入失敗：' + (error.message || error.code || JSON.stringify(error)));
-            }
-        }
-
-        // 驗證管理員（LINE 登入後）
-        async function verifyAdmin(lineUid, displayName) {
-            try {
-                // 先查詢是否已存在
-                const { data: existing, error: queryError } = await supabaseClient
+                // 查詢是否已有此管理員
+                const { data: admin, error } = await supabaseClient
                     .from('admins')
                     .select('*')
                     .eq('line_uid', lineUid)
                     .single();
                 
-                if (existing) {
-                    if (existing.is_active) {
+                if (admin) {
+                    if (admin.is_active) {
                         // 已核准，登入成功
-                        currentAdmin = existing;
+                        currentAdmin = admin;
+                        sessionStorage.setItem('adminId', admin.id);
                         document.getElementById('loginScreen').style.display = 'none';
                         document.getElementById('adminContainer').style.display = 'block';
-                        document.getElementById('adminName').textContent = '👤 ' + (existing.name || displayName);
+                        document.getElementById('adminName').textContent = '👤 ' + (admin.name || displayName);
                         loadAllData();
                     } else {
-                        // 已申請但尚未核准
-                        document.getElementById('passwordLoginSection').style.display = 'none';
-                        document.getElementById('lineUidSection').style.display = 'block';
-                        document.getElementById('lineUidSection').innerHTML = `
-                            <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
-                            <div style="color: var(--text-secondary); margin-bottom: 8px;">申請審核中</div>
-                            <div style="font-size: 14px; color: #999;">請等待管理員核准您的申請</div>
-                            <button onclick="backToLogin()" style="margin-top: 16px; background: var(--gray);">返回</button>
-                        `;
-                        showLoginError(`${displayName}，您的申請正在審核中`);
+                        // 待審核
+                        showStatusScreen('⏳', '審核中', `${displayName}，您的申請正在審核中`, '請等待管理員核准');
                     }
-                    return;
+                } else {
+                    // 不存在，自動建立申請
+                    const { error: insertError } = await supabaseClient
+                        .from('admins')
+                        .insert({
+                            name: displayName,
+                            line_uid: lineUid,
+                            is_active: false
+                        });
+                    
+                    if (insertError) {
+                        console.error('Insert error:', insertError);
+                        showLoginError('申請失敗，請稍後再試');
+                        return;
+                    }
+                    
+                    // 顯示申請成功
+                    showStatusScreen('✅', '申請已送出！', `${displayName}，您的管理員申請已送出`, '請等待管理員審核');
                 }
                 
-                // 不存在，自動建立申請
-                const { data: newAdmin, error: insertError } = await supabaseClient
-                    .from('admins')
-                    .insert({
-                        name: displayName,
-                        line_uid: lineUid,
-                        is_active: false
-                    })
-                    .select()
-                    .single();
-                
-                if (insertError) {
-                    console.error('Insert error:', insertError);
-                    showLoginError('申請失敗，請稍後再試');
-                    return;
-                }
-                
-                // 顯示申請成功
-                document.getElementById('passwordLoginSection').style.display = 'none';
-                document.getElementById('lineUidSection').style.display = 'block';
-                document.getElementById('lineUidSection').innerHTML = `
-                    <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
-                    <div style="color: var(--success); font-weight: bold; margin-bottom: 8px;">申請已送出！</div>
-                    <div style="font-size: 14px; color: #999;">請等待管理員核准您的申請</div>
-                    <button onclick="backToLogin()" style="margin-top: 16px; background: var(--gray);">返回</button>
-                `;
-                
-            } catch (err) {
-                console.error('Verify admin error:', err);
-                showLoginError('驗證失敗，請重試');
+            } catch (error) {
+                console.error('LINE login error:', error);
+                showLoginError('LINE 登入失敗：' + (error.message || '請稍後再試'));
             }
         }
 
-        // 複製 LINE UID
-        function copyLineUid() {
-            const uid = document.getElementById('showLineUid').textContent;
-            navigator.clipboard.writeText(uid).then(() => {
-                alert('已複製 LINE UID！');
-            }).catch(() => {
-                // fallback
-                const textArea = document.createElement('textarea');
-                textArea.value = uid;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                alert('已複製 LINE UID！');
-            });
+        // 顯示狀態畫面
+        function showStatusScreen(icon, title, message, subtitle) {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('statusScreen').style.display = 'block';
+            document.getElementById('statusScreen').innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 16px;">${icon}</div>
+                <h2 style="color: var(--green-dark); margin-bottom: 8px;">${title}</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 8px;">${message}</p>
+                <p style="color: var(--text-muted); font-size: 14px;">${subtitle}</p>
+                <button onclick="backToLogin()" style="margin-top: 16px; background: var(--gray);">返回</button>
+            `;
         }
 
         // 返回登入畫面
         function backToLogin() {
-            if (liff.isLoggedIn()) {
-                liff.logout();
-            }
-            document.getElementById('passwordLoginSection').style.display = 'block';
-            document.getElementById('lineUidSection').style.display = 'none';
+            try {
+                if (liff.isLoggedIn()) {
+                    liff.logout();
+                }
+            } catch (e) {}
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('statusScreen').style.display = 'none';
             document.getElementById('loginError').style.display = 'none';
         }
 
@@ -1203,6 +1159,7 @@
         // 登出
         function logout() {
             currentAdmin = null;
+            sessionStorage.removeItem('adminId');
             try {
                 if (liff.isLoggedIn()) {
                     liff.logout();
@@ -1211,17 +1168,55 @@
             window.location.reload();
         }
 
-        // 頁面載入時檢查 LIFF 狀態
-        async function checkLiffStatus() {
+        // 檢查是否已登入
+        async function checkAuth() {
+            // 先檢查 session
+            const adminId = sessionStorage.getItem('adminId');
+            if (adminId) {
+                try {
+                    const { data } = await supabaseClient
+                        .from('admins')
+                        .select('*')
+                        .eq('id', adminId)
+                        .eq('is_active', true)
+                        .single();
+                    
+                    if (data) {
+                        currentAdmin = data;
+                        document.getElementById('loginScreen').style.display = 'none';
+                        document.getElementById('adminContainer').style.display = 'block';
+                        document.getElementById('adminName').textContent = '👤 ' + (data.name || data.username);
+                        loadAllData();
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Session auth failed');
+                }
+            }
+            
+            // 檢查 LIFF 登入狀態
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (liff.isLoggedIn()) {
                     const profile = await liff.getProfile();
-                    currentLineUid = profile.userId;
-                    await verifyAdmin(profile.userId, profile.displayName);
+                    const { data: admin } = await supabaseClient
+                        .from('admins')
+                        .select('*')
+                        .eq('line_uid', profile.userId)
+                        .eq('is_active', true)
+                        .single();
+                    
+                    if (admin) {
+                        currentAdmin = admin;
+                        sessionStorage.setItem('adminId', admin.id);
+                        document.getElementById('loginScreen').style.display = 'none';
+                        document.getElementById('adminContainer').style.display = 'block';
+                        document.getElementById('adminName').textContent = '👤 ' + (admin.name || profile.displayName);
+                        loadAllData();
+                    }
                 }
             } catch (e) {
-                console.log('LIFF not logged in');
+                console.log('LIFF auth check failed');
             }
         }
 
@@ -2651,7 +2646,7 @@
         }
 
         // ============ Init ============
-        document.addEventListener('DOMContentLoaded', checkLiffStatus);
+        document.addEventListener('DOMContentLoaded', checkAuth);
     </script>
 </body>
 </html>
