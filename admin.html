@@ -1077,9 +1077,14 @@
         // 開始 LINE 登入
         async function startLiffLogin() {
             try {
+                showLoginError('正在連接 LINE...');
+                document.getElementById('loginError').style.color = '#666';
+                
                 await liff.init({ liffId: LIFF_ID });
+                console.log('LIFF init success');
                 
                 if (!liff.isLoggedIn()) {
+                    console.log('Not logged in, redirecting...');
                     liff.login({ redirectUri: window.location.href });
                     return;
                 }
@@ -1091,7 +1096,8 @@
                 
             } catch (error) {
                 console.error('LIFF error:', error);
-                showLoginError('LINE 登入失敗，請稍後再試');
+                document.getElementById('loginError').style.color = 'var(--danger)';
+                showLoginError('LINE 登入失敗：' + (error.message || error.code || JSON.stringify(error)));
             }
         }
 
