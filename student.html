@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>衡點健康 課程討論</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- LINE LIFF SDK -->
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        :root {
+            --white: #ffffff;
+            --gray: #808080;
+            --green: #A78BCA;
+            --green-light: #F3E8FF;
+            --green-dark: #7B5EA7;
+            --pink: #f2ac98;
+            --pink-light: #faece8;
+            --pink-dark: #c67566;
+            --yellow: #ffe08b;
+            --yellow-light: #fcf4e3;
+            --yellow-dark: #ba9e60;
+            --blue: #9fcccc;
+            --blue-light: #daedec;
+            --blue-dark: #66888e;
+            --bg: #f8f9f8;
+            --card: #ffffff;
+            --text: #333333;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border: #e5e5e5;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--pink-dark) 0%, var(--pink) 100%);
+            padding: 18px 20px;
+            color: var(--white);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(194, 117, 102, 0.3);
+        }
+
+        .header-content {
+            max-width: 500px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .back-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-title h1 {
+            font-size: 17px;
+            font-weight: 600;
+        }
+
+        .header-title span {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+        }
+
+        .user-avatar-small {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--white);
+            color: var(--pink-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* Container */
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 76px);
+        }
+
+        /* Compact Info Bar */
+        .info-bar {
+            margin: 0;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .info-bar-main {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+        }
+
+        .info-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .course-icon-small {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--green-dark), var(--green));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .info-bar-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-bar-title {
+            font-size: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .info-bar-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .info-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .substitute-badge {
+            background: var(--pink-light);
+            color: var(--pink-dark);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .expand-icon {
+            color: var(--text-muted);
+            font-size: 12px;
+            transition: transform 0.3s;
+        }
+
+        .info-bar.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Expandable Detail */
+        .info-detail {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            background: var(--bg);
+        }
+
+        .info-bar.expanded .info-detail {
+            max-height: 200px;
+        }
+
+        .info-detail-inner {
+            padding: 12px 16px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .info-item {
+            background: var(--card);
+            padding: 10px 12px;
+            border-radius: 8px;
+        }
+
+        .info-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+
+        .info-value {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .info-item.highlight {
+            background: var(--pink-light);
+        }
+
+        .info-item.highlight .info-value {
+            color: var(--pink-dark);
+        }
+
+        /* Participants - more compact */
+        .participants-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            background: var(--green-light);
+            font-size: 12px;
+            color: var(--green-dark);
+        }
+
+        .participants-avatars {
+            display: flex;
+        }
+
+        .p-avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: var(--green);
+            color: var(--white);
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: -6px;
+            border: 2px solid var(--green-light);
+        }
+
+        .p-avatar:first-child { margin-left: 0; }
+        .p-avatar.student { background: var(--pink); }
+        .p-avatar.me { 
+            background: var(--pink); 
+            box-shadow: 0 0 0 2px var(--pink-light);
+        }
+
+        /* Student Reminder */
+        .student-reminder {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            border-bottom: 1px solid #a5d6a7;
+            font-size: 12px;
+            color: #2e7d32;
+        }
+
+        .student-reminder .reminder-icon {
+            font-size: 14px;
+        }
+
+        .student-reminder .reminder-text {
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        /* Messages */
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: var(--bg);
+        }
+
+        .message {
+            max-width: 80%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message.sent { align-self: flex-end; }
+        .message.received { align-self: flex-start; }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+            padding-left: 4px;
+        }
+
+        .msg-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--green);
+            color: var(--white);
+            font-size: 10px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .msg-sender {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .msg-sender .role {
+            font-size: 10px;
+            background: var(--green-light);
+            color: var(--green-dark);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 4px;
+        }
+
+        .msg-sender .role.original {
+            background: var(--blue-light);
+            color: var(--blue-dark);
+        }
+
+        .msg-sender .role.substitute {
+            background: var(--green-light);
+            color: var(--green-dark);
+        }
+
+        .message-bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .message.sent .message-bubble {
+            background: linear-gradient(135deg, var(--pink-dark), var(--pink));
+            color: var(--white);
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.received .message-bubble {
+            background: var(--card);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+
+        .message.sent .message-time { text-align: right; }
+
+        /* System Message */
+        .system-message {
+            align-self: center;
+            background: var(--card);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-muted);
+            text-align: center;
+            margin: 8px 0;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+
+        .system-message.success {
+            background: var(--green-light);
+            color: var(--green-dark);
+        }
+
+        .system-message.joined {
+            background: var(--pink-light);
+            color: var(--pink-dark);
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 12px 16px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .chat-input {
+            flex: 1;
+            border: 1.5px solid var(--border);
+            border-radius: 24px;
+            padding: 12px 18px;
+            font-size: 15px;
+            font-family: inherit;
+            outline: none;
+            resize: none;
+            min-height: 48px;
+            max-height: 120px;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input:focus {
+            border-color: var(--pink);
+        }
+
+        .notify-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--yellow);
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .notify-btn:hover { transform: scale(1.05); background: var(--yellow-light); }
+        .notify-btn:active { transform: scale(0.95); }
+
+        .send-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--pink-dark), var(--pink));
+            border: none;
+            color: var(--white);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(194, 117, 102, 0.3);
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Quick Replies for Student */
+        .quick-replies {
+            position: relative;
+        }
+
+        .emoji-trigger {
+            position: absolute;
+            bottom: 100%;
+            left: 16px;
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: var(--white);
+            border-radius: 50%;
+            font-size: 22px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .emoji-trigger.show {
+            display: flex;
+        }
+
+        .emoji-panel {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            background: var(--white);
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            z-index: 100;
+        }
+
+        .emoji-panel.show {
+            max-height: 60vh;
+        }
+
+        .emoji-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .emoji-panel-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .emoji-panel-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: var(--bg);
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .emoji-panel-body {
+            padding: 12px 16px;
+            max-height: calc(60vh - 60px);
+            overflow-y: auto;
+        }
+
+        .emoji-category {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 12px 0 8px 0;
+            font-weight: 500;
+        }
+
+        .emoji-category:first-child {
+            margin-top: 0;
+        }
+
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+
+        .emoji-btn {
+            width: 100%;
+            aspect-ratio: 1;
+            border: none;
+            background: transparent;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.15s;
+        }
+
+        .emoji-btn:hover {
+            background: var(--pink-light);
+            transform: scale(1.15);
+        }
+
+        .emoji-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* 輸入區的表情按鈕 */
+        .input-area {
+            position: relative;
+        }
+
+        .emoji-input-btn {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: transparent;
+            font-size: 22px;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .emoji-input-btn:hover {
+            background: var(--pink-light);
+        }
+
+        .chat-input {
+            padding-left: 52px !important;
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            align-self: flex-start;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: var(--card);
+            border-radius: 18px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .typing-indicator.show { opacity: 1; }
+
+        .typing-dots {
+            display: flex;
+            gap: 3px;
+        }
+
+        .typing-dots span {
+            width: 6px;
+            height: 6px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite;
+        }
+
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-4px); }
+        }
+
+        /* Ended State */
+        .chat-ended {
+            padding: 16px;
+            background: var(--green-light);
+            text-align: center;
+        }
+
+        .chat-ended-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .chat-ended-text {
+            font-size: 14px;
+            color: var(--green-dark);
+            font-weight: 500;
+        }
+
+        .chat-ended-sub {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--pink-dark);
+            color: var(--white);
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <button class="back-btn" onclick="goBack()">←</button>
+                <div class="header-title">
+                    <h1>課程討論</h1>
+                    <span>衡點健康</span>
+                </div>
+            </div>
+            <div class="user-badge">
+                <div class="user-avatar-small" id="studentAvatar">-</div>
+                <span id="studentName">載入中...</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Compact Info Bar (點擊展開詳情) -->
+        <div class="info-bar" id="infoBar" onclick="toggleInfoBar()">
+            <div class="info-bar-main">
+                <div class="info-bar-left">
+                    <div class="course-icon-small" id="courseIcon">📋</div>
+                    <div class="info-bar-text">
+                        <div class="info-bar-title" id="infoBarTitle">
+                            載入中...
+                        </div>
+                        <div class="info-bar-subtitle" id="infoBarSubtitle">-</div>
+                    </div>
+                </div>
+                <div class="info-bar-right">
+                    <span class="substitute-badge" id="substituteBadge">-</span>
+                    <span class="expand-icon">▼</span>
+                </div>
+            </div>
+            <div class="info-detail">
+                <div class="info-detail-inner">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">上課日期</div>
+                            <div class="info-value" id="infoDate">-</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">上課時間</div>
+                            <div class="info-value" id="infoTime">-</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">原教練</div>
+                            <div class="info-value" id="infoOriginal">-</div>
+                        </div>
+                        <div class="info-item highlight">
+                            <div class="info-label">代課教練</div>
+                            <div class="info-value" id="infoSubstitute">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Participants - compact -->
+        <div class="participants-bar">
+            <span id="participantsText">👥 載入中...</span>
+            <div class="participants-avatars" id="participantsAvatars">
+            </div>
+        </div>
+
+        <!-- Messages - 更大的區域 -->
+        <div class="messages-area" id="messagesArea">
+            <div class="typing-indicator" id="typingIndicator">
+                <div class="typing-dots"><span></span><span></span><span></span></div>
+                <span id="typingText">有人正在輸入...</span>
+            </div>
+        </div>
+
+        <!-- 表情選擇面板 -->
+        <div class="quick-replies">
+            <div class="emoji-panel" id="emojiPanel">
+                <div class="emoji-panel-header">
+                    <span class="emoji-panel-title">選擇表情</span>
+                    <button class="emoji-panel-close" onclick="closeEmojiPanel()">✕</button>
+                </div>
+                <div class="emoji-panel-body">
+                    <div class="emoji-category">😀 常用</div>
+                    <div class="emoji-grid" id="recentEmojis">
+                        <button class="emoji-btn" onclick="sendEmoji('👍')">👍</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🙏')">🙏</button>
+                        <button class="emoji-btn" onclick="sendEmoji('😊')">😊</button>
+                        <button class="emoji-btn" onclick="sendEmoji('👋')">👋</button>
+                        <button class="emoji-btn" onclick="sendEmoji('💪')">💪</button>
+                        <button class="emoji-btn" onclick="sendEmoji('❤️')">❤️</button>
+                    </div>
+                    
+                    <div class="emoji-category">😄 表情</div>
+                    <div class="emoji-grid">
+                        <button class="emoji-btn" onclick="sendEmoji('😀')">😀</button>
+                        <button class="emoji-btn" onclick="sendEmoji('😄')">😄</button>
+                        <button class="emoji-btn" onclick="sendEmoji('😊')">😊</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🥰')">🥰</button>
+                        <button class="emoji-btn" onclick="sendEmoji('😎')">😎</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🤔')">🤔</button>
+                        <button class="emoji-btn" onclick="sendEmoji('😅')">😅</button>
+                        <button class="emoji-btn" onclick="sendEmoji('😢')">😢</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🥺')">🥺</button>
+                        <button class="emoji-btn" onclick="sendEmoji('😮')">😮</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🤗')">🤗</button>
+                        <button class="emoji-btn" onclick="sendEmoji('😇')">😇</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🙈')">🙈</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🤭')">🤭</button>
+                    </div>
+                    
+                    <div class="emoji-category">👋 手勢</div>
+                    <div class="emoji-grid">
+                        <button class="emoji-btn" onclick="sendEmoji('👍')">👍</button>
+                        <button class="emoji-btn" onclick="sendEmoji('👎')">👎</button>
+                        <button class="emoji-btn" onclick="sendEmoji('👌')">👌</button>
+                        <button class="emoji-btn" onclick="sendEmoji('✌️')">✌️</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🙏')">🙏</button>
+                        <button class="emoji-btn" onclick="sendEmoji('👋')">👋</button>
+                        <button class="emoji-btn" onclick="sendEmoji('💪')">💪</button>
+                        <button class="emoji-btn" onclick="sendEmoji('👏')">👏</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🤝')">🤝</button>
+                        <button class="emoji-btn" onclick="sendEmoji('✋')">✋</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🤞')">🤞</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🫶')">🫶</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🙌')">🙌</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🤙')">🤙</button>
+                    </div>
+                    
+                    <div class="emoji-category">❤️ 符號</div>
+                    <div class="emoji-grid">
+                        <button class="emoji-btn" onclick="sendEmoji('❤️')">❤️</button>
+                        <button class="emoji-btn" onclick="sendEmoji('💕')">💕</button>
+                        <button class="emoji-btn" onclick="sendEmoji('✨')">✨</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🔥')">🔥</button>
+                        <button class="emoji-btn" onclick="sendEmoji('⭐')">⭐</button>
+                        <button class="emoji-btn" onclick="sendEmoji('💯')">💯</button>
+                        <button class="emoji-btn" onclick="sendEmoji('✅')">✅</button>
+                        <button class="emoji-btn" onclick="sendEmoji('❓')">❓</button>
+                        <button class="emoji-btn" onclick="sendEmoji('❗')">❗</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🎉')">🎉</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🎊')">🎊</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🏆')">🏆</button>
+                        <button class="emoji-btn" onclick="sendEmoji('💝')">💝</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🌟')">🌟</button>
+                    </div>
+
+                    <div class="emoji-category">🏃 運動</div>
+                    <div class="emoji-grid">
+                        <button class="emoji-btn" onclick="sendEmoji('🏃')">🏃</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🧘')">🧘</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🏋️')">🏋️</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🤸')">🤸</button>
+                        <button class="emoji-btn" onclick="sendEmoji('💪')">💪</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🦵')">🦵</button>
+                        <button class="emoji-btn" onclick="sendEmoji('🏅')">🏅</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+            <button class="emoji-input-btn" onclick="toggleEmojiPanel()">😊</button>
+            <textarea class="chat-input" id="chatInput" placeholder="輸入訊息..." rows="1" oninput="handleTyping()"></textarea>
+            <button class="notify-btn" onclick="forceNotify()" title="通知對方查看聊天室">📢</button>
+            <button class="send-btn" onclick="sendMessage()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============ Supabase Config ============
+        const SUPABASE_URL = 'https://mnjilhpztnowaplggvkk.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uamlsaHB6dG5vd2FwbGdndmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDA0ODYsImV4cCI6MjA4MTI3NjQ4Nn0.X3e9DF3iT2KUR9ma3_Ins01vG607R155v0xia8hO_Qg';
+        
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // LIFF ID（學員端）
+        const LIFF_ID = '2008660081-kPTCVzbD';
+        
+        let requestId = null; // 會在 LIFF 初始化後取得
+        let currentRequest = null;
+        let currentStudent = null;
+        let messagesSubscription = null;
+
+        // ============ 取得 room 參數 ============
+        function getRequestIdFromUrl() {
+            // 方法 1: 從 window.location.search 取得
+            let urlParams = new URLSearchParams(window.location.search);
+            let roomId = urlParams.get('room');
+            
+            if (roomId) {
+                console.log('從 window.location.search 取得 room:', roomId);
+                return roomId;
+            }
+            
+            // 方法 2: 從 window.location.href 解析
+            const href = window.location.href;
+            const match = href.match(/[?&]room=([^&]+)/);
+            if (match) {
+                roomId = decodeURIComponent(match[1]);
+                console.log('從 href 解析取得 room:', roomId);
+                return roomId;
+            }
+            
+            // 方法 3: 從 hash 取得（有些 LIFF 會把參數放在 hash）
+            if (window.location.hash) {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                roomId = hashParams.get('room');
+                if (roomId) {
+                    console.log('從 hash 取得 room:', roomId);
+                    return roomId;
+                }
+            }
+            
+            console.log('找不到 room 參數');
+            console.log('window.location.href:', window.location.href);
+            console.log('window.location.search:', window.location.search);
+            console.log('window.location.hash:', window.location.hash);
+            
+            return null;
+        }
+
+        // ============ LIFF Init ============
+        async function initLiff() {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                console.log('LIFF initialized');
+                console.log('LIFF isInClient:', liff.isInClient());
+                console.log('LIFF OS:', liff.getOS());
+                
+                // LIFF 初始化後再取得 URL 參數
+                requestId = getRequestIdFromUrl();
+                console.log('requestId:', requestId);
+                
+                // 檢查是否有 room 參數
+                if (!requestId) {
+                    document.getElementById('infoBarTitle').textContent = '無效的連結';
+                    document.getElementById('infoBarSubtitle').textContent = '請從 LINE 訊息中的連結進入';
+                    document.getElementById('studentName').textContent = '-';
+                    return null;
+                }
+                
+                // 檢查是否登入
+                if (!liff.isLoggedIn()) {
+                    // 未登入，導向 LINE 登入（帶上原本的參數）
+                    liff.login({ redirectUri: window.location.href });
+                    return null;
+                }
+                
+                // 取得用戶 Profile
+                const profile = await liff.getProfile();
+                console.log('LINE Profile:', profile);
+                
+                return profile;
+            } catch (error) {
+                console.error('LIFF init error:', error);
+                console.error('Error details:', JSON.stringify(error));
+                showToast('LINE 登入失敗: ' + (error.message || '未知錯誤'));
+                return null;
+            }
+        }
+
+        // ============ Init ============
+        async function init() {
+            // 載入最近使用的表情
+            loadRecentEmojis();
+            
+            // 初始化 LIFF（會在裡面取得 requestId）
+            document.getElementById('studentName').textContent = '初始化中...';
+            
+            const profile = await initLiff();
+            
+            // 如果 initLiff 返回 null，表示沒有 room 參數或登入失敗
+            if (!profile) {
+                console.log('initLiff 返回 null，停止初始化');
+                return;
+            }
+            
+            // 更新顯示
+            document.getElementById('studentName').textContent = '載入中...';
+            
+            try {
+                // 先載入代課請求，取得 student_id
+                const { data: request, error: requestError } = await supabaseClient
+                    .from('substitute_requests_full')
+                    .select('*')
+                    .eq('id', requestId)
+                    .single();
+                
+                if (requestError || !request) {
+                    document.getElementById('studentName').textContent = '找不到';
+                    alert('找不到此代課請求');
+                    return;
+                }
+                
+                currentRequest = request;
+                
+                // 取得這個代課請求的學員資料
+                const { data: student, error: studentError } = await supabaseClient
+                    .from('students')
+                    .select('*')
+                    .eq('id', request.student_id)
+                    .single();
+                
+                if (studentError || !student) {
+                    // 找不到學員，自動建立
+                    console.log('自動建立學員帳號');
+                    
+                    const { data: newStudent, error: insertError } = await supabaseClient
+                        .from('students')
+                        .insert({
+                            name: profile.displayName,
+                            avatar: profile.displayName.charAt(0),
+                            line_uid: profile.userId,
+                            notes: '自動建立'
+                        })
+                        .select()
+                        .single();
+                    
+                    if (insertError) {
+                        console.error('建立學員帳號失敗:', insertError);
+                        alert('無法建立帳號，請稍後再試');
+                        return;
+                    }
+                    
+                    currentStudent = {
+                        id: newStudent.id,
+                        name: newStudent.name,
+                        avatar: newStudent.avatar,
+                        lineUid: profile.userId
+                    };
+                } else {
+                    // 找到學員
+                    // 如果學員沒有 LINE UID，更新它
+                    if (!student.line_uid) {
+                        console.log('更新學員 LINE UID');
+                        await supabaseClient
+                            .from('students')
+                            .update({ line_uid: profile.userId })
+                            .eq('id', student.id);
+                    }
+                    
+                    currentStudent = {
+                        id: student.id,
+                        name: student.name,
+                        avatar: student.avatar,
+                        lineUid: profile.userId
+                    };
+                }
+                
+                // 如果狀態還不是 with-student，表示學員第一次加入
+                if (currentRequest.status !== 'with-student' && currentRequest.status !== 'resolved') {
+                    // 更新狀態為 with-student
+                    await supabaseClient
+                        .from('substitute_requests')
+                        .update({ status: 'with-student' })
+                        .eq('id', requestId);
+                    
+                    // 新增學員加入的系統訊息
+                    await supabaseClient
+                        .from('messages')
+                        .insert({
+                            request_id: requestId,
+                            message_type: 'system',
+                            system_subtype: 'student_joined',
+                            content: `📢 ${currentStudent.name} 已加入討論`
+                        });
+                    
+                    console.log('學員首次加入，已更新狀態');
+                }
+                
+                // 更新 UI
+                updateUI();
+                
+                // 載入訊息
+                await loadMessages();
+                
+                // 訂閱即時訊息
+                subscribeToMessages();
+                
+                // 訂閱 typing 狀態
+                subscribeToTyping();
+                
+                // 開始在線狀態追蹤
+                startPresenceTracking();
+                
+                // 頁面離開時停止追蹤
+                window.addEventListener('beforeunload', stopPresenceTracking);
+                
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('載入失敗');
+            }
+        }
+
+        async function loadRequest() {
+            const { data, error } = await supabaseClient
+                .from('substitute_requests_full')
+                .select('*')
+                .eq('id', requestId)
+                .single();
+            
+            if (error) throw error;
+            
+            currentRequest = data;
+            
+            // 更新 UI
+            updateUI();
+            
+            // 載入訊息
+            await loadMessages();
+        }
+
+        function updateUI() {
+            const courseIcons = {
+                'pilates': '🧘',
+                'weight': '🏋️',
+                'stretch': '🤸',
+                'ai': '🤖'
+            };
+            
+            // 更新課程圖示
+            document.getElementById('courseIcon').textContent = courseIcons[currentRequest.course_type] || '📋';
+            
+            // 更新標題
+            document.getElementById('infoBarTitle').innerHTML = `
+                ${getCourseTypeName(currentRequest.course_type)}
+                <span style="font-weight:400;color:var(--text-secondary);font-size:13px;">
+                    ${formatDate(currentRequest.course_date)} ${currentRequest.course_time}
+                </span>
+            `;
+            
+            // 更新副標題
+            document.getElementById('infoBarSubtitle').textContent = 
+                `${currentRequest.original_coach_name} → ${currentRequest.substitute_coach_name || '待定'} 代課`;
+            
+            // 更新代課教練 badge
+            document.getElementById('substituteBadge').textContent = 
+                currentRequest.substitute_coach_name ? `👋 ${currentRequest.substitute_coach_name}` : '待定';
+            
+            // 更新學員名稱
+            document.getElementById('studentAvatar').textContent = currentStudent.avatar;
+            document.getElementById('studentName').textContent = currentStudent.name;
+            
+            // 更新詳細資訊
+            document.getElementById('infoDate').textContent = formatDate(currentRequest.course_date);
+            document.getElementById('infoTime').textContent = currentRequest.course_time;
+            document.getElementById('infoOriginal').textContent = currentRequest.original_coach_name;
+            document.getElementById('infoSubstitute').textContent = 
+                currentRequest.substitute_coach_name ? `👋 ${currentRequest.substitute_coach_name}` : '待定';
+            
+            // 更新參與者
+            const participants = [currentRequest.original_coach_name];
+            if (currentRequest.substitute_coach_name) {
+                participants.push(currentRequest.substitute_coach_name);
+            }
+            participants.push(currentStudent.name);
+            document.getElementById('participantsText').textContent = `👥 ${participants.join('、')}`;
+            
+            // 更新參與者頭像
+            let avatarsHtml = `<div class="p-avatar" title="${currentRequest.original_coach_name}">${currentRequest.original_coach_avatar || currentRequest.original_coach_name?.charAt(0)}</div>`;
+            if (currentRequest.substitute_coach_name) {
+                avatarsHtml += `<div class="p-avatar" title="${currentRequest.substitute_coach_name}">${currentRequest.substitute_coach_avatar || currentRequest.substitute_coach_name?.charAt(0)}</div>`;
+            }
+            avatarsHtml += `<div class="p-avatar me" title="我">${currentStudent.avatar}</div>`;
+            document.getElementById('participantsAvatars').innerHTML = avatarsHtml;
+        }
+
+        async function loadMessages() {
+            const { data, error } = await supabaseClient
+                .from('messages')
+                .select(`
+                    *,
+                    sender_coach:coaches!sender_coach_id(id, name, avatar),
+                    sender_student:students!sender_student_id(id, name, avatar)
+                `)
+                .eq('request_id', requestId)
+                .order('created_at', { ascending: true });
+            
+            if (error) {
+                console.error('Load messages error:', error);
+                return;
+            }
+            
+            // 找到學員加入的訊息時間點
+            const joinedMessage = data.find(msg => 
+                msg.message_type === 'system' && msg.system_subtype === 'student_joined'
+            );
+            
+            // 只顯示學員加入後的訊息
+            let filteredMessages = data;
+            if (joinedMessage) {
+                const joinedTime = new Date(joinedMessage.created_at);
+                filteredMessages = data.filter(msg => new Date(msg.created_at) >= joinedTime);
+            }
+            
+            renderAllMessages(filteredMessages);
+        }
+
+        function renderAllMessages(messages) {
+            const container = document.getElementById('messagesArea');
+            const typing = document.getElementById('typingIndicator');
+            
+            // 清除舊訊息（保留 typing indicator）
+            container.innerHTML = '';
+            container.appendChild(typing);
+            
+            // 加入歡迎訊息
+            const welcomeMsg = document.createElement('div');
+            welcomeMsg.className = 'system-message joined';
+            welcomeMsg.textContent = '🎉 您已加入討論，可以開始與教練溝通了！';
+            container.insertBefore(welcomeMsg, typing);
+            
+            messages.forEach(msg => {
+                const msgEl = document.createElement('div');
+                
+                if (msg.message_type === 'system') {
+                    msgEl.className = `system-message ${msg.system_subtype === 'student_joined' ? 'joined' : ''}`;
+                    msgEl.textContent = msg.content;
+                } else {
+                    const sender = msg.sender_coach || msg.sender_student;
+                    const isSent = msg.sender_student_id === currentStudent.id;
+                    const time = new Date(msg.created_at);
+                    const timeStr = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+                    
+                    msgEl.className = `message ${isSent ? 'sent' : 'received'}`;
+                    
+                    if (isSent) {
+                        msgEl.innerHTML = `
+                            <div class="message-bubble">${msg.content}</div>
+                            <div class="message-time">${timeStr}</div>
+                        `;
+                    } else {
+                        const role = msg.sender_coach_id === currentRequest.original_coach_id ? 'original' : 'substitute';
+                        const roleText = role === 'original' ? '原教練' : '代課';
+                        msgEl.innerHTML = `
+                            <div class="message-header">
+                                <span class="msg-avatar">${sender?.avatar || '?'}</span>
+                                <span class="msg-sender">${sender?.name || '未知'} <span class="role ${role}">${roleText}</span></span>
+                            </div>
+                            <div class="message-bubble">${msg.content}</div>
+                            <div class="message-time">${timeStr}</div>
+                        `;
+                    }
+                }
+                
+                container.insertBefore(msgEl, typing);
+            });
+            
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function subscribeToMessages() {
+            messagesSubscription = supabaseClient
+                .channel(`messages-${requestId}`)
+                .on(
+                    'postgres_changes',
+                    { 
+                        event: 'INSERT', 
+                        schema: 'public', 
+                        table: 'messages',
+                        filter: `request_id=eq.${requestId}`
+                    },
+                    async (payload) => {
+                        console.log('New message:', payload);
+                        await loadMessages();
+                    }
+                )
+                .subscribe();
+        }
+
+        // ============ Typing Indicator ============
+        let typingChannel = null;
+        let typingTimeout = null;
+        let isTyping = false;
+        
+        function subscribeToTyping() {
+            if (!requestId) return;
+            
+            typingChannel = supabaseClient
+                .channel(`typing-${requestId}`)
+                .on('broadcast', { event: 'typing' }, (payload) => {
+                    const data = payload.payload;
+                    
+                    // 忽略自己的 typing 事件
+                    if (currentStudent && data.user_id === currentStudent.id) return;
+                    
+                    const indicator = document.getElementById('typingIndicator');
+                    const typingText = document.getElementById('typingText');
+                    
+                    if (data.is_typing) {
+                        if (typingText) {
+                            typingText.textContent = `${data.user_name} 正在輸入...`;
+                        }
+                        indicator.classList.add('show');
+                        
+                        // 滾動到底部
+                        const container = document.getElementById('messagesArea');
+                        container.scrollTop = container.scrollHeight;
+                    } else {
+                        indicator.classList.remove('show');
+                    }
+                })
+                .subscribe();
+        }
+        
+        function handleTyping() {
+            if (!currentStudent || !typingChannel) return;
+            
+            // 如果還沒發送 typing 狀態，發送一次
+            if (!isTyping) {
+                isTyping = true;
+                typingChannel.send({
+                    type: 'broadcast',
+                    event: 'typing',
+                    payload: {
+                        user_id: currentStudent.id,
+                        user_name: currentStudent.name,
+                        is_typing: true
+                    }
+                });
+            }
+            
+            // 清除之前的 timeout
+            if (typingTimeout) {
+                clearTimeout(typingTimeout);
+            }
+            
+            // 2 秒後停止 typing 狀態
+            typingTimeout = setTimeout(() => {
+                stopTyping();
+            }, 2000);
+        }
+        
+        function stopTyping() {
+            if (!currentStudent || !typingChannel || !isTyping) return;
+            
+            isTyping = false;
+            typingChannel.send({
+                type: 'broadcast',
+                event: 'typing',
+                payload: {
+                    user_id: currentStudent.id,
+                    user_name: currentStudent.name,
+                    is_typing: false
+                }
+            });
+        }
+
+        // ============ UI Functions ============
+        function toggleInfoBar() {
+            document.getElementById('infoBar').classList.toggle('expanded');
+        }
+
+        function goBack() {
+            if (window.liff && liff.isInClient()) {
+                liff.closeWindow();
+            } else {
+                window.history.back();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const content = input.value.trim();
+            if (!content || !currentStudent) return;
+            input.value = '';
+            
+            // 停止 typing 狀態
+            stopTyping();
+
+            try {
+                await supabaseClient
+                    .from('messages')
+                    .insert({
+                        request_id: requestId,
+                        sender_student_id: currentStudent.id,
+                        message_type: 'text',
+                        content: content
+                    });
+                
+                // 發送 LINE 通知給教練們
+                notifyNewMessage(content);
+                
+                // Realtime 會自動更新
+            } catch (error) {
+                console.error('Send error:', error);
+                showToast('發送失敗');
+            }
+        }
+        
+        // 通知新訊息（不等待結果）
+        function notifyNewMessage(content, forceNotify = false) {
+            fetch(`${SUPABASE_URL}/functions/v1/notify-new-message`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({
+                    request_id: requestId,
+                    sender_type: 'student',
+                    sender_id: currentStudent.id,
+                    sender_name: currentStudent.name,
+                    message_content: content,
+                    force_notify: forceNotify
+                })
+            }).catch(err => console.log('Notify error:', err));
+        }
+
+        // 強制通知對方
+        async function forceNotify() {
+            if (!requestId || !currentStudent) return;
+            
+            showToast('正在通知教練...');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-new-message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        request_id: requestId,
+                        sender_type: 'student',
+                        sender_id: currentStudent.id,
+                        sender_name: currentStudent.name,
+                        message_content: '📢 請查看聊天室',
+                        force_notify: true
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.notified > 0) {
+                    showToast(`已通知 ${result.notified} 位教練 ✓`);
+                } else {
+                    showToast('沒有需要通知的人');
+                }
+            } catch (err) {
+                console.error('Force notify error:', err);
+                showToast('通知失敗');
+            }
+        }
+
+        // ============ 在線狀態追蹤 ============
+        let presenceInterval = null;
+
+        async function updatePresence() {
+            if (!requestId || !currentStudent?.id) return;
+            
+            try {
+                await supabaseClient
+                    .from('user_presence')
+                    .upsert({
+                        user_type: 'student',
+                        user_id: currentStudent.id,
+                        request_id: requestId,
+                        last_active_at: new Date().toISOString()
+                    }, {
+                        onConflict: 'user_type,user_id,request_id'
+                    });
+            } catch (err) {
+                console.log('Presence update error:', err);
+            }
+        }
+
+        function startPresenceTracking() {
+            updatePresence();
+            presenceInterval = setInterval(updatePresence, 30000); // 每 30 秒更新
+        }
+
+        function stopPresenceTracking() {
+            if (presenceInterval) {
+                clearInterval(presenceInterval);
+                presenceInterval = null;
+            }
+        }
+
+        function sendQuick(content) {
+            document.getElementById('chatInput').value = content;
+            sendMessage();
+        }
+
+        // ============ Emoji Panel Functions ============
+        let emojiPanelOpen = false;
+        let recentEmojis = ['👍', '🙏', '😊', '👋', '💪', '❤️'];
+        
+        // 從 localStorage 載入最近使用的表情
+        function loadRecentEmojis() {
+            const saved = localStorage.getItem('recentEmojis');
+            if (saved) {
+                recentEmojis = JSON.parse(saved);
+                renderRecentEmojis();
+            }
+        }
+        
+        // 儲存最近使用的表情
+        function saveRecentEmojis() {
+            localStorage.setItem('recentEmojis', JSON.stringify(recentEmojis));
+        }
+        
+        // 渲染最近使用的表情
+        function renderRecentEmojis() {
+            const container = document.getElementById('recentEmojis');
+            if (container) {
+                container.innerHTML = recentEmojis.map(emoji => 
+                    `<button class="emoji-btn" onclick="sendEmoji('${emoji}')">${emoji}</button>`
+                ).join('');
+            }
+        }
+        
+        // 展開/收合表情面板
+        function toggleEmojiPanel() {
+            emojiPanelOpen = !emojiPanelOpen;
+            document.getElementById('emojiPanel').classList.toggle('show', emojiPanelOpen);
+        }
+        
+        // 關閉表情面板
+        function closeEmojiPanel() {
+            emojiPanelOpen = false;
+            document.getElementById('emojiPanel').classList.remove('show');
+        }
+        
+        // 發送表情
+        function sendEmoji(emoji) {
+            sendQuick(emoji);
+            closeEmojiPanel();
+            
+            // 更新最近使用
+            const index = recentEmojis.indexOf(emoji);
+            if (index > -1) {
+                recentEmojis.splice(index, 1);
+            }
+            recentEmojis.unshift(emoji);
+            if (recentEmojis.length > 6) {
+                recentEmojis.pop();
+            }
+            saveRecentEmojis();
+            renderRecentEmojis();
+        }
+
+        function showTyping() {
+            document.getElementById('typingIndicator').classList.add('show');
+            const container = document.getElementById('messagesArea');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function hideTyping() {
+            document.getElementById('typingIndicator').classList.remove('show');
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        // ============ Helpers ============
+        function getCourseTypeName(type) {
+            const names = {
+                'pilates': '皮拉提斯',
+                'weight': '重量訓練',
+                'stretch': '伸展課程',
+                'ai': 'AI 體態分析'
+            };
+            return names[type] || type;
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const weekday = weekdays[date.getDay()];
+            return `${month}/${day}（${weekday}）`;
+        }
+
+        // ============ Enter 鍵送出訊息 ============
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                chatInput.addEventListener('keydown', function(e) {
+                    // Enter 送出（不含 Shift）
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault(); // 防止換行
+                        sendMessage();
+                    }
+                    // Shift + Enter 換行（預設行為，不用處理）
+                });
+            }
+        });
+
+        // ============ Start ============
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
