@@ -1928,24 +1928,11 @@
                         placeholder="輸入學員姓名或代號..." oninput="searchStudentForInvite()">
                 </div>
                 
-                <!-- 新增學員提示 -->
+                <!-- 找不到學員提示 -->
                 <div class="add-student-hint" id="addStudentHint" style="display: none;">
-                    <div class="hint-content">
-                        <span>找不到學員？</span>
-                        <button class="add-student-btn" onclick="showAddStudentForm()">➕ 新增學員</button>
-                    </div>
-                </div>
-                
-                <!-- 新增學員表單 -->
-                <div class="add-student-form" id="addStudentForm" style="display: none;">
-                    <div style="font-size: 13px; font-weight: 500; margin-bottom: 8px;">新增學員</div>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="newStudentNameInput" placeholder="輸入學員姓名" 
-                            style="flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;">
-                        <button onclick="addNewStudentForInvite()" 
-                            style="padding: 10px 16px; background: var(--green); color: white; border: none; border-radius: 6px; font-weight: 500; cursor: pointer;">
-                            新增
-                        </button>
+                    <div class="hint-content" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                        <span>🔍 找不到此學員</span>
+                        <span style="font-size: 12px; color: var(--text-muted);">請聯繫行政人員新增學員資料</span>
                     </div>
                 </div>
                 
@@ -1964,6 +1951,12 @@
             <div class="modal-body">
                 <div class="invite-card">
                     <h3>📱 邀請 <span id="inviteStudentName">學員</span> 加入</h3>
+                    
+                    <!-- ⚠️ 警告提示 -->
+                    <div style="padding: 12px; background: linear-gradient(135deg, #FEE2E2, #FECACA); border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: #B91C1C; border: 1px solid #FECACA;">
+                        <div style="font-weight: 600; margin-bottom: 4px;">⚠️ 注意</div>
+                        <div>邀請學員後，將<strong>無法取消</strong>此代課請求</div>
+                    </div>
                     
                     <!-- 邀請連結 -->
                     <div style="margin: 16px 0;">
@@ -2056,10 +2049,12 @@
             
             try {
                 // 初始化 LIFF
+                console.log('Step 1: Init LIFF');
                 await liff.init({ liffId: LIFF_ID });
-                console.log('LIFF initialized');
+                console.log('LIFF initialized, isInClient:', liff.isInClient());
                 
                 // 檢查是否登入
+                console.log('Step 2: Check login, isLoggedIn:', liff.isLoggedIn());
                 if (!liff.isLoggedIn()) {
                     document.getElementById('userNameDisplay').textContent = '請登入';
                     liff.login({ redirectUri: window.location.href });
@@ -2067,6 +2062,7 @@
                 }
                 
                 // 取得 LINE Profile
+                console.log('Step 3: Get profile');
                 const profile = await liff.getProfile();
                 console.log('LINE Profile:', profile);
                 const lineUid = profile.userId;
@@ -2079,14 +2075,18 @@
                 showToast('載入中...');
                 
                 // 用 LINE UID 查詢教練（不限制 status）
+                console.log('Step 4: Query coach with LINE UID:', lineUid);
                 const { data: coach, error: queryError } = await supabaseClient
                     .from('coaches')
                     .select('*')
                     .eq('line_uid', lineUid)
                     .single();
                 
+                console.log('Query result:', coach, 'Error:', queryError);
+                
                 if (coach) {
                     // 已有記錄，檢查狀態
+                    console.log('Coach found, status:', coach.status, 'is_active:', coach.is_active);
                     if (coach.status === 'approved' && coach.is_active) {
                         // 已核准，進入系統
                         setupCoachUser(coach);
@@ -2099,6 +2099,7 @@
                     }
                 } else {
                     // 不存在，自動建立申請
+                    console.log('Step 5: Creating new coach application');
                     const avatar = displayName ? displayName.charAt(0) : '👤';
                     
                     const { data: newCoach, error: insertError } = await supabaseClient
@@ -2114,9 +2115,11 @@
                         .select()
                         .single();
                     
+                    console.log('Insert result:', newCoach, 'Error:', insertError);
+                    
                     if (insertError) {
                         console.error('Insert error:', insertError);
-                        showToast('申請失敗，請稍後再試');
+                        showErrorScreen('申請失敗', insertError.message || JSON.stringify(insertError));
                         return;
                     }
                     
@@ -2126,8 +2129,38 @@
                 
             } catch (error) {
                 console.error('Init error:', error);
-                showToast('載入失敗，請重試');
+                showErrorScreen('載入失敗', error.message || JSON.stringify(error));
             }
+        }
+        
+        // 顯示錯誤畫面
+        function showErrorScreen(title, message) {
+            document.body.innerHTML = `
+                <div style="
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    background: var(--bg);
+                    padding: 20px;
+                    text-align: center;
+                ">
+                    <div style="font-size: 64px; margin-bottom: 20px;">❌</div>
+                    <h1 style="font-size: 24px; color: var(--pink-dark); margin-bottom: 12px;">${title}</h1>
+                    <p style="color: var(--text-secondary); margin-bottom: 8px; word-break: break-all; max-width: 300px;">${message}</p>
+                    <button onclick="window.location.reload()" style="
+                        margin-top: 24px;
+                        padding: 12px 32px;
+                        background: var(--green);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        cursor: pointer;
+                    ">重試</button>
+                </div>
+            `;
         }
         
         // 設定教練用戶並載入資料
@@ -3028,6 +3061,11 @@
         async function forceNotify() {
             if (!currentRequest) return;
             
+            // 確認彈窗
+            if (!confirm('確定要通知對方嗎？\n\n對方將收到 LINE 推播通知，提醒他們查看聊天室。')) {
+                return;
+            }
+            
             showToast('正在通知對方...');
             
             try {
@@ -3329,7 +3367,6 @@
                 </div>
             `;
             document.getElementById('addStudentHint').style.display = 'none';
-            document.getElementById('addStudentForm').style.display = 'none';
             openModal('searchStudentModal');
         }
         
@@ -3378,57 +3415,6 @@
                         <button class="result-action invite">📱 邀請</button>
                     </div>
                 `).join('');
-            }
-        }
-        
-        function showAddStudentForm() {
-            document.getElementById('addStudentForm').style.display = 'block';
-            document.getElementById('newStudentNameInput').focus();
-        }
-        
-        async function addNewStudentForInvite() {
-            const nameInput = document.getElementById('newStudentNameInput');
-            const name = nameInput.value.trim();
-            
-            if (!name) {
-                showToast('請輸入學員姓名');
-                return;
-            }
-            
-            try {
-                showToast('新增學員中...');
-                
-                const { data: newStudent, error } = await supabaseClient
-                    .from('students')
-                    .insert({
-                        name: name,
-                        avatar: name.charAt(0),
-                        is_active: true
-                    })
-                    .select()
-                    .single();
-                
-                if (error) throw error;
-                
-                // 加入本地列表
-                allStudents.push({
-                    id: newStudent.id,
-                    name: newStudent.name,
-                    avatar: newStudent.avatar,
-                    phone: '',
-                    notes: ''
-                });
-                
-                showToast('✅ 已新增學員');
-                nameInput.value = '';
-                document.getElementById('addStudentForm').style.display = 'none';
-                
-                // 直接選擇這個新學員
-                await selectStudentForInvite(newStudent.id);
-                
-            } catch (error) {
-                console.error('Add student error:', error);
-                showToast('新增失敗：' + error.message);
             }
         }
         
@@ -3693,6 +3679,12 @@
 
         async function sendLineInvite() {
             if (!currentRequest) return;
+            
+            // 確認彈窗
+            const studentName = currentRequest.student?.name || currentRequest.student_name || '學員';
+            if (!confirm(`確定要邀請「${studentName}」加入討論嗎？\n\n⚠️ 注意：邀請學員後，將無法取消此代課請求。`)) {
+                return;
+            }
             
             try {
                 showToast('正在發送邀請...');
