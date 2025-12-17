@@ -1787,6 +1787,108 @@
                 overflow: hidden;
             }
         }
+
+        /* 學員選擇區域 */
+        .student-select-area {
+            width: 100%;
+        }
+
+        .select-student-btn {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            background: var(--bg);
+            font-size: 15px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .select-student-btn:active {
+            border-color: var(--green);
+            background: var(--green-light);
+        }
+
+        .selected-student-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border: 2px solid var(--green);
+            border-radius: 12px;
+            background: var(--green-light);
+        }
+
+        .selected-student-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .selected-student-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--green);
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .selected-student-name {
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .change-student-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 8px;
+            background: var(--white);
+            color: var(--green-dark);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .change-student-btn:active {
+            background: var(--green);
+            color: var(--white);
+        }
+
+        /* 學員選擇 Modal 中的列表 */
+        .student-select-list {
+            max-height: 400px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+        }
+
+        .student-select-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .student-select-item:active {
+            background: var(--green-light);
+        }
+
+        .student-select-item.selected {
+            background: var(--green-light);
+            border: 2px solid var(--green);
+        }
     </style>
 </head>
 <body>
@@ -2064,14 +2166,21 @@
                     </div>
                 </div>
 
+                <!-- 學員選擇（必填） -->
                 <div class="form-group">
-                    <label class="form-label">原因 <span style="color: #e74c3c;">*</span></label>
-                    <input type="text" class="form-input" id="inputReason" placeholder="例：臨時有事需要請假" required>
-                </div>
-
-                <div class="info-hint">
-                    <span class="hint-icon">💡</span>
-                    <span class="hint-text">發起後可在聊天室中搜尋並邀請學員加入</span>
+                    <label class="form-label">學員 <span style="color: #e74c3c;">*</span></label>
+                    <div class="student-select-area" id="studentSelectArea">
+                        <div class="selected-student-display" id="selectedStudentDisplay" style="display: none;">
+                            <div class="selected-student-info">
+                                <span class="selected-student-avatar" id="selectedStudentAvatar">王</span>
+                                <span class="selected-student-name" id="selectedStudentName">王小明</span>
+                            </div>
+                            <button type="button" class="change-student-btn" onclick="openStudentSelectModal()">更換</button>
+                        </div>
+                        <button type="button" class="select-student-btn" id="selectStudentBtn" onclick="openStudentSelectModal()">
+                            👤 選擇學員
+                        </button>
+                    </div>
                 </div>
 
                 <button class="submit-btn" id="createRequestBtn" onclick="createRequest()">發送代課需求</button>
@@ -2161,6 +2270,26 @@
                 <div class="confirm-buttons">
                     <button class="confirm-btn cancel" onclick="closeModal('endChatModal')">繼續討論</button>
                     <button class="confirm-btn success" onclick="endChat()">確認結束</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Select Modal (發起請求時選擇學員) -->
+    <div class="modal-overlay" id="studentSelectModal" onclick="closeModalIfOutside(event, 'studentSelectModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>👤 選擇學員</h2>
+                <button class="close-btn" onclick="closeModal('studentSelectModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-input-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="createStudentSearchInput" 
+                        placeholder="輸入學員姓名搜尋..." oninput="searchStudentForCreate()">
+                </div>
+                <div class="student-select-list" id="studentSelectList">
+                    <!-- 動態生成 -->
                 </div>
             </div>
         </div>
@@ -2925,6 +3054,7 @@
             const finishCourseBtn = document.getElementById('finishCourseBtn');
             
             const isOriginalCoach = currentRequest.originalTeacher.id === currentUser.id;
+            const isSubstituteCoach = currentRequest.substituteTeacher?.id === currentUser.id;
             
             inviteBtn.style.display = 'none';
             confirmBtn.style.display = 'none';
@@ -2949,11 +3079,12 @@
                 endBtn.classList.add('show');
                 actionBar.style.display = 'flex';
                 
-                if (isOriginalCoach) {
+                // 原教練或代課教練都可以結束對話
+                if (isOriginalCoach || isSubstituteCoach) {
                     chatReminder.classList.add('show');
                 }
                 
-            } else if (currentRequest.status === 'discussing' && currentRequest.substituteTeacher?.id === currentUser.id) {
+            } else if (currentRequest.status === 'discussing' && isSubstituteCoach) {
                 participantsBar.classList.remove('with-student');
                 confirmBtn.style.display = 'flex';
                 if (isOriginalCoach) {
@@ -3808,6 +3939,10 @@
             selectedCourse = null;
             selectedStudent = null;
             
+            // 重置學員選擇顯示
+            document.getElementById('selectedStudentDisplay').style.display = 'none';
+            document.getElementById('selectStudentBtn').style.display = 'block';
+            
             renderCourseOptions();
             
             openModal('createModal');
@@ -3867,7 +4002,6 @@
             const date = document.getElementById('inputDate').value;
             const timeSelect = document.getElementById('inputTime').value;
             const time = getSelectedTime();
-            const reason = document.getElementById('inputReason').value.trim();
             const submitBtn = document.getElementById('createRequestBtn');
 
             if (!date || !timeSelect || !selectedCourse) {
@@ -3875,8 +4009,9 @@
                 return;
             }
             
-            if (!reason) {
-                showToast('請填寫請假原因');
+            // 學員必填
+            if (!selectedStudent) {
+                showToast('請選擇學員');
                 return;
             }
 
@@ -3897,14 +4032,13 @@
             submitBtn.textContent = '建立中...';
 
             try {
-                const message = `各位好，${formatDate(date)} ${time} 我需要請假，${reason}，有人可以幫忙嗎？🙏`;
+                const message = `各位好，${formatDate(date)} ${time} 我需要請假，學員：${selectedStudent.name}，有人可以幫忙嗎？🙏`;
 
                 await createRequestToSupabase({
                     course_type: selectedCourse,
                     course_date: date,
                     course_time: time,
-                    reason: reason,
-                    student_id: null,
+                    student_id: selectedStudent.id,
                     message: message
                 });
 
@@ -3924,13 +4058,83 @@
 
         function resetForm() {
             document.getElementById('inputTime').value = '';
-            document.getElementById('inputReason').value = '';
             document.getElementById('customTimeGroup').style.display = 'none';
             document.getElementById('customTimeStart').value = '09:00';
             document.getElementById('customTimeEnd').value = '10:00';
             document.querySelectorAll('.course-option, .student-option').forEach(e => e.classList.remove('selected'));
             selectedCourse = null;
             selectedStudent = null;
+            
+            // 重置學員選擇顯示
+            document.getElementById('selectedStudentDisplay').style.display = 'none';
+            document.getElementById('selectStudentBtn').style.display = 'block';
+        }
+
+        // ============ 發起請求時選擇學員 ============
+        function openStudentSelectModal() {
+            document.getElementById('createStudentSearchInput').value = '';
+            renderStudentSelectList(allStudents);
+            openModal('studentSelectModal');
+        }
+        
+        function searchStudentForCreate() {
+            const query = document.getElementById('createStudentSearchInput').value.toLowerCase().trim();
+            
+            if (!query) {
+                renderStudentSelectList(allStudents);
+                return;
+            }
+            
+            const results = allStudents.filter(s => 
+                s.name.toLowerCase().includes(query) ||
+                (s.code && s.code.toLowerCase().includes(query))
+            );
+            
+            renderStudentSelectList(results);
+        }
+        
+        function renderStudentSelectList(students) {
+            const container = document.getElementById('studentSelectList');
+            
+            if (students.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                        <div style="font-size: 32px; margin-bottom: 8px;">😕</div>
+                        <p>找不到符合的學員</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = students.map(s => `
+                <div class="student-select-item ${selectedStudent?.id === s.id ? 'selected' : ''}" 
+                     onclick="selectStudentForCreate('${s.id}')">
+                    <div class="result-info">
+                        <div class="result-avatar" style="background: var(--green);">${s.avatar || s.name.charAt(0)}</div>
+                        <div>
+                            <div class="result-name">${s.name}${s.code ? ` <span style="color: var(--text-muted); font-size: 12px;">(${s.code})</span>` : ''}</div>
+                            <div class="result-detail">${s.course} · ${s.phone || '未填電話'}</div>
+                        </div>
+                    </div>
+                    <span style="color: var(--green); font-size: 20px;">${selectedStudent?.id === s.id ? '✓' : ''}</span>
+                </div>
+            `).join('');
+        }
+        
+        function selectStudentForCreate(studentId) {
+            const student = allStudents.find(s => s.id === studentId);
+            if (!student) return;
+            
+            selectedStudent = student;
+            
+            // 更新顯示
+            document.getElementById('selectedStudentAvatar').textContent = student.avatar || student.name.charAt(0);
+            document.getElementById('selectedStudentName').textContent = student.name;
+            document.getElementById('selectedStudentDisplay').style.display = 'flex';
+            document.getElementById('selectStudentBtn').style.display = 'none';
+            
+            closeModal('studentSelectModal');
+            showToast(`已選擇：${student.name}`);
         }
 
         // ============ Modal Helpers ============
