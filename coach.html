@@ -4093,6 +4093,9 @@
 
             submitBtn.disabled = true;
             submitBtn.textContent = '建立中...';
+            
+            // 先儲存名字，因為 resetForm 會清空
+            const coachName = selectedCoach.name;
 
             try {
                 const message = `${currentUser.name} 請 ${selectedCoach.name} 代課\n📅 ${formatDate(date)} ${time}\n👤 學員：${selectedStudent.name}`;
@@ -4109,7 +4112,7 @@
                 closeModal('createModal');
                 resetForm();
                 switchTab('pending');
-                showToast('已發起代課給 ' + selectedCoach.name);
+                showToast('已發起代課給 ' + coachName);
                 
             } catch (error) {
                 console.error('Create request error:', error);
