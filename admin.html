@@ -36,12 +36,24 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        html {
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+        }
+
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background: var(--bg);
-            min-height: 100vh;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            position: fixed;
             color: var(--text);
             -webkit-tap-highlight-color: transparent;
+            -webkit-text-size-adjust: 100%;
+            overscroll-behavior: none;
         }
 
         /* Login Screen */
@@ -49,8 +61,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            height: 100%;
             padding: 20px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .login-box {
@@ -104,7 +118,13 @@
         /* Main Layout */
         .admin-container {
             display: none;
-            padding-bottom: 80px; /* 給底部導航留空間 */
+            height: 100%;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        .admin-container.show {
+            display: flex;
         }
 
         .header {
@@ -114,8 +134,7 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
+            flex-shrink: 0;
             z-index: 50;
         }
 
@@ -209,6 +228,7 @@
         /* 頂部 Tabs - 電腦版保留 */
         .tabs {
             display: none;
+            flex-shrink: 0;
         }
 
         @media (min-width: 769px) {
@@ -219,11 +239,7 @@
             }
 
             .bottom-nav {
-                display: none;
-            }
-
-            .admin-container {
-                padding-bottom: 0;
+                display: none !important;
             }
         }
 
@@ -243,9 +259,24 @@
             border-bottom-color: var(--green-dark);
         }
 
-        /* Content */
+        /* Content - 主要滾動區域 */
         .content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
             padding: 12px;
+            padding-bottom: 90px;
+        }
+
+        @media (min-width: 769px) {
+            .content {
+                padding-bottom: 20px;
+            }
+        }
+
+        .content-inner {
             max-width: 1200px;
             margin: 0 auto;
         }
@@ -943,6 +974,13 @@
             /* Content */
             .content {
                 padding: 12px;
+                padding-bottom: 100px;
+            }
+
+            /* 優化觸控和滾動 */
+            .card-list,
+            .table-container {
+                touch-action: pan-y;
             }
 
             /* Action Bar */
@@ -1272,6 +1310,56 @@
             color: white;
             border-color: #e74c3c;
         }
+
+        /* ============ 觸控和滾動優化 ============ */
+        /* 按鈕觸控反饋 */
+        button, .tab, .nav-item, .data-card, .card-btn {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        button:active, .card-btn:active {
+            transform: scale(0.97);
+            transition: transform 0.1s;
+        }
+
+        .nav-item:active {
+            background: var(--green-light);
+        }
+
+        /* 卡片觸控效果 */
+        .data-card {
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .data-card:active {
+            transform: scale(0.99);
+        }
+
+        /* 滾動優化 */
+        .content {
+            will-change: scroll-position;
+            scroll-behavior: smooth;
+        }
+
+        /* iOS Safari 安全區域 */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .content {
+                padding-bottom: calc(100px + env(safe-area-inset-bottom));
+            }
+            
+            @media (min-width: 769px) {
+                .content {
+                    padding-bottom: 20px;
+                }
+            }
+        }
+
+        /* 防止文字選取干擾滾動 */
+        .tabs, .bottom-nav, .header {
+            user-select: none;
+            -webkit-user-select: none;
+        }
     </style>
 </head>
 <body>
@@ -1282,11 +1370,28 @@
             <p>管理後台</p>
             <div class="login-error" id="loginError"></div>
             <div id="loginForm">
-                <input type="text" id="usernameInput" placeholder="請輸入帳號" autocomplete="username">
-                <input type="password" id="passwordInput" placeholder="請輸入密碼" onkeypress="if(event.key==='Enter')passwordLogin()" autocomplete="current-password">
-                <button onclick="passwordLogin()">登入</button>
-                <div style="margin: 16px 0; color: var(--text-muted); font-size: 14px;">— 或 —</div>
-                <button onclick="lineLogin()" style="background: #06C755;">使用 LINE 登入</button>
+                <!-- 主要：LINE 登入 -->
+                <div id="lineLoginSection">
+                    <button onclick="lineLogin()" style="background: #06C755; font-size: 16px; padding: 14px 24px;">
+                        <span style="margin-right: 8px;">💬</span> 使用 LINE 登入
+                    </button>
+                    <p style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
+                        首次使用請先從 LINE 登入註冊
+                    </p>
+                    <a href="#" onclick="showPasswordLogin(); return false;" style="display: inline-block; margin-top: 24px; font-size: 12px; color: var(--text-muted); text-decoration: underline;">
+                        使用帳號密碼登入（緊急備用）
+                    </a>
+                </div>
+                
+                <!-- 備用：帳號密碼登入（預設隱藏）-->
+                <div id="passwordLoginSection" style="display: none;">
+                    <input type="text" id="usernameInput" placeholder="請輸入帳號" autocomplete="username">
+                    <input type="password" id="passwordInput" placeholder="請輸入密碼" onkeypress="if(event.key==='Enter')passwordLogin()" autocomplete="current-password">
+                    <button onclick="passwordLogin()">登入</button>
+                    <a href="#" onclick="showLineLogin(); return false;" style="display: inline-block; margin-top: 16px; font-size: 12px; color: var(--text-muted); text-decoration: underline;">
+                        ← 返回 LINE 登入
+                    </a>
+                </div>
             </div>
             <div id="statusScreen" style="display: none;"></div>
         </div>
@@ -1444,8 +1549,8 @@
                         <thead>
                             <tr>
                                 <th>名稱</th>
+                                <th>角色</th>
                                 <th>LINE UID</th>
-                                <th>狀態</th>
                                 <th>建立時間</th>
                                 <th>操作</th>
                             </tr>
@@ -1459,13 +1564,19 @@
             <!-- Logs Tab -->
             <div class="tab-content" id="logsTab">
                 <div class="action-bar">
-                    <h2>📜 操作紀錄</h2>
-                    <button class="add-btn" onclick="loadLogs()" style="background: var(--blue);">🔄 重新整理</button>
+                    <div class="action-bar-top">
+                        <h2>📜 操作紀錄</h2>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="add-btn" id="deleteLogsBtn" onclick="deleteSelectedLogs()" style="background: var(--danger); display: none;">🗑️ 刪除選取</button>
+                            <button class="add-btn" onclick="loadLogs()" style="background: var(--blue);">🔄 重新整理</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="table-container">
                     <table>
                         <thead>
                             <tr>
+                                <th style="width: 40px;" id="logCheckboxHeader"><input type="checkbox" id="selectAllLogs" onchange="toggleSelectAllLogs()" style="display: none;"></th>
                                 <th>時間</th>
                                 <th>管理員</th>
                                 <th>操作</th>
@@ -1649,6 +1760,29 @@
         </div>
     </div>
 
+    <!-- Approve Admin Modal -->
+    <div class="modal-overlay" id="approveAdminModal">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>核准管理員</h3>
+                <button class="modal-close" onclick="closeModal('approveAdminModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 16px;">核准 <strong id="approveAdminName"></strong> 為：</p>
+                <div class="form-group">
+                    <select id="approveAdminRole" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 15px;">
+                        <option value="admin">👤 一般管理員</option>
+                        <option value="super_admin">🔐 主管理員（可管理其他管理員）</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeModal('approveAdminModal')">取消</button>
+                <button class="btn-save" onclick="confirmApproveAdmin()">確認核准</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Admin Modal -->
     <div class="modal-overlay" id="adminModal">
         <div class="modal">
@@ -1791,7 +1925,7 @@
         // 顯示管理介面（登入成功後）
         function showAdminUI(displayName) {
             document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('adminContainer').style.display = 'block';
+            document.getElementById('adminContainer').classList.add('show');
             document.getElementById('adminName').textContent = '👤 ' + displayName;
             
             // 標記已登入，讓 CSS 控制底部導航顯示
@@ -1881,6 +2015,22 @@
             } catch (e) {}
             document.getElementById('loginForm').style.display = 'block';
             document.getElementById('statusScreen').style.display = 'none';
+            document.getElementById('loginError').style.display = 'none';
+            // 重置為 LINE 登入畫面
+            showLineLogin();
+        }
+        
+        // 切換到帳號密碼登入
+        function showPasswordLogin() {
+            document.getElementById('lineLoginSection').style.display = 'none';
+            document.getElementById('passwordLoginSection').style.display = 'block';
+            document.getElementById('loginError').style.display = 'none';
+        }
+        
+        // 切換到 LINE 登入
+        function showLineLogin() {
+            document.getElementById('lineLoginSection').style.display = 'block';
+            document.getElementById('passwordLoginSection').style.display = 'none';
             document.getElementById('loginError').style.display = 'none';
         }
 
@@ -1991,7 +2141,7 @@
                 openCoachModal();
             } else if (tabId === 'adminsTab') {
                 // 只有主管理員可以新增管理員
-                const isSuperAdmin = currentAdmin && currentAdmin.username === 'admin';
+                const isSuperAdmin = currentAdmin && currentAdmin.role === 'super_admin';
                 if (isSuperAdmin) {
                     openAdminModal();
                 } else {
@@ -2006,7 +2156,7 @@
             if (!fab) return;
             
             // 只有主管理員可以在管理員頁面看到浮動按鈕
-            const isSuperAdmin = currentAdmin && currentAdmin.username === 'admin';
+            const isSuperAdmin = currentAdmin && currentAdmin.role === 'super_admin';
             
             if (tabName === 'admins') {
                 fab.style.display = isSuperAdmin ? 'flex' : 'none';
@@ -2079,22 +2229,75 @@
                 
                 if (error) throw error;
                 
+                const isSuperAdmin = currentAdmin && currentAdmin.role === 'super_admin';
+                
+                // 顯示/隱藏刪除按鈕和全選框
+                const deleteLogsBtn = document.getElementById('deleteLogsBtn');
+                const selectAllLogs = document.getElementById('selectAllLogs');
+                if (deleteLogsBtn) deleteLogsBtn.style.display = isSuperAdmin ? 'flex' : 'none';
+                if (selectAllLogs) selectAllLogs.style.display = isSuperAdmin ? 'inline' : 'none';
+                
                 const tbody = document.getElementById('logsTable');
                 tbody.innerHTML = data.map(log => {
                     const time = new Date(log.created_at).toLocaleString('zh-TW');
+                    const safeId = escapeHtml(log.id);
                     return `
                         <tr>
-                            <td>${time}</td>
-                            <td>${log.admin_name || '-'}</td>
-                            <td>${log.action || '-'}</td>
-                            <td>${log.target_type ? `${log.target_type}: ${log.target_name || '-'}` : '-'}</td>
-                            <td>${log.details || '-'}</td>
+                            <td>${isSuperAdmin ? `<input type="checkbox" class="log-checkbox" value="${safeId}">` : ''}</td>
+                            <td>${escapeHtml(time)}</td>
+                            <td>${escapeHtml(log.admin_name || '-')}</td>
+                            <td>${escapeHtml(log.action || '-')}</td>
+                            <td>${log.target_type ? `${escapeHtml(log.target_type)}: ${escapeHtml(log.target_name || '-')}` : '-'}</td>
+                            <td>${escapeHtml(log.details || '-')}</td>
                         </tr>
                     `;
                 }).join('');
                 
+                // 重置全選框
+                if (selectAllLogs) selectAllLogs.checked = false;
+                
             } catch (error) {
                 console.error('Load logs error:', error);
+            }
+        }
+        
+        // 全選/取消全選
+        function toggleSelectAllLogs() {
+            const selectAll = document.getElementById('selectAllLogs');
+            const checkboxes = document.querySelectorAll('.log-checkbox');
+            checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        }
+        
+        // 刪除選取的操作紀錄
+        async function deleteSelectedLogs() {
+            const checkboxes = document.querySelectorAll('.log-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showToast('請先選擇要刪除的紀錄');
+                return;
+            }
+            
+            if (!confirm(`確定要刪除 ${checkboxes.length} 筆操作紀錄嗎？\n此操作無法復原！`)) {
+                return;
+            }
+            
+            const ids = Array.from(checkboxes).map(cb => cb.value);
+            
+            try {
+                showToast('正在刪除...');
+                
+                const { error } = await supabaseClient
+                    .from('admin_logs')
+                    .delete()
+                    .in('id', ids);
+                
+                if (error) throw error;
+                
+                showToast(`已刪除 ${ids.length} 筆紀錄 ✓`);
+                await loadLogs();
+                
+            } catch (error) {
+                console.error('Delete logs error:', error);
+                showToast('刪除失敗：' + error.message);
             }
         }
 
@@ -3183,30 +3386,45 @@
                     targetTypeText = '管理員';
                 }
                 
-                const { error } = await supabaseClient
+                console.log('Deleting:', deleteTarget.type, deleteTarget.id);
+                
+                const { data, error } = await supabaseClient
                     .from(table)
                     .delete()
-                    .eq('id', deleteTarget.id);
+                    .eq('id', deleteTarget.id)
+                    .select();
+                
+                console.log('Delete result:', data, error);
                 
                 if (error) throw error;
+                
+                if (!data || data.length === 0) {
+                    console.warn('No rows deleted - may be RLS issue');
+                }
                 
                 await logAction(`刪除${targetTypeText}`, targetTypeText, deleteTarget.id, deleteTarget.name);
                 showToast(`已刪除${targetTypeText} ✓`);
                 closeModal('deleteModal');
                 
-                // 先清空本地資料再重新載入
-                if (deleteTarget.type === 'student') {
+                // 儲存要刪除的類型
+                const targetType = deleteTarget.type;
+                deleteTarget = null;
+                
+                // 延遲一下再重新載入，確保資料庫已更新
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                // 重新載入對應的資料
+                if (targetType === 'student') {
                     students = [];
                     await loadStudents();
-                } else if (deleteTarget.type === 'coach') {
+                } else if (targetType === 'coach') {
                     coaches = [];
                     await loadCoaches();
-                } else if (deleteTarget.type === 'admin') {
+                } else if (targetType === 'admin') {
                     admins = [];
                     await loadAdmins();
                 }
                 
-                deleteTarget = null;
             } catch (error) {
                 console.error('Delete error:', error);
                 showToast('刪除失敗：' + error.message);
@@ -3663,6 +3881,7 @@
 
         // ============ Admin CRUD ============
         async function loadAdmins() {
+            console.log('Loading admins...');
             try {
                 const { data, error } = await supabaseClient
                     .from('admins')
@@ -3671,7 +3890,7 @@
                 
                 if (error) throw error;
                 admins = data || [];
-                console.log('Loaded admins:', admins.length);
+                console.log('Loaded admins:', admins.length, admins.map(a => a.name));
                 renderAdmins();
             } catch (error) {
                 console.error('Load admins error:', error);
@@ -3688,7 +3907,7 @@
             const activeAdmins = admins.filter(a => a.is_active);
             
             // 只有 username = 'admin' 的主管理員可以刪除其他管理員
-            const isSuperAdmin = currentAdmin && currentAdmin.username === 'admin';
+            const isSuperAdmin = currentAdmin && currentAdmin.role === 'super_admin';
             
             // 更新導航徽章
             updateNavBadges();
@@ -3733,8 +3952,8 @@
                     return `
                         <tr style="background: #fffdf0;">
                             <td>${safeName}</td>
-                            <td><code style="font-size: 11px;">${escapeHtml(a.line_uid || '-')}</code></td>
                             <td><span style="color: var(--warning);">⏳ 待審核</span></td>
+                            <td><code style="font-size: 11px;">${escapeHtml(a.line_uid || '-')}</code></td>
                             <td>${createdAt}</td>
                             <td>
                                 ${isSuperAdmin ? `<button class="edit-btn" style="background: var(--success);" onclick="approveAdmin('${safeId}', '${safeAttrName}')">✓ 核准</button>` : ''}
@@ -3762,15 +3981,28 @@
                     const safeName = escapeHtml(a.name || '-');
                     const safeId = escapeHtml(a.id);
                     const safeAttrName = escapeAttr(a.name || '管理員');
+                    const isSuperRole = a.role === 'super_admin';
+                    const roleText = isSuperRole ? '🔐 主管理員' : '👤 一般管理員';
+                    
+                    // 升級/降級按鈕（不能對自己操作）
+                    let roleBtn = '';
+                    if (isSuperAdmin && !isCurrentAdmin) {
+                        if (isSuperRole) {
+                            roleBtn = `<button class="edit-btn" style="background: #fff3e0; color: #e65100; font-size: 11px;" onclick="updateAdminRole('${safeId}', '${safeAttrName}', 'admin')">↓ 降級</button>`;
+                        } else {
+                            roleBtn = `<button class="edit-btn" style="background: #e3f2fd; color: #1565c0; font-size: 11px;" onclick="updateAdminRole('${safeId}', '${safeAttrName}', 'super_admin')">↑ 升級</button>`;
+                        }
+                    }
+                    
                     return `
                         <tr>
-                            <td>${safeName}${isCurrentAdmin ? ' <span style="color: var(--green);">(我)</span>' : ''}${a.username === 'admin' ? ' <span style="color: var(--blue);">👑</span>' : ''}</td>
+                            <td>${safeName}${isCurrentAdmin ? ' <span style="color: var(--green);">(我)</span>' : ''}</td>
+                            <td><span style="font-size: 12px;">${roleText}</span> ${roleBtn}</td>
                             <td><code style="font-size: 11px;">${escapeHtml(a.line_uid || '-')}</code></td>
-                            <td><span style="color: var(--success);">✓ 啟用</span></td>
                             <td>${createdAt}</td>
                             <td>
                                 ${isSuperAdmin ? `<button class="edit-btn" onclick="editAdmin('${safeId}')">編輯</button>` : ''}
-                                ${isSuperAdmin && !isCurrentAdmin && a.username !== 'admin' ? `<button class="delete-btn" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
+                                ${isSuperAdmin && !isCurrentAdmin ? `<button class="delete-btn" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
                             </td>
                         </tr>
                     `;
@@ -3831,6 +4063,19 @@
                         const safeName = escapeHtml(a.name || '-');
                         const safeId = escapeHtml(a.id);
                         const safeAttrName = escapeAttr(a.name || '管理員');
+                        const isSuperRole = a.role === 'super_admin';
+                        const roleText = isSuperRole ? '🔐 主管理員' : '👤 一般管理員';
+                        
+                        // 升級/降級按鈕
+                        let roleBtn = '';
+                        if (isSuperAdmin && !isCurrentAdmin) {
+                            if (isSuperRole) {
+                                roleBtn = `<button class="card-btn" style="background: #fff3e0; color: #e65100;" onclick="updateAdminRole('${safeId}', '${safeAttrName}', 'admin')">↓ 降級</button>`;
+                            } else {
+                                roleBtn = `<button class="card-btn" style="background: #e3f2fd; color: #1565c0;" onclick="updateAdminRole('${safeId}', '${safeAttrName}', 'super_admin')">↑ 升級</button>`;
+                            }
+                        }
+                        
                         return `
                             <div class="data-card">
                                 <div class="card-header">
@@ -3839,15 +4084,15 @@
                                         <div class="card-name">
                                             ${safeName}
                                             ${isCurrentAdmin ? '<span style="color: var(--green); font-size: 12px;">(我)</span>' : ''}
-                                            ${a.username === 'admin' ? '<span style="color: var(--blue);">👑</span>' : ''}
                                         </div>
-                                        <div class="card-meta">建立於 ${createdAt}</div>
+                                        <div class="card-meta">${roleText} • 建立於 ${createdAt}</div>
                                     </div>
                                 </div>
                                 ${isSuperAdmin ? `
                                 <div class="card-actions">
+                                    ${roleBtn}
                                     <button class="card-btn secondary" onclick="editAdmin('${safeId}')">編輯</button>
-                                    ${!isCurrentAdmin && a.username !== 'admin' ? `<button class="card-btn danger" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
+                                    ${!isCurrentAdmin ? `<button class="card-btn danger" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
                                 </div>
                                 ` : ''}
                             </div>
@@ -3885,27 +4130,68 @@
         }
 
         // 核准管理員
-        async function approveAdmin(id, name) {
+        // 待核准的管理員資訊暫存
+        let pendingApprovalAdmin = null;
+        
+        function approveAdmin(id, name) {
+            pendingApprovalAdmin = { id, name };
+            document.getElementById('approveAdminName').textContent = name;
+            document.getElementById('approveAdminRole').value = 'admin';
+            openModal('approveAdminModal');
+        }
+        
+        async function confirmApproveAdmin() {
+            if (!pendingApprovalAdmin) return;
+            
+            const role = document.getElementById('approveAdminRole').value;
+            const { id, name } = pendingApprovalAdmin;
+            
             try {
                 const { error } = await supabaseClient
                     .from('admins')
-                    .update({ is_active: true })
+                    .update({ is_active: true, role: role })
                     .eq('id', id);
                 
                 if (error) throw error;
                 
-                await logAction('核准管理員', '管理員', id, name);
-                showToast(`已核准 ${name} ✓`);
+                const roleText = role === 'super_admin' ? '主管理員' : '一般管理員';
+                await logAction('核准管理員', '管理員', id, `${name} (${roleText})`);
+                showToast(`已核准 ${name} 為${roleText} ✓`);
+                closeModal('approveAdminModal');
+                pendingApprovalAdmin = null;
                 await loadAdmins();
             } catch (error) {
                 console.error('Approve admin error:', error);
                 showToast('核准失敗：' + error.message);
             }
         }
+        
+        async function updateAdminRole(id, name, newRole) {
+            const roleText = newRole === 'super_admin' ? '主管理員' : '一般管理員';
+            if (!confirm(`確定要將 ${name} ${newRole === 'super_admin' ? '升級為主管理員' : '降級為一般管理員'}？`)) {
+                return;
+            }
+            
+            try {
+                const { error } = await supabaseClient
+                    .from('admins')
+                    .update({ role: newRole })
+                    .eq('id', id);
+                
+                if (error) throw error;
+                
+                await logAction(`${newRole === 'super_admin' ? '升級' : '降級'}管理員`, '管理員', id, `${name} → ${roleText}`);
+                showToast(`已將 ${name} 設為${roleText} ✓`);
+                await loadAdmins();
+            } catch (error) {
+                console.error('Update role error:', error);
+                showToast('更新失敗：' + error.message);
+            }
+        }
 
         function openAdminModal(admin = null) {
             // 只有主管理員可以新增管理員
-            const isSuperAdmin = currentAdmin && currentAdmin.username === 'admin';
+            const isSuperAdmin = currentAdmin && currentAdmin.role === 'super_admin';
             if (!admin && !isSuperAdmin) {
                 showToast('只有主管理員可以新增管理員');
                 return;
@@ -3951,10 +4237,10 @@
                     await logAction('編輯管理員', '管理員', id, name);
                     showToast('管理員已更新 ✓');
                 } else {
-                    // Insert
+                    // Insert（預設為一般管理員）
                     const { data, error } = await supabaseClient
                         .from('admins')
-                        .insert({ name, line_uid, is_active })
+                        .insert({ name, line_uid, is_active, role: 'admin' })
                         .select()
                         .single();
                     if (error) throw error;
@@ -3975,6 +4261,7 @@
         }
 
         function deleteAdmin(id, name) {
+            console.log('deleteAdmin called with:', id, name);
             if (currentAdmin && id === currentAdmin.id) {
                 showToast('無法刪除自己');
                 return;
