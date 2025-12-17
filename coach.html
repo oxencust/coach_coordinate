@@ -36,13 +36,40 @@
             --success: #5f846f;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+        }
 
         body {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            overscroll-behavior: none;
             font-family: 'Noto Sans TC', sans-serif;
             background: var(--bg);
-            min-height: 100vh;
             color: var(--text);
+            display: flex;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         /* Header */
@@ -50,10 +77,11 @@
             background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 100%);
             padding: 18px 20px;
             color: var(--white);
-            position: sticky;
-            top: 0;
+            flex-shrink: 0;
             z-index: 100;
             box-shadow: 0 2px 10px rgba(95, 132, 111, 0.3);
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         .header-content {
@@ -128,12 +156,32 @@
         .specialty-tag.stretch { background: rgba(33, 150, 243, 0.3); }
         .specialty-tag.ai { background: rgba(255, 193, 7, 0.3); }
 
-        /* Container */
+        /* Container - 主要滾動區域 */
         .container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            overscroll-behavior-x: none;
+            will-change: transform;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            touch-action: pan-y;
             max-width: 500px;
+            width: 100%;
             margin: 0 auto;
             padding: 16px;
-            padding-bottom: 100px;
+            padding-bottom: 40px;
+        }
+
+        /* iOS 安全區域適配 */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .container {
+                padding-bottom: calc(40px + env(safe-area-inset-bottom));
+            }
         }
 
         /* Tabs */
@@ -144,6 +192,8 @@
             padding: 4px;
             margin-bottom: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         .tab {
@@ -158,6 +208,12 @@
             cursor: pointer;
             transition: all 0.2s;
             position: relative;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .tab:active {
+            transform: scale(0.97);
         }
 
         .tab.active {
@@ -199,10 +255,12 @@
             gap: 8px;
             box-shadow: 0 4px 15px rgba(95, 132, 111, 0.3);
             transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
-        .create-btn:hover {
-            transform: translateY(-2px);
+        .create-btn:active {
+            transform: scale(0.98);
         }
 
         /* Request Cards */
@@ -213,13 +271,15 @@
             margin-bottom: 12px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.06);
             cursor: pointer;
-            transition: all 0.25s;
+            transition: all 0.2s;
             border-left: 4px solid transparent;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
-        .request-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        .request-card:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
 
         .request-card.pilates { border-left-color: var(--green); }
@@ -365,11 +425,13 @@
             background: var(--border);
             border-radius: 2px;
             margin: 12px auto;
+            flex-shrink: 0;
         }
 
         .chat-header {
             padding: 0 20px 12px;
             border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
         }
 
         .chat-title-row {
@@ -400,9 +462,13 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .close-chat-btn:hover { background: var(--border); }
+        .close-chat-btn:active { 
+            background: var(--border);
+            transform: scale(0.95);
+        }
 
         /* Compact Chat Info Bar */
         .chat-info-bar {
@@ -412,6 +478,7 @@
             padding: 10px 0;
             cursor: pointer;
             transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .chat-info-left {
@@ -481,6 +548,7 @@
             font-size: 13px;
             color: var(--green-dark);
             transition: all 0.3s;
+            flex-shrink: 0;
         }
 
         .participants-bar.with-student {
@@ -551,10 +619,12 @@
             align-items: center;
             gap: 4px;
             transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .invite-student-btn:hover {
+        .invite-student-btn:active {
             background: var(--pink-dark);
+            transform: scale(0.95);
         }
 
         .end-chat-btn {
@@ -571,21 +641,32 @@
             gap: 4px;
             transition: all 0.2s;
             box-shadow: 0 2px 6px rgba(224, 82, 82, 0.3);
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .end-chat-btn:hover {
+        .end-chat-btn:active {
             background: #c94444;
-            transform: translateY(-1px);
+            transform: scale(0.95);
         }
 
         .end-chat-btn.show {
             display: flex;
         }
 
-        /* Messages */
+        /* Messages - 聊天訊息滾動區域 */
         .chat-messages {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            overscroll-behavior-x: none;
+            will-change: transform;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            touch-action: pan-y;
             padding: 16px 20px;
             display: flex;
             flex-direction: column;
@@ -735,41 +816,6 @@
         .student-info-label { font-size: 11px; color: var(--text-muted); }
         .student-info-value { font-weight: 500; }
 
-        /* Typing */
-        .typing-indicator {
-            align-self: flex-start;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 14px;
-            background: var(--bg);
-            border-radius: 18px;
-            font-size: 13px;
-            color: var(--text-secondary);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .typing-indicator.show { opacity: 1; }
-
-        .typing-dots { display: flex; gap: 3px; }
-
-        .typing-dots span {
-            width: 6px;
-            height: 6px;
-            background: var(--green);
-            border-radius: 50%;
-            animation: bounce 1.4s infinite;
-        }
-
-        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes bounce {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-4px); }
-        }
-
         /* Chat Reminder */
         .chat-reminder {
             display: none;
@@ -780,6 +826,7 @@
             border-bottom: 1px solid #ffe082;
             font-size: 13px;
             color: #f57c00;
+            flex-shrink: 0;
         }
 
         .chat-reminder.show {
@@ -805,11 +852,12 @@
             cursor: pointer;
             white-space: nowrap;
             transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .finish-course-btn:hover {
+        .finish-course-btn:active {
             background: var(--green-dark);
-            transform: scale(1.02);
+            transform: scale(0.95);
         }
 
         .finish-course-btn:disabled {
@@ -818,7 +866,7 @@
             transform: none;
         }
 
-        /* Action Bar (replaces quick replies for teachers) */
+        /* Action Bar */
         .action-bar {
             padding: 10px 20px;
             display: flex;
@@ -826,6 +874,8 @@
             overflow-x: auto;
             border-top: 1px solid var(--border);
             background: var(--white);
+            flex-shrink: 0;
+            -webkit-overflow-scrolling: touch;
         }
 
         .action-btn {
@@ -842,11 +892,12 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
-        .action-btn:hover {
-            background: var(--green);
-            color: var(--white);
+        .action-btn:active {
+            transform: scale(0.95);
         }
 
         .action-btn.pink {
@@ -854,7 +905,7 @@
             color: var(--pink-dark);
         }
 
-        .action-btn.pink:hover {
+        .action-btn.pink:active {
             background: var(--pink);
             color: var(--white);
         }
@@ -865,7 +916,7 @@
             border-color: var(--green);
         }
 
-        .action-btn.confirm:hover {
+        .action-btn.confirm:active {
             background: var(--green-dark);
         }
 
@@ -875,7 +926,7 @@
             border-color: #e74c3c;
         }
 
-        .action-btn.cancel:hover {
+        .action-btn.cancel:active {
             background: #e74c3c;
             color: var(--white);
         }
@@ -890,6 +941,7 @@
             gap: 8px;
             font-size: 13px;
             color: var(--text-secondary);
+            flex-shrink: 0;
         }
         
         .typing-indicator.show {
@@ -933,6 +985,7 @@
             gap: 12px;
             align-items: flex-end;
             background: var(--white);
+            flex-shrink: 0;
         }
 
         .chat-input {
@@ -964,10 +1017,13 @@
             justify-content: center;
             transition: all 0.2s;
             flex-shrink: 0;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .notify-btn:hover { transform: scale(1.05); background: var(--yellow-light); }
-        .notify-btn:active { transform: scale(0.95); }
+        .notify-btn:active { 
+            transform: scale(0.9); 
+            background: var(--yellow-light); 
+        }
 
         .send-btn {
             width: 48px;
@@ -982,13 +1038,15 @@
             justify-content: center;
             transition: all 0.2s;
             box-shadow: 0 2px 8px rgba(95, 132, 111, 0.3);
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .send-btn:hover { transform: scale(1.05); }
+        .send-btn:active { transform: scale(0.9); }
 
         /* Emoji Panel */
         .emoji-panel-wrapper {
             position: relative;
+            flex-shrink: 0;
         }
 
         .emoji-panel {
@@ -1032,12 +1090,21 @@
             font-size: 18px;
             cursor: pointer;
             color: var(--text-muted);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .emoji-panel-close:active {
+            transform: scale(0.9);
         }
 
         .emoji-panel-body {
             padding: 12px 16px;
             max-height: calc(60vh - 60px);
             overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            touch-action: pan-y;
         }
 
         .emoji-category {
@@ -1066,15 +1133,12 @@
             cursor: pointer;
             border-radius: 8px;
             transition: all 0.15s;
-        }
-
-        .emoji-btn:hover {
-            background: var(--green-light);
-            transform: scale(1.15);
+            -webkit-tap-highlight-color: transparent;
         }
 
         .emoji-btn:active {
-            transform: scale(0.95);
+            background: var(--green-light);
+            transform: scale(1.15);
         }
 
         .emoji-input-btn {
@@ -1087,10 +1151,12 @@
             border-radius: 50%;
             transition: all 0.2s;
             flex-shrink: 0;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .emoji-input-btn:hover {
+        .emoji-input-btn:active {
             background: var(--green-light);
+            transform: scale(0.9);
         }
 
         /* Modals */
@@ -1123,6 +1189,10 @@
             max-height: 85vh;
             border-radius: 24px 24px 0 0;
             overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            touch-action: pan-y;
             transform: translateY(100%);
             transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -1164,6 +1234,11 @@
             cursor: pointer;
             font-size: 16px;
             color: var(--text-secondary);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .close-btn:active {
+            transform: scale(0.9);
         }
 
         .modal-body { padding: 20px; }
@@ -1234,6 +1309,11 @@
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .course-option:active {
+            transform: scale(0.97);
         }
 
         .course-option .course-icon {
@@ -1259,7 +1339,7 @@
         .course-option.stretch.selected { border-color: var(--blue); background: var(--blue-light); }
         .course-option.ai.selected { border-color: var(--yellow); background: var(--yellow-light); }
 
-        /* 自動選擇的課程樣式（教練只有一個專長時） */
+        /* 自動選擇的課程樣式 */
         .auto-selected-course {
             display: flex;
             align-items: center;
@@ -1288,7 +1368,14 @@
         .auto-selected-course.stretch { background: var(--blue-light); border: 2px solid var(--blue); }
         .auto-selected-course.ai { background: var(--yellow-light); border: 2px solid var(--yellow); }
 
-        .student-list { max-height: 200px; overflow-y: auto; }
+        .student-list { 
+            max-height: 200px; 
+            overflow-y: auto; 
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch; 
+            overscroll-behavior-y: contain;
+            touch-action: pan-y;
+        }
 
         .student-option {
             display: flex;
@@ -1300,9 +1387,13 @@
             margin-bottom: 10px;
             cursor: pointer;
             transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .student-option:hover { border-color: var(--green-light); }
+        .student-option:active { 
+            border-color: var(--green-light);
+            transform: scale(0.98);
+        }
         .student-option.selected { border-color: var(--green); background: var(--green-light); }
 
         .student-row { display: flex; align-items: center; gap: 12px; }
@@ -1369,6 +1460,11 @@
             cursor: pointer;
             margin-top: 10px;
             box-shadow: 0 4px 15px rgba(95, 132, 111, 0.3);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .submit-btn:active {
+            transform: scale(0.98);
         }
 
         /* Search Student Modal */
@@ -1400,6 +1496,10 @@
         .search-results {
             max-height: 300px;
             overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            touch-action: pan-y;
         }
 
         .search-result-item {
@@ -1410,10 +1510,12 @@
             border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .search-result-item:hover {
+        .search-result-item:active {
             background: var(--bg);
+            transform: scale(0.98);
         }
 
         .result-info { display: flex; align-items: center; gap: 12px; }
@@ -1443,6 +1545,11 @@
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .result-action:active {
+            transform: scale(0.95);
         }
 
         .result-action.invite {
@@ -1473,6 +1580,7 @@
             font-size: 12px;
             font-weight: 500;
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .add-student-form {
@@ -1519,6 +1627,11 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .invite-btn:active {
+            transform: scale(0.97);
         }
 
         .invite-btn.copy {
@@ -1566,6 +1679,11 @@
             font-size: 15px;
             font-weight: 600;
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .confirm-btn:active {
+            transform: scale(0.97);
         }
 
         .confirm-btn.cancel { background: var(--bg); color: var(--text-secondary); }
@@ -1622,6 +1740,53 @@
         }
 
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 手機端滾動優化 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+                padding-bottom: 30px;
+            }
+
+            .emoji-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+
+            /* 強化觸控體驗 */
+            .request-card,
+            .tab,
+            .create-btn,
+            .action-btn,
+            .student-option,
+            .search-result-item {
+                touch-action: manipulation;
+            }
+            
+            /* 防止長按選取 */
+            .request-card,
+            .message-bubble,
+            .header {
+                -webkit-touch-callout: none;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+        }
+
+        /* iOS 專用優化 */
+        @supports (-webkit-touch-callout: none) {
+            .container,
+            .chat-messages,
+            .modal-content,
+            .search-results {
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            /* 防止 iOS 橡皮筋效果 */
+            html, body {
+                position: fixed;
+                overflow: hidden;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2023,7 +2188,6 @@
         const LIFF_ID = '2008660081-9FPHgHBz';
 
         // ============ Data ============
-        // 目前登入的教練
         let currentUser = {
             id: '',
             name: '',
@@ -2048,12 +2212,10 @@
             document.getElementById('userNameDisplay').textContent = '載入中';
             
             try {
-                // 初始化 LIFF
                 console.log('Step 1: Init LIFF');
                 await liff.init({ liffId: LIFF_ID });
                 console.log('LIFF initialized, isInClient:', liff.isInClient());
                 
-                // 檢查是否登入
                 console.log('Step 2: Check login, isLoggedIn:', liff.isLoggedIn());
                 if (!liff.isLoggedIn()) {
                     document.getElementById('userNameDisplay').textContent = '請登入';
@@ -2061,7 +2223,6 @@
                     return;
                 }
                 
-                // 取得 LINE Profile
                 console.log('Step 3: Get profile');
                 const profile = await liff.getProfile();
                 console.log('LINE Profile:', profile);
@@ -2069,12 +2230,10 @@
                 const displayName = profile.displayName;
                 const pictureUrl = profile.pictureUrl;
                 
-                // 載入最近使用的表情
                 loadRecentEmojis();
                 
                 showToast('載入中...');
                 
-                // 用 LINE UID 查詢教練（不限制 status）
                 console.log('Step 4: Query coach with LINE UID:', lineUid);
                 const { data: coach, error: queryError } = await supabaseClient
                     .from('coaches')
@@ -2085,20 +2244,15 @@
                 console.log('Query result:', coach, 'Error:', queryError);
                 
                 if (coach) {
-                    // 已有記錄，檢查狀態
                     console.log('Coach found, status:', coach.status, 'is_active:', coach.is_active);
                     if (coach.status === 'approved' && coach.is_active) {
-                        // 已核准，進入系統
                         setupCoachUser(coach);
                     } else if (coach.status === 'pending') {
-                        // 待審核
                         showPendingScreen(displayName);
                     } else {
-                        // 被拒絕或停用
                         showUnauthorizedScreen(displayName);
                     }
                 } else {
-                    // 不存在，自動建立申請
                     console.log('Step 5: Creating new coach application');
                     const avatar = displayName ? displayName.charAt(0) : '👤';
                     
@@ -2123,7 +2277,6 @@
                         return;
                     }
                     
-                    // 顯示申請成功
                     showApplySuccessScreen(displayName);
                 }
                 
@@ -2133,7 +2286,6 @@
             }
         }
         
-        // 顯示錯誤畫面
         function showErrorScreen(title, message) {
             document.body.innerHTML = `
                 <div style="
@@ -2163,7 +2315,6 @@
             `;
         }
         
-        // 設定教練用戶並載入資料
         async function setupCoachUser(coach) {
             currentUser.id = coach.id;
             currentUser.name = coach.name;
@@ -2174,25 +2325,20 @@
             document.getElementById('userAvatarSmall').textContent = currentUser.avatar;
             document.getElementById('userNameDisplay').textContent = currentUser.name;
             
-            // 顯示教練專長
             displaySpecialties(currentUser.specialties);
             
-            // 載入教練和學員資料
             await Promise.all([
                 loadCoaches(),
                 loadStudents()
             ]);
             
-            // 載入代課請求
             await loadRequests();
             
-            // 訂閱即時更新
             subscribeToRequests();
             
             showToast('歡迎，' + currentUser.name + ' ✓');
         }
         
-        // 顯示申請成功畫面
         function showApplySuccessScreen(displayName) {
             document.body.innerHTML = `
                 <div style="
@@ -2223,7 +2369,6 @@
             `;
         }
         
-        // 顯示審核中畫面
         function showPendingScreen(displayName) {
             document.body.innerHTML = `
                 <div style="
@@ -2254,7 +2399,6 @@
             `;
         }
         
-        // 顯示教練專長
         function displaySpecialties(specialties) {
             const container = document.getElementById('userSpecialties');
             if (!specialties || specialties.length === 0) {
@@ -2275,7 +2419,6 @@
             }).join('');
         }
         
-        // 顯示未授權畫面（被拒絕或停用）
         function showUnauthorizedScreen(displayName) {
             document.body.innerHTML = `
                 <div style="
@@ -2357,26 +2500,17 @@
             
             if (error) throw error;
             
-            // 取得當前教練的專長
             const mySpecialties = currentUser.specialties || [];
             
-            // 過濾：只顯示自己發起的 + 自己專長的代課請求
             const filteredData = data.filter(r => {
-                // 自己發起的，一定顯示
                 if (r.original_coach_id === currentUser.id) return true;
-                // 自己是代課教練的，一定顯示
                 if (r.substitute_coach_id === currentUser.id) return true;
-                // 別人發起的，只顯示跟自己專長相同的
-                if (mySpecialties.length === 0) return true; // 沒設定專長就全部顯示
+                if (mySpecialties.length === 0) return true;
                 return mySpecialties.includes(r.course_type);
             });
             
-            // 轉換資料格式
             requests = await Promise.all(filteredData.map(async r => {
-                // 載入訊息
                 const messages = await loadMessages(r.id);
-                
-                // 載入參與者
                 const participants = await loadParticipants(r.id);
                 
                 return {
@@ -2508,12 +2642,11 @@
                     { event: '*', schema: 'public', table: 'substitute_requests' },
                     (payload) => {
                         console.log('Request change:', payload);
-                        loadRequests(); // 重新載入所有請求
+                        loadRequests();
                     }
                 )
                 .subscribe();
             
-            // 全域訂閱所有訊息，用於更新未讀數量
             subscribeToAllMessages();
         }
         
@@ -2535,22 +2668,17 @@
                         console.log('New message (global):', payload);
                         const newMessage = payload.new;
                         
-                        // 找到對應的請求
                         const targetRequest = requests.find(r => r.id === newMessage.request_id);
                         if (!targetRequest) return;
                         
-                        // 如果是自己發的訊息，不算未讀
                         if (newMessage.sender_coach_id === currentUser.id) return;
                         
-                        // 如果目前不在這個聊天室，增加未讀數量
                         if (!currentRequest || currentRequest.id !== newMessage.request_id) {
                             targetRequest.unread = (targetRequest.unread || 0) + 1;
                             renderRequests();
                             
-                            // 顯示通知 toast
                             showToast(`💬 ${targetRequest.student.name} 的討論有新訊息`);
                         } else {
-                            // 如果在聊天室內，重新載入訊息
                             const messages = await loadMessages(newMessage.request_id);
                             currentRequest.messages = messages;
                             renderMessages();
@@ -2561,7 +2689,6 @@
         }
 
         function subscribeToMessages(requestId) {
-            // 取消之前的訂閱
             if (messagesSubscription) {
                 messagesSubscription.unsubscribe();
             }
@@ -2578,12 +2705,10 @@
                     },
                     async (payload) => {
                         console.log('New message:', payload);
-                        // 重新載入訊息並更新 UI
                         if (currentRequest && currentRequest.id === requestId) {
                             const messages = await loadMessages(requestId);
                             currentRequest.messages = messages;
                             renderMessages();
-                            // 自動滾動到底部
                             scrollToBottom();
                         }
                     }
@@ -2630,28 +2755,6 @@
             if (error) {
                 console.error('Create request error:', error);
                 throw error;
-            }
-            
-            // 通知同專長的教練
-            try {
-                const response = await supabaseClient.functions.invoke('notify-coaches', {
-                    body: {
-                        request_id: data.id,
-                        course_type: requestData.course_type,
-                        course_date: requestData.course_date,
-                        course_time: requestData.course_time,
-                        original_coach_id: currentUser.id,
-                        original_coach_name: currentUser.name,
-                        student_name: '待指定'
-                    }
-                });
-                
-                if (response.data?.notified_count > 0) {
-                    showToast(`已通知 ${response.data.notified_count} 位教練`);
-                }
-            } catch (notifyError) {
-                console.error('Notify coaches error:', notifyError);
-                // 不阻擋主流程
             }
             
             return data;
@@ -2777,7 +2880,6 @@
             document.getElementById('chatIcon').textContent = config.icon;
             document.getElementById('chatTitleText').textContent = `${config.name} 代課討論`;
             
-            // 精簡資訊摘要
             const substituteInfo = currentRequest.substituteTeacher 
                 ? ` → ${currentRequest.substituteTeacher.name}` 
                 : '';
@@ -2806,16 +2908,13 @@
                 </div>
             `;
 
-            // Participants
             document.getElementById('participantsAvatars').innerHTML = currentRequest.participants.map(p => `
                 <div class="p-avatar ${p.role === 'student' ? 'student' : ''}">${p.avatar}</div>
             `).join('');
             
-            // 顯示參與者名稱
             document.getElementById('participantsNames').textContent = 
                 currentRequest.participants.map(p => p.name).join('、');
 
-            // 參與者列樣式和按鈕控制
             const participantsBar = document.getElementById('participantsBar');
             const inviteBtn = document.getElementById('inviteStudentBtn');
             const endBtn = document.getElementById('endChatBtn');
@@ -2825,10 +2924,8 @@
             const chatReminder = document.getElementById('chatReminder');
             const finishCourseBtn = document.getElementById('finishCourseBtn');
             
-            // 判斷是否為原教練
             const isOriginalCoach = currentRequest.originalTeacher.id === currentUser.id;
             
-            // 先隱藏所有按鈕和提醒
             inviteBtn.style.display = 'none';
             confirmBtn.style.display = 'none';
             cancelBtn.style.display = 'none';
@@ -2836,49 +2933,38 @@
             chatReminder.classList.remove('show');
             
             if (currentRequest.status === 'resolved') {
-                // 已結束：隱藏所有操作按鈕
                 participantsBar.classList.remove('with-student');
                 actionBar.style.display = 'none';
                 
             } else if (currentRequest.status === 'cancelled') {
-                // 已取消：隱藏所有操作按鈕
                 participantsBar.classList.remove('with-student');
                 actionBar.style.display = 'none';
                 
             } else if (currentRequest.status === 'cancel_pending') {
-                // 待取消確認：隱藏操作按鈕，顯示等待訊息
                 participantsBar.classList.remove('with-student');
                 actionBar.style.display = 'none';
                 
             } else if (currentRequest.studentJoined) {
-                // 學員已加入：粉色背景，顯示提醒和結束按鈕
                 participantsBar.classList.add('with-student');
                 endBtn.classList.add('show');
                 actionBar.style.display = 'flex';
                 
-                // 顯示課程提醒（只有原教練可以結束）
                 if (isOriginalCoach) {
                     chatReminder.classList.add('show');
                 }
                 
             } else if (currentRequest.status === 'discussing' && currentRequest.substituteTeacher?.id === currentUser.id) {
-                // 討論中且我是代課教練：顯示「確認接手」按鈕（會通知學員）
                 participantsBar.classList.remove('with-student');
                 confirmBtn.style.display = 'flex';
-                // 只有原教練可以邀請學員
                 if (isOriginalCoach) {
                     inviteBtn.style.display = 'flex';
                 }
                 actionBar.style.display = 'flex';
                 
             } else {
-                // 其他狀態：顯示基本操作按鈕
                 participantsBar.classList.remove('with-student');
-                // 只有原教練可以邀請學員
                 if (isOriginalCoach) {
                     inviteBtn.style.display = 'flex';
-                    // 原教練在學員未邀請前可以申請取消
-                    // 如果已邀請學員（有 student_id），則不能取消
                     if (!currentRequest.student?.id) {
                         cancelBtn.style.display = 'flex';
                     } else {
@@ -2888,31 +2974,25 @@
                 actionBar.style.display = 'flex';
             }
 
-            // 先顯示聊天室
             document.getElementById('chatOverlay').classList.add('active');
             document.body.style.overflow = 'hidden';
             
-            // 顯示載入中
             document.getElementById('chatMessages').innerHTML = `
                 <div class="message system">
                     <div class="system-text">載入訊息中...</div>
                 </div>
             `;
             
-            // 重新載入最新訊息
             const latestMessages = await loadMessages(requestId);
             currentRequest.messages = latestMessages;
             renderMessages();
             
             setTimeout(scrollToBottom, 100);
             
-            // 訂閱此聊天室的即時訊息
             subscribeToMessages(requestId);
             
-            // 訂閱 typing 狀態
             subscribeToTyping(requestId);
             
-            // 開始在線狀態追蹤
             startPresenceTracking();
         }
 
@@ -2920,23 +3000,18 @@
             document.getElementById('chatOverlay').classList.remove('active');
             document.body.style.overflow = '';
             
-            // 停止自己的 typing 狀態
             stopTyping();
             
-            // 停止在線狀態追蹤
             stopPresenceTracking();
             
-            // 取消訊息訂閱
             if (messagesSubscription) {
                 messagesSubscription.unsubscribe();
                 messagesSubscription = null;
             }
             
-            // 取消 typing 訂閱
             unsubscribeTyping();
             
             currentRequest = null;
-            // 重置展開狀態
             document.getElementById('chatInfoBar').classList.remove('expanded');
         }
 
@@ -3014,31 +3089,25 @@
             if (!content || !currentRequest) return;
             input.value = '';
             
-            // 停止 typing 狀態
             stopTyping();
 
             try {
-                // 發送到 Supabase
                 await sendMessageToSupabase(currentRequest.id, content);
                 
-                // 如果是 pending 狀態，更新為 discussing
                 if (currentRequest.status === 'pending') {
                     await updateRequestStatus(currentRequest.id, 'discussing', {
                         substitute_coach_id: currentUser.id
                     });
                 }
                 
-                // 發送 LINE 通知給其他參與者
                 notifyNewMessage(content);
                 
-                // Realtime 會自動更新 UI
             } catch (error) {
                 console.error('Send message error:', error);
                 showToast('發送失敗，請重試');
             }
         }
         
-        // 通知新訊息（不等待結果）
         function notifyNewMessage(content, forceNotify = false) {
             fetch(`${SUPABASE_URL}/functions/v1/notify-new-message`, {
                 method: 'POST',
@@ -3057,11 +3126,9 @@
             }).catch(err => console.log('Notify error:', err));
         }
 
-        // 強制通知對方
         async function forceNotify() {
             if (!currentRequest) return;
             
-            // 確認彈窗
             if (!confirm('確定要通知對方嗎？\n\n對方將收到 LINE 推播通知，提醒他們查看聊天室。')) {
                 return;
             }
@@ -3121,7 +3188,7 @@
 
         function startPresenceTracking() {
             updatePresence();
-            presenceInterval = setInterval(updatePresence, 30000); // 每 30 秒更新
+            presenceInterval = setInterval(updatePresence, 30000);
         }
 
         function stopPresenceTracking() {
@@ -3140,7 +3207,6 @@
         let emojiPanelOpen = false;
         let recentEmojis = ['👍', '🙏', '😊', '👋', '💪', '❤️'];
         
-        // 從 localStorage 載入最近使用的表情
         function loadRecentEmojis() {
             const saved = localStorage.getItem('coachRecentEmojis');
             if (saved) {
@@ -3149,12 +3215,10 @@
             }
         }
         
-        // 儲存最近使用的表情
         function saveRecentEmojis() {
             localStorage.setItem('coachRecentEmojis', JSON.stringify(recentEmojis));
         }
         
-        // 渲染最近使用的表情
         function renderRecentEmojis() {
             const container = document.getElementById('recentEmojis');
             if (container) {
@@ -3164,24 +3228,20 @@
             }
         }
         
-        // 展開/收合表情面板
         function toggleEmojiPanel() {
             emojiPanelOpen = !emojiPanelOpen;
             document.getElementById('emojiPanel').classList.toggle('show', emojiPanelOpen);
         }
         
-        // 關閉表情面板
         function closeEmojiPanel() {
             emojiPanelOpen = false;
             document.getElementById('emojiPanel').classList.remove('show');
         }
         
-        // 發送表情
         function sendEmoji(emoji) {
             sendQuick(emoji);
             closeEmojiPanel();
             
-            // 更新最近使用
             const index = recentEmojis.indexOf(emoji);
             if (index > -1) {
                 recentEmojis.splice(index, 1);
@@ -3209,7 +3269,6 @@
         function handleTyping() {
             if (!currentRequest || !typingChannel) return;
             
-            // 如果還沒發送 typing 狀態，發送一次
             if (!isTyping) {
                 isTyping = true;
                 typingChannel.send({
@@ -3223,12 +3282,10 @@
                 });
             }
             
-            // 清除之前的 timeout
             if (typingTimeout) {
                 clearTimeout(typingTimeout);
             }
             
-            // 2 秒後停止 typing 狀態
             typingTimeout = setTimeout(() => {
                 stopTyping();
             }, 2000);
@@ -3250,7 +3307,6 @@
         }
         
         function subscribeToTyping(requestId) {
-            // 取消之前的訂閱
             if (typingChannel) {
                 typingChannel.unsubscribe();
             }
@@ -3260,7 +3316,6 @@
                 .on('broadcast', { event: 'typing' }, (payload) => {
                     const data = payload.payload;
                     
-                    // 忽略自己的 typing 事件
                     if (data.user_id === currentUser.id) return;
                     
                     const indicator = document.getElementById('typingIndicator');
@@ -3270,7 +3325,6 @@
                         typingText.textContent = `${data.user_name} 正在輸入...`;
                         indicator.classList.add('show');
                         
-                        // 滾動到底部
                         const messagesContainer = document.getElementById('chatMessages');
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     } else {
@@ -3285,7 +3339,6 @@
                 typingChannel.unsubscribe();
                 typingChannel = null;
             }
-            // 隱藏 typing indicator
             const indicator = document.getElementById('typingIndicator');
             if (indicator) {
                 indicator.classList.remove('show');
@@ -3323,7 +3376,6 @@
             const student = allStudents.find(s => s.id === studentId);
             if (!student || !currentRequest) return;
 
-            // Add student info card to chat
             currentRequest.messages.push({
                 id: Date.now(),
                 type: 'student-info',
@@ -3331,7 +3383,6 @@
                 time: formatTime(new Date())
             });
 
-            // Add system message
             currentRequest.messages.push({
                 id: Date.now() + 1,
                 type: 'system',
@@ -3352,13 +3403,11 @@
         async function openInviteStudent() {
             if (!currentRequest) return;
             
-            // 如果已經有學員，直接顯示邀請 Modal
             if (currentRequest.student?.id || currentRequest.student_id) {
                 await showInviteModal();
                 return;
             }
             
-            // 沒有學員，打開搜尋學員 Modal
             document.getElementById('studentSearchInput').value = '';
             document.getElementById('searchResults').innerHTML = `
                 <div style="text-align: center; padding: 30px; color: var(--text-muted);">
@@ -3370,7 +3419,6 @@
             openModal('searchStudentModal');
         }
         
-        // 搜尋學員（用於邀請）
         function searchStudentForInvite() {
             const query = document.getElementById('studentSearchInput').value.toLowerCase().trim();
             const resultsContainer = document.getElementById('searchResults');
@@ -3387,7 +3435,6 @@
                 return;
             }
             
-            // 搜尋姓名和代號
             const results = allStudents.filter(s => 
                 s.name.toLowerCase().includes(query) ||
                 (s.code && s.code.toLowerCase().includes(query))
@@ -3418,7 +3465,6 @@
             }
         }
         
-        // 選擇學員並邀請
         async function selectStudentForInvite(studentId) {
             const student = allStudents.find(s => s.id === studentId);
             if (!student || !currentRequest) return;
@@ -3426,7 +3472,6 @@
             try {
                 showToast('綁定學員中...');
                 
-                // 更新代課請求的學員
                 const { error } = await supabaseClient
                     .from('substitute_requests')
                     .update({ student_id: studentId })
@@ -3434,17 +3479,13 @@
                 
                 if (error) throw error;
                 
-                // 更新本地資料
                 currentRequest.student = student;
                 currentRequest.student_id = studentId;
                 
-                // 重新載入請求列表
                 await loadRequests();
                 
-                // 關閉搜尋 Modal
                 closeModal('searchStudentModal');
                 
-                // 顯示邀請 Modal
                 await showInviteModal();
                 
             } catch (error) {
@@ -3453,16 +3494,13 @@
             }
         }
         
-        // 顯示邀請 Modal
         async function showInviteModal() {
             const studentName = currentRequest.student?.name || '學員';
             document.getElementById('inviteStudentName').textContent = studentName;
             
-            // 產生邀請連結
             const inviteLink = `https://liff.line.me/${STUDENT_LIFF_ID}?room=${currentRequest.id}`;
             document.getElementById('inviteLinkBox').textContent = inviteLink;
             
-            // 查詢學員是否有 LINE UID
             const studentId = currentRequest.student?.id || currentRequest.student_id;
             const { data: student } = await supabaseClient
                 .from('students')
@@ -3472,7 +3510,6 @@
             
             const hasLineUid = student && student.line_uid;
             
-            // 根據是否有 LINE UID 顯示不同 UI
             const hintEl = document.getElementById('inviteHint');
             const lineBtnEl = document.getElementById('lineInviteBtn');
             
@@ -3499,16 +3536,13 @@
         async function requestCancelSubstitute() {
             if (!currentRequest) return;
             
-            // 如果已邀請學員，不能取消
             if (currentRequest.student?.id) {
                 showToast('已邀請學員，無法申請取消');
                 return;
             }
             
-            // 請用戶填寫取消原因
             const cancelReason = prompt(`請填寫取消原因：\n\n課程：${COURSE_CONFIG[currentRequest.course_type].name}\n日期：${formatDate(currentRequest.course_date)}`);
             
-            // 如果用戶按取消或沒填原因
             if (!cancelReason || !cancelReason.trim()) {
                 showToast('請填寫取消原因');
                 return;
@@ -3517,7 +3551,6 @@
             try {
                 showToast('正在申請取消...');
                 
-                // 更新狀態為待取消
                 const { error } = await supabaseClient
                     .from('substitute_requests')
                     .update({ status: 'cancel_pending' })
@@ -3525,7 +3558,6 @@
                 
                 if (error) throw error;
                 
-                // 發送系統訊息（包含取消原因）
                 await supabaseClient
                     .from('messages')
                     .insert({
@@ -3537,17 +3569,13 @@
                 
                 showToast('✅ 已申請取消，等待管理員確認');
                 
-                // 重新載入
                 await loadRequests();
                 
-                // 更新當前請求狀態
                 currentRequest.status = 'cancel_pending';
                 
-                // 隱藏取消按鈕
                 document.getElementById('cancelRequestBtn').style.display = 'none';
                 document.getElementById('actionBar').style.display = 'none';
                 
-                // 重新載入訊息
                 const latestMessages = await loadMessages(currentRequest.id);
                 currentRequest.messages = latestMessages;
                 renderMessages();
@@ -3566,7 +3594,6 @@
             const studentName = currentRequest.student.name;
             const courseDate = formatDate(currentRequest.course_date);
             
-            // 確認對話框
             if (!confirm(`確定要結束此代課討論嗎？\n\n課程：${config.name}\n日期：${courseDate}\n學員：${studentName}\n\n結束後將發送感謝訊息給學員，聊天室將關閉。`)) {
                 return;
             }
@@ -3574,7 +3601,6 @@
             try {
                 showToast('正在結束對話...');
                 
-                // 發送感謝訊息給學員
                 const thankYouMessage = `🎉 親愛的 ${studentName} 您好：
 
 您的 ${config.name} 課程已順利完成！🎊
@@ -3594,7 +3620,6 @@
                         content: thankYouMessage
                     });
                 
-                // 更新狀態為已結束
                 const { error } = await supabaseClient
                     .from('substitute_requests')
                     .update({ status: 'resolved' })
@@ -3604,18 +3629,14 @@
                 
                 showToast('✅ 課程已完成，聊天室已結束');
                 
-                // 重新載入
                 await loadRequests();
                 
-                // 更新當前請求狀態
                 currentRequest.status = 'resolved';
                 
-                // 隱藏操作按鈕和提醒
                 document.getElementById('chatReminder').classList.remove('show');
                 document.getElementById('actionBar').style.display = 'none';
                 document.getElementById('endChatBtn').classList.remove('show');
                 
-                // 重新載入訊息
                 const latestMessages = await loadMessages(currentRequest.id);
                 currentRequest.messages = latestMessages;
                 renderMessages();
@@ -3630,7 +3651,6 @@
         async function confirmSubstitute() {
             if (!currentRequest) return;
             
-            // 確認對話框
             if (!confirm(`確定要接手 ${currentRequest.student.name} 的 ${COURSE_CONFIG[currentRequest.course_type].name} 課程嗎？\n\n確認後會發送 LINE 通知給學員。`)) {
                 return;
             }
@@ -3638,7 +3658,6 @@
             try {
                 showToast('正在通知學員...');
                 
-                // 呼叫 Edge Function 通知學員
                 const response = await fetch(
                     'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/notify-student',
                     {
@@ -3659,13 +3678,10 @@
                 if (data.success) {
                     showToast('✅ 已通知學員：' + data.student_name);
                     
-                    // 重新載入請求列表（狀態已更新）
                     await loadRequests();
                     
-                    // 重新載入訊息（會顯示系統訊息）
                     await loadMessages(currentRequest.id);
                     
-                    // 更新按鈕狀態
                     document.getElementById('confirmSubstituteBtn').style.display = 'none';
                 } else {
                     throw new Error(data.error || '通知失敗');
@@ -3680,7 +3696,6 @@
         async function sendLineInvite() {
             if (!currentRequest) return;
             
-            // 確認彈窗
             const studentName = currentRequest.student?.name || currentRequest.student_name || '學員';
             if (!confirm(`確定要邀請「${studentName}」加入討論嗎？\n\n⚠️ 注意：邀請學員後，將無法取消此代課請求。`)) {
                 return;
@@ -3689,7 +3704,6 @@
             try {
                 showToast('正在發送邀請...');
                 
-                // 呼叫 Edge Function 發送邀請
                 const response = await fetch(
                     'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/invite-student',
                     {
@@ -3710,10 +3724,8 @@
                 if (data.success) {
                     closeModal('inviteStudentModal');
                     
-                    // 更新邀請連結框
                     document.getElementById('inviteLinkBox').textContent = data.invite_link;
                     
-                    // 根據是否發送了 LINE 顯示不同訊息
                     const studentName = currentRequest.student?.name || currentRequest.student_name;
                     if (data.line_sent) {
                         showToast('✅ 已發送 LINE 邀請給 ' + studentName);
@@ -3721,7 +3733,6 @@
                         showToast('📋 已產生連結，請手動傳送給 ' + studentName);
                     }
                     
-                    // 重新載入訊息（會顯示系統訊息）
                     await loadMessages(currentRequest.id);
                 } else {
                     throw new Error(data.error || '發送失敗');
@@ -3742,10 +3753,8 @@
             if (!currentRequest) return;
 
             try {
-                // 更新狀態為 resolved
                 await updateRequestStatus(currentRequest.id, 'resolved');
                 
-                // 發送結束系統訊息
                 await supabaseClient
                     .from('messages')
                     .insert({
@@ -3757,14 +3766,12 @@
 
                 closeModal('endChatModal');
                 
-                // 隱藏操作按鈕
                 document.getElementById('actionBar').style.display = 'none';
                 document.getElementById('endChatBtn').classList.remove('show');
                 document.getElementById('participantsBar').classList.remove('with-student');
                 
                 showToast('✅ 對話已結束');
                 
-                // Realtime 會自動更新
             } catch (error) {
                 console.error('End chat error:', error);
                 showToast('操作失敗，請重試');
@@ -3798,11 +3805,9 @@
             tomorrow.setDate(tomorrow.getDate() + 1);
             document.getElementById('inputDate').value = tomorrow.toISOString().split('T')[0];
             
-            // 重置選擇
             selectedCourse = null;
             selectedStudent = null;
             
-            // 根據教練專長動態生成課程選項
             renderCourseOptions();
             
             openModal('createModal');
@@ -3813,7 +3818,6 @@
             const courseTypeGroup = document.getElementById('courseTypeGroup');
             const specialties = currentUser.specialties || [];
             
-            // 課程設定
             const courseConfig = {
                 'pilates': { icon: '🧘', name: '皮拉提斯' },
                 'weight': { icon: '🏋️', name: '重量訓練' },
@@ -3821,10 +3825,8 @@
                 'ai': { icon: '🤖', name: 'AI 體態分析' }
             };
             
-            // 如果沒有專長資料，顯示所有選項
             const coursesToShow = specialties.length > 0 ? specialties : ['pilates', 'weight', 'stretch', 'ai'];
             
-            // 如果只有一個專長，自動選擇並隱藏選擇區域
             if (coursesToShow.length === 1) {
                 selectedCourse = coursesToShow[0];
                 courseTypeGroup.innerHTML = `
@@ -3838,7 +3840,6 @@
                 return;
             }
             
-            // 有多個專長，顯示選項讓教練選擇
             courseTypeGroup.innerHTML = `
                 <label class="form-label">課程類型</label>
                 <div class="course-grid" id="courseGrid"></div>
@@ -3869,19 +3870,16 @@
             const reason = document.getElementById('inputReason').value.trim();
             const submitBtn = document.getElementById('createRequestBtn');
 
-            // 驗證（不需要學員）
             if (!date || !timeSelect || !selectedCourse) {
                 showToast('請填寫完整資訊');
                 return;
             }
             
-            // 原因必填
             if (!reason) {
                 showToast('請填寫請假原因');
                 return;
             }
 
-            // 如果是自訂時段，驗證開始和結束時間
             if (timeSelect === 'custom') {
                 const start = document.getElementById('customTimeStart').value;
                 const end = document.getElementById('customTimeEnd').value;
@@ -3895,7 +3893,6 @@
                 }
             }
 
-            // 禁用按鈕，顯示建立中
             submitBtn.disabled = true;
             submitBtn.textContent = '建立中...';
 
@@ -3907,7 +3904,7 @@
                     course_date: date,
                     course_time: time,
                     reason: reason,
-                    student_id: null,  // 學員稍後邀請
+                    student_id: null,
                     message: message
                 });
 
@@ -3916,12 +3913,10 @@
                 switchTab('pending');
                 showToast('已發送代課需求！');
                 
-                // Realtime 會自動更新列表
             } catch (error) {
                 console.error('Create request error:', error);
                 showToast('建立失敗，請重試');
             } finally {
-                // 恢復按鈕
                 submitBtn.disabled = false;
                 submitBtn.textContent = '發送代課需求';
             }
