@@ -1433,7 +1433,7 @@
                 <div class="action-bar">
                     <div class="action-bar-top">
                         <h2>🔐 管理員</h2>
-                        <button class="add-btn" onclick="openAdminModal()">+ 新增管理員</button>
+                        <button class="add-btn" id="addAdminBtn" onclick="openAdminModal()" style="display: none;">+ 新增管理員</button>
                     </div>
                 </div>
                 <!-- 手機版卡片列表 -->
@@ -1692,11 +1692,11 @@
             <span class="nav-label">待審核</span>
             <span class="nav-badge" id="navPendingCount" style="display: none;">0</span>
         </div>
-        <div class="nav-item" data-tab="students" onclick="switchTabMobile('students')">
+        <div class="nav-item active" data-tab="students" onclick="switchTabMobile('students')">
             <span class="nav-icon">👤</span>
             <span class="nav-label">學員</span>
         </div>
-        <div class="nav-item active" data-tab="coaches" onclick="switchTabMobile('coaches')">
+        <div class="nav-item" data-tab="coaches" onclick="switchTabMobile('coaches')">
             <span class="nav-icon">👨‍🏫</span>
             <span class="nav-label">教練</span>
         </div>
@@ -1990,7 +1990,13 @@
             } else if (tabId === 'coachesTab') {
                 openCoachModal();
             } else if (tabId === 'adminsTab') {
-                openAdminModal();
+                // 只有主管理員可以新增管理員
+                const isSuperAdmin = currentAdmin && currentAdmin.username === 'admin';
+                if (isSuperAdmin) {
+                    openAdminModal();
+                } else {
+                    showToast('只有主管理員可以新增管理員');
+                }
             }
         }
 
@@ -1999,8 +2005,12 @@
             const fab = document.getElementById('fabBtn');
             if (!fab) return;
             
-            // 只在學員、教練、管理員頁面顯示
-            if (['students', 'coaches', 'admins'].includes(tabName)) {
+            // 只有主管理員可以在管理員頁面看到浮動按鈕
+            const isSuperAdmin = currentAdmin && currentAdmin.username === 'admin';
+            
+            if (tabName === 'admins') {
+                fab.style.display = isSuperAdmin ? 'flex' : 'none';
+            } else if (['students', 'coaches'].includes(tabName)) {
                 fab.style.display = 'flex';
             } else {
                 fab.style.display = 'none';
@@ -2235,51 +2245,61 @@
             }
 
             // 表格版（電腦）
-            tbody.innerHTML = pendingCoaches.map(c => `
+            tbody.innerHTML = pendingCoaches.map(c => {
+                const displayName = c.line_display_name || c.name || '-';
+                const safeDisplayName = escapeHtml(displayName);
+                const safeId = escapeHtml(c.id);
+                const safeAttrName = escapeAttr(displayName);
+                return `
                 <tr>
                     <td>
                         <div class="avatar-cell">
-                            <div class="avatar">${c.line_display_name?.charAt(0) || c.name?.charAt(0) || '?'}</div>
-                            <span>${c.line_display_name || c.name || '-'}</span>
+                            <div class="avatar">${escapeHtml(displayName.charAt(0) || '?')}</div>
+                            <span>${safeDisplayName}</span>
                         </div>
                     </td>
                     <td>${formatDateTime(c.created_at)}</td>
                     <td>
                         <div class="checkbox-group" style="font-size: 13px;">
                             <label class="checkbox-item">
-                                <input type="checkbox" id="pending_pilates_${c.id}"> 皮拉提斯
+                                <input type="checkbox" id="pending_pilates_${safeId}"> 皮拉提斯
                             </label>
                             <label class="checkbox-item">
-                                <input type="checkbox" id="pending_weight_${c.id}"> 重訓
+                                <input type="checkbox" id="pending_weight_${safeId}"> 重訓
                             </label>
                             <label class="checkbox-item">
-                                <input type="checkbox" id="pending_stretch_${c.id}"> 伸展
+                                <input type="checkbox" id="pending_stretch_${safeId}"> 伸展
                             </label>
                             <label class="checkbox-item">
-                                <input type="checkbox" id="pending_ai_${c.id}"> AI分析
+                                <input type="checkbox" id="pending_ai_${safeId}"> AI分析
                             </label>
                         </div>
                     </td>
                     <td>
                         <div class="action-btns">
-                            <button class="edit-btn" style="background: var(--green-light); color: var(--green-dark);" onclick="approveCoach('${c.id}', '${c.line_display_name || c.name}')">✓ 核准</button>
-                            <button class="delete-btn" onclick="rejectCoach('${c.id}', '${c.line_display_name || c.name}')">✗ 拒絕</button>
+                            <button class="edit-btn" style="background: var(--green-light); color: var(--green-dark);" onclick="approveCoach('${safeId}', '${safeAttrName}')">✓ 核准</button>
+                            <button class="delete-btn" onclick="rejectCoach('${safeId}', '${safeAttrName}')">✗ 拒絕</button>
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
 
             // 卡片版（手機）
             if (cardList) {
-                cardList.innerHTML = pendingCoaches.map(c => `
+                cardList.innerHTML = pendingCoaches.map(c => {
+                    const displayName = c.line_display_name || c.name || '-';
+                    const safeDisplayName = escapeHtml(displayName);
+                    const safeId = escapeHtml(c.id);
+                    const safeAttrName = escapeAttr(displayName);
+                    return `
                     <div class="data-card" style="border-left: 4px solid var(--warning);">
                         <div class="card-header">
                             <div class="card-avatar" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);">
-                                ${c.line_display_name?.charAt(0) || c.name?.charAt(0) || '?'}
+                                ${escapeHtml(displayName.charAt(0) || '?')}
                             </div>
                             <div class="card-info">
                                 <div class="card-name">
-                                    ${c.line_display_name || c.name || '-'}
+                                    ${safeDisplayName}
                                     <span class="card-badge pending">待審核</span>
                                 </div>
                                 <div class="card-meta">申請於 ${formatDateTime(c.created_at)}</div>
@@ -2289,25 +2309,25 @@
                             <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">選擇課程類型：</div>
                             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                                 <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
-                                    <input type="checkbox" id="pending_pilates_card_${c.id}" style="width: 18px; height: 18px;"> 🧘 皮拉提斯
+                                    <input type="checkbox" id="pending_pilates_card_${safeId}" style="width: 18px; height: 18px;"> 🧘 皮拉提斯
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
-                                    <input type="checkbox" id="pending_weight_card_${c.id}" style="width: 18px; height: 18px;"> 💪 重訓
+                                    <input type="checkbox" id="pending_weight_card_${safeId}" style="width: 18px; height: 18px;"> 💪 重訓
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
-                                    <input type="checkbox" id="pending_stretch_card_${c.id}" style="width: 18px; height: 18px;"> 🤸 伸展
+                                    <input type="checkbox" id="pending_stretch_card_${safeId}" style="width: 18px; height: 18px;"> 🤸 伸展
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
-                                    <input type="checkbox" id="pending_ai_card_${c.id}" style="width: 18px; height: 18px;"> 🤖 AI分析
+                                    <input type="checkbox" id="pending_ai_card_${safeId}" style="width: 18px; height: 18px;"> 🤖 AI分析
                                 </label>
                             </div>
                         </div>
                         <div class="card-actions">
-                            <button class="card-btn primary" onclick="approveCoach('${c.id}', '${c.line_display_name || c.name}')">✓ 核准</button>
-                            <button class="card-btn danger" onclick="rejectCoach('${c.id}', '${c.line_display_name || c.name}')">✗ 拒絕</button>
+                            <button class="card-btn primary" onclick="approveCoach('${safeId}', '${safeAttrName}')">✓ 核准</button>
+                            <button class="card-btn danger" onclick="rejectCoach('${safeId}', '${safeAttrName}')">✗ 拒絕</button>
                         </div>
                     </div>
-                `).join('');
+                `}).join('');
             }
         }
         
@@ -2408,45 +2428,51 @@
             }
 
             // 表格版（電腦）
-            tbody.innerHTML = students.map(s => `
+            tbody.innerHTML = students.map(s => {
+                const safeName = escapeHtml(s.name || '-');
+                const safeId = escapeHtml(s.id);
+                return `
                 <tr>
                     <td>
                         <div class="avatar-cell">
-                            <div class="avatar">${s.avatar || s.name?.charAt(0) || '?'}</div>
-                            <span>${s.name || '-'}</span>
+                            <div class="avatar">${escapeHtml(s.avatar || s.name?.charAt(0) || '?')}</div>
+                            <span>${safeName}</span>
                         </div>
                     </td>
-                    <td>${s.code || '-'}</td>
-                    <td>${s.phone || '-'}</td>
-                    <td style="font-size: 12px; color: var(--text-muted);">${s.line_uid ? s.line_uid.substring(0, 15) + '...' : '-'}</td>
-                    <td>${s.notes || '-'}</td>
+                    <td>${escapeHtml(s.code || '-')}</td>
+                    <td>${escapeHtml(s.phone || '-')}</td>
+                    <td style="font-size: 12px; color: var(--text-muted);">${s.line_uid ? escapeHtml(s.line_uid.substring(0, 15)) + '...' : '-'}</td>
+                    <td>${escapeHtml(s.notes || '-')}</td>
                     <td>
                         <div class="action-btns">
-                            <button class="edit-btn" onclick="editStudent('${s.id}')">編輯</button>
-                            <button class="delete-btn" onclick="deleteStudent('${s.id}', '${s.name}')">刪除</button>
+                            <button class="edit-btn" onclick="editStudent('${safeId}')">編輯</button>
+                            <button class="delete-btn" onclick="deleteStudent('${safeId}', '${escapeAttr(s.name)}')">刪除</button>
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
 
             // 卡片版（手機）
             if (cardList) {
-                cardList.innerHTML = students.map(s => `
+                cardList.innerHTML = students.map(s => {
+                    const safeName = escapeHtml(s.name || '-');
+                    const safeId = escapeHtml(s.id);
+                    return `
                     <div class="data-card">
                         <div class="card-header">
-                            <div class="card-avatar">${s.avatar || s.name?.charAt(0) || '?'}</div>
+                            <div class="card-avatar">${escapeHtml(s.avatar || s.name?.charAt(0) || '?')}</div>
                             <div class="card-info">
-                                <div class="card-name">${s.name || '-'}</div>
-                                <div class="card-meta">${s.code || '無代號'} • ${s.phone || '無電話'}</div>
+                                <div class="card-name">${safeName}</div>
+                                <div class="card-meta">${escapeHtml(s.code || '無代號')} • ${escapeHtml(s.phone || '無電話')}</div>
                             </div>
                         </div>
-                        ${s.notes ? `<div class="card-row"><span class="card-label">備註</span><span class="card-value">${s.notes}</span></div>` : ''}
+                        ${s.notes ? `<div class="card-row"><span class="card-label">備註</span><span class="card-value">${escapeHtml(s.notes)}</span></div>` : ''}
                         <div class="card-actions">
-                            <button class="card-btn secondary" onclick="editStudent('${s.id}')">編輯</button>
-                            <button class="card-btn danger" onclick="deleteStudent('${s.id}', '${s.name}')">刪除</button>
+                            <button class="card-btn secondary" onclick="editStudent('${safeId}')">編輯</button>
+                            <button class="card-btn danger" onclick="deleteStudent('${safeId}', '${escapeAttr(s.name)}')">刪除</button>
                         </div>
                     </div>
-                `).join('');
+                `}).join('');
             }
         }
 
@@ -2475,20 +2501,23 @@
             }
 
             // 表格版（電腦）
-            tbody.innerHTML = coaches.map(c => `
+            tbody.innerHTML = coaches.map(c => {
+                const safeName = escapeHtml(c.name || '-');
+                const safeId = escapeHtml(c.id);
+                return `
                 <tr>
                     <td>
                         <div class="avatar-cell">
-                            <div class="avatar">${c.avatar || c.name?.charAt(0) || '?'}</div>
-                            <span>${c.name || '-'}</span>
+                            <div class="avatar">${escapeHtml(c.avatar || c.name?.charAt(0) || '?')}</div>
+                            <span>${safeName}</span>
                         </div>
                     </td>
-                    <td>${c.phone || '-'}</td>
+                    <td>${escapeHtml(c.phone || '-')}</td>
                     <td>${(c.specialties || []).map(s => courseTypeNames[s] || s).join('、') || '-'}</td>
                     <td>
                         ${c.line_uid ? `
                             <button class="edit-btn" style="font-size: 11px; padding: 4px 8px;" 
-                                onclick="copyCoachLink('${c.line_uid}', '${c.name}')">
+                                onclick="copyCoachLink('${escapeAttr(c.line_uid)}', '${escapeAttr(c.name)}')">
                                 📋 複製連結
                             </button>
                         ` : '<span style="color: var(--text-muted);">未設定</span>'}
@@ -2500,12 +2529,12 @@
                     </td>
                     <td>
                         <div class="action-btns">
-                            <button class="edit-btn" onclick="editCoach('${c.id}')">編輯</button>
-                            <button class="delete-btn" onclick="deleteCoach('${c.id}', '${c.name}')">刪除</button>
+                            <button class="edit-btn" onclick="editCoach('${safeId}')">編輯</button>
+                            <button class="delete-btn" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
 
             // 卡片版（手機）
             if (cardList) {
@@ -2516,24 +2545,26 @@
                     const mainSpecialty = (c.specialties || [])[0] || 'pilates';
                     const avatarColor = specialtyColors[mainSpecialty] || '';
                     const specialtiesText = (c.specialties || []).map(s => `${specialtyIcons[s] || ''} ${courseTypeNames[s] || s}`).join(' • ') || '未設定';
+                    const safeName = escapeHtml(c.name || '-');
+                    const safeId = escapeHtml(c.id);
                     
                     return `
                         <div class="data-card">
                             <div class="card-header">
-                                <div class="card-avatar ${avatarColor}">${c.avatar || c.name?.charAt(0) || '?'}</div>
+                                <div class="card-avatar ${avatarColor}">${escapeHtml(c.avatar || c.name?.charAt(0) || '?')}</div>
                                 <div class="card-info">
                                     <div class="card-name">
-                                        ${c.name || '-'}
+                                        ${safeName}
                                         <span class="card-badge ${c.is_active ? '' : 'danger'}">${c.is_active ? '啟用' : '停用'}</span>
                                     </div>
                                     <div class="card-meta">${specialtiesText}</div>
                                 </div>
                             </div>
-                            ${c.phone ? `<div class="card-row"><span class="card-label">電話</span><span class="card-value">${c.phone}</span></div>` : ''}
+                            ${c.phone ? `<div class="card-row"><span class="card-label">電話</span><span class="card-value">${escapeHtml(c.phone)}</span></div>` : ''}
                             <div class="card-actions">
-                                <button class="card-btn secondary" onclick="editCoach('${c.id}')">編輯</button>
-                                ${c.line_uid ? `<button class="card-btn warning" onclick="copyCoachLink('${c.line_uid}', '${c.name}')">📋 複製連結</button>` : ''}
-                                <button class="card-btn danger" onclick="deleteCoach('${c.id}', '${c.name}')">刪除</button>
+                                <button class="card-btn secondary" onclick="editCoach('${safeId}')">編輯</button>
+                                ${c.line_uid ? `<button class="card-btn warning" onclick="copyCoachLink('${escapeAttr(c.line_uid)}', '${escapeAttr(c.name)}')">📋 複製連結</button>` : ''}
+                                <button class="card-btn danger" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>
                             </div>
                         </div>
                     `;
@@ -2579,9 +2610,13 @@
 
             // 表格版（電腦）
             tbody.innerHTML = requests.map(r => {
+                const safeId = escapeHtml(r.id);
+                const safeStudentName = escapeAttr(r.student_name || '-');
+                const safeCourseDate = escapeAttr(r.course_date || '-');
+                
                 // 根據狀態決定操作按鈕
                 let actionButtons = `
-                    <button class="edit-btn" onclick="openChatRoom('${r.id}', '${r.student_name}', '${r.course_date}')">
+                    <button class="edit-btn" onclick="openChatRoom('${safeId}', '${safeStudentName}', '${safeCourseDate}')">
                         💬 聊天室
                     </button>
                 `;
@@ -2589,10 +2624,10 @@
                 // 待取消確認狀態：顯示確認取消按鈕
                 if (r.status === 'cancel_pending') {
                     actionButtons = `
-                        <button class="edit-btn" style="background: #e74c3c; color: white;" onclick="confirmCancelRequest('${r.id}', '${r.student_name}')">
+                        <button class="edit-btn" style="background: #e74c3c; color: white;" onclick="confirmCancelRequest('${safeId}', '${safeStudentName}')">
                             ✓ 確認取消
                         </button>
-                        <button class="edit-btn" onclick="openChatRoom('${r.id}', '${r.student_name}', '${r.course_date}')">
+                        <button class="edit-btn" onclick="openChatRoom('${safeId}', '${safeStudentName}', '${safeCourseDate}')">
                             💬
                         </button>
                     `;
@@ -2601,7 +2636,7 @@
                 // 已取消或已解決狀態：可以刪除
                 if (r.status === 'cancelled' || r.status === 'resolved') {
                     actionButtons += `
-                        <button class="delete-btn" onclick="deleteRequest('${r.id}', '${r.student_name}')">
+                        <button class="delete-btn" onclick="deleteRequest('${safeId}', '${safeStudentName}')">
                             🗑️
                         </button>
                     `;
@@ -2615,15 +2650,15 @@
                 
                 return `
                     <tr>
-                        <td>${r.course_date || '-'}</td>
-                        <td>${r.course_time || '-'}</td>
-                        <td>${courseTypeNames[r.course_type] || r.course_type || '-'}</td>
-                        <td>${r.student_name || '-'}</td>
-                        <td>${r.original_coach_name || '-'}</td>
-                        <td>${r.substitute_coach_name || '-'}</td>
+                        <td>${escapeHtml(r.course_date || '-')}</td>
+                        <td>${escapeHtml(r.course_time || '-')}</td>
+                        <td>${courseTypeNames[r.course_type] || escapeHtml(r.course_type) || '-'}</td>
+                        <td>${escapeHtml(r.student_name || '-')}</td>
+                        <td>${escapeHtml(r.original_coach_name || '-')}</td>
+                        <td>${escapeHtml(r.substitute_coach_name || '-')}</td>
                         <td>
                             <span class="status-badge ${statusClass}">
-                                ${statusNames[r.status] || r.status || '-'}
+                                ${statusNames[r.status] || escapeHtml(r.status) || '-'}
                             </span>
                         </td>
                         <td>
@@ -2643,6 +2678,9 @@
                 cardList.innerHTML = requests.map(r => {
                     const icon = courseIcons[r.course_type] || '📋';
                     const avatarColor = courseColors[r.course_type] || '';
+                    const safeId = escapeHtml(r.id);
+                    const safeStudentName = escapeAttr(r.student_name || '-');
+                    const safeCourseDate = escapeAttr(r.course_date || '-');
                     
                     // 狀態樣式
                     let statusBadge = '';
@@ -2668,17 +2706,17 @@
                     }
                     
                     // 操作按鈕
-                    let cardButtons = `<button class="card-btn secondary" onclick="openChatRoom('${r.id}', '${r.student_name}', '${r.course_date}')">💬 聊天室</button>`;
+                    let cardButtons = `<button class="card-btn secondary" onclick="openChatRoom('${safeId}', '${safeStudentName}', '${safeCourseDate}')">💬 聊天室</button>`;
                     
                     if (r.status === 'cancel_pending') {
                         cardButtons = `
-                            <button class="card-btn danger" onclick="confirmCancelRequest('${r.id}', '${r.student_name}')">✓ 確認取消</button>
-                            <button class="card-btn secondary" onclick="openChatRoom('${r.id}', '${r.student_name}', '${r.course_date}')">💬</button>
+                            <button class="card-btn danger" onclick="confirmCancelRequest('${safeId}', '${safeStudentName}')">✓ 確認取消</button>
+                            <button class="card-btn secondary" onclick="openChatRoom('${safeId}', '${safeStudentName}', '${safeCourseDate}')">💬</button>
                         `;
                     }
                     
                     if (r.status === 'cancelled' || r.status === 'resolved') {
-                        cardButtons += `<button class="card-btn danger" onclick="deleteRequest('${r.id}', '${r.student_name}')">🗑️ 刪除</button>`;
+                        cardButtons += `<button class="card-btn danger" onclick="deleteRequest('${safeId}', '${safeStudentName}')">🗑️ 刪除</button>`;
                     }
                     
                     return `
@@ -2686,18 +2724,18 @@
                             <div class="card-header">
                                 <div class="card-avatar ${avatarColor}">${icon}</div>
                                 <div class="card-info">
-                                    <div class="card-name">${r.student_name || '-'} ${statusBadge}</div>
-                                    <div class="card-meta">${r.course_date || '-'} ${r.course_time || ''} • ${courseTypeNames[r.course_type] || '-'}</div>
+                                    <div class="card-name">${escapeHtml(r.student_name || '-')} ${statusBadge}</div>
+                                    <div class="card-meta">${escapeHtml(r.course_date || '-')} ${escapeHtml(r.course_time || '')} • ${courseTypeNames[r.course_type] || '-'}</div>
                                 </div>
                             </div>
                             <div class="card-row">
                                 <span class="card-label">原教練</span>
-                                <span class="card-value">${r.original_coach_name || '-'}</span>
+                                <span class="card-value">${escapeHtml(r.original_coach_name || '-')}</span>
                             </div>
                             ${r.substitute_coach_name ? `
                             <div class="card-row">
                                 <span class="card-label">代課教練</span>
-                                <span class="card-value">${r.substitute_coach_name}</span>
+                                <span class="card-value">${escapeHtml(r.substitute_coach_name)}</span>
                             </div>
                             ` : ''}
                             <div class="card-actions">
@@ -2720,31 +2758,66 @@
             );
             
             const tbody = document.getElementById('studentsTable');
+            const cardList = document.getElementById('studentsCardList');
+            
             if (filtered.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">找不到符合的學員</td></tr>`;
+                if (cardList) cardList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">🔍</div>
+                        <p>找不到符合的學員</p>
+                    </div>
+                `;
                 return;
             }
             
-            tbody.innerHTML = filtered.map(s => `
+            // 表格版
+            tbody.innerHTML = filtered.map(s => {
+                const safeName = escapeHtml(s.name || '-');
+                const safeId = escapeHtml(s.id);
+                return `
                 <tr>
                     <td>
                         <div class="avatar-cell">
-                            <div class="avatar">${s.avatar || s.name?.charAt(0) || '?'}</div>
-                            <span>${s.name || '-'}</span>
+                            <div class="avatar">${escapeHtml(s.avatar || s.name?.charAt(0) || '?')}</div>
+                            <span>${safeName}</span>
                         </div>
                     </td>
-                    <td>${s.code || '-'}</td>
-                    <td>${s.phone || '-'}</td>
-                    <td style="font-size: 12px; color: var(--text-muted);">${s.line_uid ? s.line_uid.substring(0, 15) + '...' : '-'}</td>
-                    <td>${s.notes || '-'}</td>
+                    <td>${escapeHtml(s.code || '-')}</td>
+                    <td>${escapeHtml(s.phone || '-')}</td>
+                    <td style="font-size: 12px; color: var(--text-muted);">${s.line_uid ? escapeHtml(s.line_uid.substring(0, 15)) + '...' : '-'}</td>
+                    <td>${escapeHtml(s.notes || '-')}</td>
                     <td>
                         <div class="action-btns">
-                            <button class="edit-btn" onclick="editStudent('${s.id}')">編輯</button>
-                            <button class="delete-btn" onclick="deleteStudent('${s.id}', '${s.name}')">刪除</button>
+                            <button class="edit-btn" onclick="editStudent('${safeId}')">編輯</button>
+                            <button class="delete-btn" onclick="deleteStudent('${safeId}', '${escapeAttr(s.name)}')">刪除</button>
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
+            
+            // 卡片版
+            if (cardList) {
+                cardList.innerHTML = filtered.map(s => {
+                    const safeName = escapeHtml(s.name || '-');
+                    const safeId = escapeHtml(s.id);
+                    return `
+                    <div class="data-card">
+                        <div class="card-header">
+                            <div class="card-avatar">${escapeHtml(s.avatar || s.name?.charAt(0) || '?')}</div>
+                            <div class="card-info">
+                                <div class="card-name">${safeName}</div>
+                                <div class="card-meta">${escapeHtml(s.code || '無代號')} • ${escapeHtml(s.phone || '無電話')}</div>
+                            </div>
+                        </div>
+                        ${s.notes ? `<div class="card-row"><span class="card-label">備註</span><span class="card-value">${escapeHtml(s.notes)}</span></div>` : ''}
+                        <div class="card-actions">
+                            <button class="card-btn secondary" onclick="editStudent('${safeId}')">編輯</button>
+                            <button class="card-btn danger" onclick="deleteStudent('${safeId}', '${escapeAttr(s.name)}')">刪除</button>
+                        </div>
+                    </div>
+                `}).join('');
+            }
         }
 
         function filterCoaches() {
@@ -2755,22 +2828,34 @@
             );
             
             const tbody = document.getElementById('coachesTable');
+            const cardList = document.getElementById('coachesCardList');
+            
             if (filtered.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">找不到符合的教練</td></tr>`;
+                if (cardList) cardList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">🔍</div>
+                        <p>找不到符合的教練</p>
+                    </div>
+                `;
                 return;
             }
             
-            tbody.innerHTML = filtered.map(c => `
+            // 表格版
+            tbody.innerHTML = filtered.map(c => {
+                const safeName = escapeHtml(c.name || '-');
+                const safeId = escapeHtml(c.id);
+                return `
                 <tr>
                     <td>
                         <div class="avatar-cell">
-                            <div class="avatar">${c.avatar || c.name?.charAt(0) || '?'}</div>
-                            <span>${c.name || '-'}</span>
+                            <div class="avatar">${escapeHtml(c.avatar || c.name?.charAt(0) || '?')}</div>
+                            <span>${safeName}</span>
                         </div>
                     </td>
-                    <td>${c.phone || '-'}</td>
+                    <td>${escapeHtml(c.phone || '-')}</td>
                     <td>${(c.specialties || []).map(s => courseTypeNames[s] || s).join('、') || '-'}</td>
-                    <td style="font-size: 12px; color: var(--text-muted);">${c.line_uid ? c.line_uid.substring(0, 15) + '...' : '-'}</td>
+                    <td style="font-size: 12px; color: var(--text-muted);">${c.line_uid ? escapeHtml(c.line_uid.substring(0, 15)) + '...' : '-'}</td>
                     <td>
                         <span class="status-badge ${c.is_active ? 'status-active' : 'status-inactive'}">
                             ${c.is_active ? '啟用' : '停用'}
@@ -2778,12 +2863,47 @@
                     </td>
                     <td>
                         <div class="action-btns">
-                            <button class="edit-btn" onclick="editCoach('${c.id}')">編輯</button>
-                            <button class="delete-btn" onclick="deleteCoach('${c.id}', '${c.name}')">刪除</button>
+                            <button class="edit-btn" onclick="editCoach('${safeId}')">編輯</button>
+                            <button class="delete-btn" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
+            
+            // 卡片版
+            if (cardList) {
+                const specialtyIcons = { 'pilates': '🧘', 'weight': '💪', 'stretch': '🤸', 'ai': '🤖' };
+                const specialtyColors = { 'pilates': '', 'weight': 'pink', 'stretch': 'yellow', 'ai': 'blue' };
+                
+                cardList.innerHTML = filtered.map(c => {
+                    const mainSpecialty = (c.specialties || [])[0] || 'pilates';
+                    const avatarColor = specialtyColors[mainSpecialty] || '';
+                    const specialtiesText = (c.specialties || []).map(s => `${specialtyIcons[s] || ''} ${courseTypeNames[s] || s}`).join(' • ') || '未設定';
+                    const safeName = escapeHtml(c.name || '-');
+                    const safeId = escapeHtml(c.id);
+                    
+                    return `
+                        <div class="data-card">
+                            <div class="card-header">
+                                <div class="card-avatar ${avatarColor}">${escapeHtml(c.avatar || c.name?.charAt(0) || '?')}</div>
+                                <div class="card-info">
+                                    <div class="card-name">
+                                        ${safeName}
+                                        <span class="card-badge ${c.is_active ? '' : 'danger'}">${c.is_active ? '啟用' : '停用'}</span>
+                                    </div>
+                                    <div class="card-meta">${specialtiesText}</div>
+                                </div>
+                            </div>
+                            ${c.phone ? `<div class="card-row"><span class="card-label">電話</span><span class="card-value">${escapeHtml(c.phone)}</span></div>` : ''}
+                            <div class="card-actions">
+                                <button class="card-btn secondary" onclick="editCoach('${safeId}')">編輯</button>
+                                ${c.line_uid ? `<button class="card-btn warning" onclick="copyCoachLink('${escapeAttr(c.line_uid)}', '${escapeAttr(c.name)}')">📋 複製連結</button>` : ''}
+                                <button class="card-btn danger" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
         }
 
         function filterRequests() {
@@ -2796,31 +2916,106 @@
             );
             
             const tbody = document.getElementById('requestsTable');
+            const cardList = document.getElementById('requestsCardList');
+            
             if (filtered.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">找不到符合的請求</td></tr>`;
+                if (cardList) cardList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">🔍</div>
+                        <p>找不到符合的請求</p>
+                    </div>
+                `;
                 return;
             }
             
-            tbody.innerHTML = filtered.map(r => `
+            // 表格版
+            tbody.innerHTML = filtered.map(r => {
+                const safeStudentName = escapeAttr(r.student_name || '-');
+                const safeCourseDate = escapeAttr(r.course_date || '-');
+                const safeId = escapeHtml(r.id);
+                return `
                 <tr>
-                    <td>${r.course_date || '-'}</td>
-                    <td>${r.course_time || '-'}</td>
-                    <td>${courseTypeNames[r.course_type] || r.course_type || '-'}</td>
-                    <td>${r.student_name || '-'}</td>
-                    <td>${r.original_coach_name || '-'}</td>
-                    <td>${r.substitute_coach_name || '-'}</td>
+                    <td>${escapeHtml(r.course_date || '-')}</td>
+                    <td>${escapeHtml(r.course_time || '-')}</td>
+                    <td>${courseTypeNames[r.course_type] || escapeHtml(r.course_type) || '-'}</td>
+                    <td>${escapeHtml(r.student_name || '-')}</td>
+                    <td>${escapeHtml(r.original_coach_name || '-')}</td>
+                    <td>${escapeHtml(r.substitute_coach_name || '-')}</td>
                     <td>
                         <span class="status-badge ${r.status === 'resolved' ? 'status-active' : 'status-inactive'}">
-                            ${statusNames[r.status] || r.status || '-'}
+                            ${statusNames[r.status] || escapeHtml(r.status) || '-'}
                         </span>
                     </td>
                     <td>
-                        <button class="edit-btn" onclick="openChatRoom('${r.id}', '${r.student_name}', '${r.course_date}')">
+                        <button class="edit-btn" onclick="openChatRoom('${safeId}', '${safeStudentName}', '${safeCourseDate}')">
                             💬 聊天室
                         </button>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
+            
+            // 卡片版
+            if (cardList) {
+                const courseIcons = { 'pilates': '🧘', 'weight': '💪', 'stretch': '🤸', 'ai': '🤖' };
+                const courseColors = { 'pilates': '', 'weight': 'pink', 'stretch': 'yellow', 'ai': 'blue' };
+                
+                cardList.innerHTML = filtered.map(r => {
+                    const icon = courseIcons[r.course_type] || '📋';
+                    const avatarColor = courseColors[r.course_type] || '';
+                    const safeStudentName = escapeAttr(r.student_name || '-');
+                    const safeCourseDate = escapeAttr(r.course_date || '-');
+                    const safeId = escapeHtml(r.id);
+                    
+                    // 狀態樣式
+                    let statusBadge = '';
+                    let cardBorder = '';
+                    if (r.status === 'pending') {
+                        statusBadge = '<span class="card-badge pending">等待中</span>';
+                        cardBorder = 'border-left: 4px solid var(--warning);';
+                    } else if (r.status === 'discussing') {
+                        statusBadge = '<span class="card-badge" style="background: #e3f2fd; color: #1565c0;">討論中</span>';
+                        cardBorder = 'border-left: 4px solid #1565c0;';
+                    } else if (r.status === 'with-student') {
+                        statusBadge = '<span class="card-badge" style="background: #fce4ec; color: #c2185b;">學員已加入</span>';
+                        cardBorder = 'border-left: 4px solid #c2185b;';
+                    } else if (r.status === 'resolved') {
+                        statusBadge = '<span class="card-badge">已解決</span>';
+                        cardBorder = 'border-left: 4px solid var(--green);';
+                    } else if (r.status === 'cancel_pending') {
+                        statusBadge = '<span class="card-badge pending">待取消確認</span>';
+                        cardBorder = 'border-left: 4px solid var(--danger);';
+                    } else if (r.status === 'cancelled') {
+                        statusBadge = '<span class="card-badge danger">已取消</span>';
+                        cardBorder = 'border-left: 4px solid var(--gray);';
+                    }
+                    
+                    return `
+                        <div class="data-card" style="${cardBorder}">
+                            <div class="card-header">
+                                <div class="card-avatar ${avatarColor}">${icon}</div>
+                                <div class="card-info">
+                                    <div class="card-name">${escapeHtml(r.student_name || '-')} ${statusBadge}</div>
+                                    <div class="card-meta">${escapeHtml(r.course_date || '-')} ${escapeHtml(r.course_time || '')} • ${courseTypeNames[r.course_type] || '-'}</div>
+                                </div>
+                            </div>
+                            <div class="card-row">
+                                <span class="card-label">原教練</span>
+                                <span class="card-value">${escapeHtml(r.original_coach_name || '-')}</span>
+                            </div>
+                            ${r.substitute_coach_name ? `
+                            <div class="card-row">
+                                <span class="card-label">代課教練</span>
+                                <span class="card-value">${escapeHtml(r.substitute_coach_name)}</span>
+                            </div>
+                            ` : ''}
+                            <div class="card-actions">
+                                <button class="card-btn secondary" onclick="openChatRoom('${safeId}', '${safeStudentName}', '${safeCourseDate}')">💬 聊天室</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
         }
 
         // ============ Student CRUD ============
@@ -2999,19 +3194,24 @@
                 showToast(`已刪除${targetTypeText} ✓`);
                 closeModal('deleteModal');
                 
+                // 先清空本地資料再重新載入
                 if (deleteTarget.type === 'student') {
+                    students = [];
                     await loadStudents();
                 } else if (deleteTarget.type === 'coach') {
+                    coaches = [];
                     await loadCoaches();
                 } else if (deleteTarget.type === 'admin') {
+                    admins = [];
                     await loadAdmins();
                 }
+                
+                deleteTarget = null;
             } catch (error) {
                 console.error('Delete error:', error);
                 showToast('刪除失敗：' + error.message);
+                deleteTarget = null;
             }
-            
-            deleteTarget = null;
         }
 
         // ============ Modal ============
@@ -3125,7 +3325,7 @@
                     return `
                         <div style="text-align: center; padding: 8px 16px; margin: 8px 16px;">
                             <span style="background: #e0e0e0; color: #666; padding: 4px 12px; border-radius: 12px; font-size: 12px;">
-                                ${m.content}
+                                ${escapeHtml(m.content)}
                             </span>
                         </div>
                     `;
@@ -3163,10 +3363,10 @@
                     <div style="display: flex; justify-content: ${align}; padding: 4px 16px;">
                         <div style="max-width: 70%;">
                             <div style="font-size: 11px; color: #999; margin-bottom: 2px;">
-                                ${senderName}${roleLabel}
+                                ${escapeHtml(senderName)}${roleLabel}
                             </div>
                             <div style="background: ${bgColor}; padding: 10px 14px; border-radius: 16px; font-size: 14px;">
-                                ${m.content}
+                                ${escapeHtml(m.content)}
                             </div>
                             <div style="font-size: 10px; color: #bbb; margin-top: 2px;">
                                 ${formatTime(m.created_at)}
@@ -3471,9 +3671,11 @@
                 
                 if (error) throw error;
                 admins = data || [];
+                console.log('Loaded admins:', admins.length);
                 renderAdmins();
             } catch (error) {
                 console.error('Load admins error:', error);
+                showToast('載入管理員失敗');
             }
         }
 
@@ -3525,15 +3727,18 @@
                 `;
                 html += pendingAdminsData.map(a => {
                     const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
+                    const safeName = escapeHtml(a.name || '-');
+                    const safeId = escapeHtml(a.id);
+                    const safeAttrName = escapeAttr(a.name || '管理員');
                     return `
                         <tr style="background: #fffdf0;">
-                            <td>${a.name || '-'}</td>
-                            <td><code style="font-size: 11px;">${a.line_uid || '-'}</code></td>
+                            <td>${safeName}</td>
+                            <td><code style="font-size: 11px;">${escapeHtml(a.line_uid || '-')}</code></td>
                             <td><span style="color: var(--warning);">⏳ 待審核</span></td>
                             <td>${createdAt}</td>
                             <td>
-                                ${isSuperAdmin ? `<button class="edit-btn" style="background: var(--success);" onclick="approveAdmin('${a.id}', '${a.name}')">✓ 核准</button>` : ''}
-                                ${isSuperAdmin ? `<button class="delete-btn" onclick="deleteAdmin('${a.id}', '${a.name || '管理員'}')">✗ 拒絕</button>` : '<span style="color: var(--text-muted); font-size: 12px;">請主管理員審核</span>'}
+                                ${isSuperAdmin ? `<button class="edit-btn" style="background: var(--success);" onclick="approveAdmin('${safeId}', '${safeAttrName}')">✓ 核准</button>` : ''}
+                                ${isSuperAdmin ? `<button class="delete-btn" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">✗ 拒絕</button>` : '<span style="color: var(--text-muted); font-size: 12px;">請主管理員審核</span>'}
                             </td>
                         </tr>
                     `;
@@ -3554,15 +3759,18 @@
                 html += activeAdmins.map(a => {
                     const isCurrentAdmin = currentAdmin && a.id === currentAdmin.id;
                     const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
+                    const safeName = escapeHtml(a.name || '-');
+                    const safeId = escapeHtml(a.id);
+                    const safeAttrName = escapeAttr(a.name || '管理員');
                     return `
                         <tr>
-                            <td>${a.name || '-'}${isCurrentAdmin ? ' <span style="color: var(--green);">(我)</span>' : ''}${a.username === 'admin' ? ' <span style="color: var(--blue);">👑</span>' : ''}</td>
-                            <td><code style="font-size: 11px;">${a.line_uid || '-'}</code></td>
+                            <td>${safeName}${isCurrentAdmin ? ' <span style="color: var(--green);">(我)</span>' : ''}${a.username === 'admin' ? ' <span style="color: var(--blue);">👑</span>' : ''}</td>
+                            <td><code style="font-size: 11px;">${escapeHtml(a.line_uid || '-')}</code></td>
                             <td><span style="color: var(--success);">✓ 啟用</span></td>
                             <td>${createdAt}</td>
                             <td>
-                                ${isSuperAdmin ? `<button class="edit-btn" onclick="editAdmin('${a.id}')">編輯</button>` : ''}
-                                ${isSuperAdmin && !isCurrentAdmin && a.username !== 'admin' ? `<button class="delete-btn" onclick="deleteAdmin('${a.id}', '${a.name || '管理員'}')">刪除</button>` : ''}
+                                ${isSuperAdmin ? `<button class="edit-btn" onclick="editAdmin('${safeId}')">編輯</button>` : ''}
+                                ${isSuperAdmin && !isCurrentAdmin && a.username !== 'admin' ? `<button class="delete-btn" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
                             </td>
                         </tr>
                     `;
@@ -3585,20 +3793,23 @@
                     
                     cardHtml += pendingAdminsData.map(a => {
                         const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
+                        const safeName = escapeHtml(a.name || '-');
+                        const safeId = escapeHtml(a.id);
+                        const safeAttrName = escapeAttr(a.name || '管理員');
                         return `
                             <div class="data-card" style="border-left: 4px solid var(--warning);">
                                 <div class="card-header">
                                     <div class="card-avatar" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);">
-                                        ${a.name?.charAt(0) || '?'}
+                                        ${escapeHtml(a.name?.charAt(0) || '?')}
                                     </div>
                                     <div class="card-info">
-                                        <div class="card-name">${a.name || '-'} <span class="card-badge pending">待審核</span></div>
+                                        <div class="card-name">${safeName} <span class="card-badge pending">待審核</span></div>
                                         <div class="card-meta">申請於 ${createdAt}</div>
                                     </div>
                                 </div>
                                 <div class="card-actions">
-                                    ${isSuperAdmin ? `<button class="card-btn primary" onclick="approveAdmin('${a.id}', '${a.name}')">✓ 核准</button>` : ''}
-                                    ${isSuperAdmin ? `<button class="card-btn danger" onclick="deleteAdmin('${a.id}', '${a.name || '管理員'}')">✗ 拒絕</button>` : '<span style="color: var(--text-muted); font-size: 12px;">請主管理員審核</span>'}
+                                    ${isSuperAdmin ? `<button class="card-btn primary" onclick="approveAdmin('${safeId}', '${safeAttrName}')">✓ 核准</button>` : ''}
+                                    ${isSuperAdmin ? `<button class="card-btn danger" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">✗ 拒絕</button>` : '<span style="color: var(--text-muted); font-size: 12px;">請主管理員審核</span>'}
                                 </div>
                             </div>
                         `;
@@ -3617,13 +3828,16 @@
                     cardHtml += activeAdmins.map(a => {
                         const isCurrentAdmin = currentAdmin && a.id === currentAdmin.id;
                         const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
+                        const safeName = escapeHtml(a.name || '-');
+                        const safeId = escapeHtml(a.id);
+                        const safeAttrName = escapeAttr(a.name || '管理員');
                         return `
                             <div class="data-card">
                                 <div class="card-header">
-                                    <div class="card-avatar">${a.name?.charAt(0) || '?'}</div>
+                                    <div class="card-avatar">${escapeHtml(a.name?.charAt(0) || '?')}</div>
                                     <div class="card-info">
                                         <div class="card-name">
-                                            ${a.name || '-'}
+                                            ${safeName}
                                             ${isCurrentAdmin ? '<span style="color: var(--green); font-size: 12px;">(我)</span>' : ''}
                                             ${a.username === 'admin' ? '<span style="color: var(--blue);">👑</span>' : ''}
                                         </div>
@@ -3632,8 +3846,8 @@
                                 </div>
                                 ${isSuperAdmin ? `
                                 <div class="card-actions">
-                                    <button class="card-btn secondary" onclick="editAdmin('${a.id}')">編輯</button>
-                                    ${!isCurrentAdmin && a.username !== 'admin' ? `<button class="card-btn danger" onclick="deleteAdmin('${a.id}', '${a.name || '管理員'}')">刪除</button>` : ''}
+                                    <button class="card-btn secondary" onclick="editAdmin('${safeId}')">編輯</button>
+                                    ${!isCurrentAdmin && a.username !== 'admin' ? `<button class="card-btn danger" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
                                 </div>
                                 ` : ''}
                             </div>
@@ -3652,6 +3866,12 @@
                 pendingCountEl.style.display = 'inline';
             } else {
                 pendingCountEl.style.display = 'none';
+            }
+            
+            // 只有主管理員可以看到新增管理員按鈕
+            const addAdminBtn = document.getElementById('addAdminBtn');
+            if (addAdminBtn) {
+                addAdminBtn.style.display = isSuperAdmin ? 'flex' : 'none';
             }
         }
         
@@ -3684,6 +3904,13 @@
         }
 
         function openAdminModal(admin = null) {
+            // 只有主管理員可以新增管理員
+            const isSuperAdmin = currentAdmin && currentAdmin.username === 'admin';
+            if (!admin && !isSuperAdmin) {
+                showToast('只有主管理員可以新增管理員');
+                return;
+            }
+            
             document.getElementById('adminModalTitle').textContent = admin ? '編輯管理員' : '新增管理員';
             document.getElementById('adminId').value = admin?.id || '';
             document.getElementById('adminNameInput').value = admin?.name || '';
@@ -3755,6 +3982,25 @@
             deleteTarget = { type: 'admin', id, name };
             document.getElementById('deleteMessage').textContent = `確定要刪除管理員「${name}」嗎？`;
             openModal('deleteModal');
+        }
+
+        // ============ HTML Escape Helpers ============
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            const str = String(text);
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+        
+        function escapeAttr(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/'/g, '&#39;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
         }
 
         // ============ Toast ============
