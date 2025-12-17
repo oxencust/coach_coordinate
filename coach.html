@@ -2183,6 +2183,23 @@
                     </div>
                 </div>
 
+                <!-- 指派代課教練（必填） -->
+                <div class="form-group">
+                    <label class="form-label">指派代課教練 <span style="color: #e74c3c;">*</span></label>
+                    <div class="student-select-area" id="coachSelectArea">
+                        <div class="selected-student-display" id="selectedCoachDisplay" style="display: none; border-color: var(--blue); background: var(--blue-light);">
+                            <div class="selected-student-info">
+                                <span class="selected-student-avatar" id="selectedCoachAvatar" style="background: var(--blue);">李</span>
+                                <span class="selected-student-name" id="selectedCoachName">李教練</span>
+                            </div>
+                            <button type="button" class="change-student-btn" onclick="openCoachSelectModal()" style="color: var(--blue-dark);">更換</button>
+                        </div>
+                        <button type="button" class="select-student-btn" id="selectCoachBtn" onclick="openCoachSelectModal()" style="border-color: var(--blue); color: var(--blue-dark);">
+                            🏋️ 選擇代課教練
+                        </button>
+                    </div>
+                </div>
+
                 <button class="submit-btn" id="createRequestBtn" onclick="createRequest()">發送代課需求</button>
             </div>
         </div>
@@ -2295,6 +2312,26 @@
         </div>
     </div>
 
+    <!-- Coach Select Modal (發起請求時指派代課教練) -->
+    <div class="modal-overlay" id="coachSelectModal" onclick="closeModalIfOutside(event, 'coachSelectModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>🏋️ 指派代課教練</h2>
+                <button class="close-btn" onclick="closeModal('coachSelectModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-input-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="createCoachSearchInput" 
+                        placeholder="輸入教練姓名搜尋..." oninput="searchCoachForCreate()">
+                </div>
+                <div class="student-select-list" id="coachSelectList">
+                    <!-- 動態生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div class="toast" id="toast"></div>
 
@@ -2333,6 +2370,7 @@
         let currentTab = 'pending';
         let selectedCourse = null;
         let selectedStudent = null;
+        let selectedCoach = null;
         let messagesSubscription = null;
 
         // ============ Init ============
@@ -2629,13 +2667,11 @@
             
             if (error) throw error;
             
-            const mySpecialties = currentUser.specialties || [];
-            
+            // 只有原教練和被指派的代課教練可以看到
             const filteredData = data.filter(r => {
                 if (r.original_coach_id === currentUser.id) return true;
                 if (r.substitute_coach_id === currentUser.id) return true;
-                if (mySpecialties.length === 0) return true;
-                return mySpecialties.includes(r.course_type);
+                return false;
             });
             
             requests = await Promise.all(filteredData.map(async r => {
@@ -2874,9 +2910,10 @@
                     course_type: requestData.course_type,
                     course_date: requestData.course_date,
                     course_time: requestData.course_time,
-                    reason: requestData.reason,
                     original_coach_id: currentUser.id,
-                    student_id: requestData.student_id
+                    student_id: requestData.student_id,
+                    substitute_coach_id: requestData.substitute_coach_id,
+                    status: 'discussing'  // 直接設為討論中，因為已指派代課教練
                 })
                 .select()
                 .single();
@@ -3938,10 +3975,15 @@
             
             selectedCourse = null;
             selectedStudent = null;
+            selectedCoach = null;
             
             // 重置學員選擇顯示
             document.getElementById('selectedStudentDisplay').style.display = 'none';
             document.getElementById('selectStudentBtn').style.display = 'block';
+            
+            // 重置代課教練選擇顯示
+            document.getElementById('selectedCoachDisplay').style.display = 'none';
+            document.getElementById('selectCoachBtn').style.display = 'block';
             
             renderCourseOptions();
             
@@ -4014,6 +4056,12 @@
                 showToast('請選擇學員');
                 return;
             }
+            
+            // 代課教練必填
+            if (!selectedCoach) {
+                showToast('請指派代課教練');
+                return;
+            }
 
             if (timeSelect === 'custom') {
                 const start = document.getElementById('customTimeStart').value;
@@ -4032,20 +4080,21 @@
             submitBtn.textContent = '建立中...';
 
             try {
-                const message = `各位好，${formatDate(date)} ${time} 我需要請假，學員：${selectedStudent.name}，有人可以幫忙嗎？🙏`;
+                const message = `${currentUser.name} 請 ${selectedCoach.name} 代課\n📅 ${formatDate(date)} ${time}\n👤 學員：${selectedStudent.name}`;
 
                 await createRequestToSupabase({
                     course_type: selectedCourse,
                     course_date: date,
                     course_time: time,
                     student_id: selectedStudent.id,
+                    substitute_coach_id: selectedCoach.id,
                     message: message
                 });
 
                 closeModal('createModal');
                 resetForm();
                 switchTab('pending');
-                showToast('已發送代課需求！');
+                showToast('已發送代課需求給 ' + selectedCoach.name);
                 
             } catch (error) {
                 console.error('Create request error:', error);
@@ -4064,10 +4113,15 @@
             document.querySelectorAll('.course-option, .student-option').forEach(e => e.classList.remove('selected'));
             selectedCourse = null;
             selectedStudent = null;
+            selectedCoach = null;
             
             // 重置學員選擇顯示
             document.getElementById('selectedStudentDisplay').style.display = 'none';
             document.getElementById('selectStudentBtn').style.display = 'block';
+            
+            // 重置代課教練選擇顯示
+            document.getElementById('selectedCoachDisplay').style.display = 'none';
+            document.getElementById('selectCoachBtn').style.display = 'block';
         }
 
         // ============ 發起請求時選擇學員 ============
@@ -4135,6 +4189,89 @@
             
             closeModal('studentSelectModal');
             showToast(`已選擇：${student.name}`);
+        }
+
+        // ============ 發起請求時選擇代課教練 ============
+        function openCoachSelectModal() {
+            document.getElementById('createCoachSearchInput').value = '';
+            // 排除自己，只顯示其他教練
+            const availableCoaches = allCoaches.filter(c => c.id !== currentUser.id);
+            renderCoachSelectList(availableCoaches);
+            openModal('coachSelectModal');
+        }
+        
+        function searchCoachForCreate() {
+            const query = document.getElementById('createCoachSearchInput').value.toLowerCase().trim();
+            const availableCoaches = allCoaches.filter(c => c.id !== currentUser.id);
+            
+            if (!query) {
+                renderCoachSelectList(availableCoaches);
+                return;
+            }
+            
+            const results = availableCoaches.filter(c => 
+                c.name.toLowerCase().includes(query)
+            );
+            
+            renderCoachSelectList(results);
+        }
+        
+        function renderCoachSelectList(coaches) {
+            const container = document.getElementById('coachSelectList');
+            
+            if (coaches.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                        <div style="font-size: 32px; margin-bottom: 8px;">😕</div>
+                        <p>找不到符合的教練</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const specialtyConfig = {
+                'pilates': { name: '皮拉提斯', icon: '🧘' },
+                'weight': { name: '重訓', icon: '💪' },
+                'stretch': { name: '伸展', icon: '🤸' },
+                'ai': { name: 'AI體態', icon: '🤖' }
+            };
+            
+            container.innerHTML = coaches.map(c => {
+                const specialtiesText = (c.specialties || []).map(s => {
+                    const config = specialtyConfig[s] || { name: s, icon: '📋' };
+                    return config.icon + config.name;
+                }).join(' ');
+                
+                return `
+                    <div class="student-select-item ${selectedCoach?.id === c.id ? 'selected' : ''}" 
+                         onclick="selectCoachForCreate('${c.id}')">
+                        <div class="result-info">
+                            <div class="result-avatar" style="background: var(--blue);">${c.avatar || c.name.charAt(0)}</div>
+                            <div>
+                                <div class="result-name">${c.name}</div>
+                                <div class="result-detail">${specialtiesText || '未設定專長'}</div>
+                            </div>
+                        </div>
+                        <span style="color: var(--blue); font-size: 20px;">${selectedCoach?.id === c.id ? '✓' : ''}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function selectCoachForCreate(coachId) {
+            const coach = allCoaches.find(c => c.id === coachId);
+            if (!coach) return;
+            
+            selectedCoach = coach;
+            
+            // 更新顯示
+            document.getElementById('selectedCoachAvatar').textContent = coach.avatar || coach.name.charAt(0);
+            document.getElementById('selectedCoachName').textContent = coach.name;
+            document.getElementById('selectedCoachDisplay').style.display = 'flex';
+            document.getElementById('selectCoachBtn').style.display = 'none';
+            
+            closeModal('coachSelectModal');
+            showToast(`已指派：${coach.name}`);
         }
 
         // ============ Modal Helpers ============
