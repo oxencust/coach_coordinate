@@ -1999,15 +1999,6 @@
                 </div>
             </div>
 
-            <!-- 課程提醒 -->
-            <div class="chat-reminder" id="chatReminder">
-                <span class="reminder-icon">💡</span>
-                <span class="reminder-text">聊天室將於課程完成後才可關閉</span>
-                <button class="finish-course-btn" id="finishCourseBtn" onclick="finishCourse()">
-                    ✅ 課程已完成，結束對話
-                </button>
-            </div>
-
             <div class="chat-messages" id="chatMessages"></div>
 
             <div class="typing-indicator" id="typingIndicator">
@@ -2295,10 +2286,20 @@
     <!-- End Chat Modal -->
     <div class="modal-overlay center" id="endChatModal">
         <div class="modal-content" onclick="event.stopPropagation()">
-            <div class="confirm-content">
+            <!-- 課程未完成提示 -->
+            <div class="confirm-content" id="endChatNotReady" style="display: none;">
+                <div class="confirm-icon">⏰</div>
+                <h3>課程尚未結束</h3>
+                <p id="endChatWaitMsg">請等待課程結束後再關閉聊天室</p>
+                <div class="confirm-buttons">
+                    <button class="confirm-btn cancel" onclick="closeModal('endChatModal')">我知道了</button>
+                </div>
+            </div>
+            <!-- 課程完成可結束 -->
+            <div class="confirm-content" id="endChatReady" style="display: none;">
                 <div class="confirm-icon">👋</div>
                 <h3>結束這次代課討論？</h3>
-                <p>結束後，所有參與者都會收到通知，對話紀錄將會保留。</p>
+                <p>結束後，所有參與者都會收到通知。</p>
                 <div class="confirm-buttons">
                     <button class="confirm-btn cancel" onclick="closeModal('endChatModal')">繼續討論</button>
                     <button class="confirm-btn success" onclick="endChat()">確認結束</button>
@@ -3102,8 +3103,6 @@
             const actionBar = document.getElementById('actionBar');
             const confirmBtn = document.getElementById('confirmSubstituteBtn');
             const cancelBtn = document.getElementById('cancelRequestBtn');
-            const chatReminder = document.getElementById('chatReminder');
-            const finishCourseBtn = document.getElementById('finishCourseBtn');
             
             const isOriginalCoach = currentRequest.originalTeacher.id === currentUser.id;
             const isSubstituteCoach = currentRequest.substituteTeacher?.id === currentUser.id;
@@ -3112,7 +3111,6 @@
             confirmBtn.style.display = 'none';
             cancelBtn.style.display = 'none';
             endBtn.classList.remove('show');
-            chatReminder.classList.remove('show');
             
             if (currentRequest.status === 'resolved') {
                 participantsBar.classList.remove('with-student');
@@ -3128,19 +3126,25 @@
                 
             } else if (currentRequest.studentJoined) {
                 participantsBar.classList.add('with-student');
-                endBtn.classList.add('show');
-                actionBar.style.display = 'flex';
-                
                 // 原教練或代課教練都可以結束對話
                 if (isOriginalCoach || isSubstituteCoach) {
-                    chatReminder.classList.add('show');
+                    endBtn.classList.add('show');
                 }
+                actionBar.style.display = 'flex';
                 
-            } else if (currentRequest.status === 'discussing' && isSubstituteCoach) {
+            } else if (currentRequest.status === 'discussing') {
                 participantsBar.classList.remove('with-student');
-                confirmBtn.style.display = 'flex';
+                // 代課教練可以確認接手
+                if (isSubstituteCoach && !currentRequest.substituteTeacher) {
+                    confirmBtn.style.display = 'flex';
+                }
+                // 原教練可以邀請學員
                 if (isOriginalCoach) {
                     inviteBtn.style.display = 'flex';
+                }
+                // 原教練或代課教練都可以結束對話
+                if (isOriginalCoach || isSubstituteCoach) {
+                    endBtn.classList.add('show');
                 }
                 actionBar.style.display = 'flex';
                 
@@ -3148,6 +3152,7 @@
                 participantsBar.classList.remove('with-student');
                 if (isOriginalCoach) {
                     inviteBtn.style.display = 'flex';
+                    endBtn.classList.add('show');
                     if (!currentRequest.student?.id) {
                         cancelBtn.style.display = 'flex';
                     } else {
@@ -3283,7 +3288,7 @@
                     });
                 }
                 
-                notifyNewMessage(content);
+                // 教練發訊息不自動推播，對方會透過即時訂閱收到
                 
             } catch (error) {
                 console.error('Send message error:', error);
@@ -3292,6 +3297,9 @@
         }
         
         function notifyNewMessage(content, forceNotify = false) {
+            // 只有學員已加入才推播給學員，否則只通知教練
+            const skipStudent = !currentRequest.studentJoined;
+            
             fetch(`${SUPABASE_URL}/functions/v1/notify-new-message`, {
                 method: 'POST',
                 headers: {
@@ -3304,7 +3312,8 @@
                     sender_id: currentUser.id,
                     sender_name: currentUser.name,
                     message_content: content,
-                    force_notify: forceNotify
+                    force_notify: forceNotify,
+                    skip_student: skipStudent
                 })
             }).catch(err => console.log('Notify error:', err));
         }
@@ -3816,7 +3825,6 @@
                 
                 currentRequest.status = 'resolved';
                 
-                document.getElementById('chatReminder').classList.remove('show');
                 document.getElementById('actionBar').style.display = 'none';
                 document.getElementById('endChatBtn').classList.remove('show');
                 
@@ -3929,6 +3937,49 @@
 
         // ============ End Chat ============
         function openEndChat() {
+            if (!currentRequest) return;
+            
+            // 解析課程結束時間
+            const courseDate = currentRequest.course_date;
+            const courseTime = currentRequest.course_time; // 格式如 "09:00-10:00"
+            
+            let courseEndTime = null;
+            if (courseDate && courseTime && courseTime.includes('-')) {
+                const endTimeStr = courseTime.split('-')[1]; // "10:00"
+                const [hours, minutes] = endTimeStr.split(':').map(Number);
+                courseEndTime = new Date(courseDate);
+                courseEndTime.setHours(hours, minutes, 0, 0);
+            }
+            
+            const now = new Date();
+            const isCourseCompleted = courseEndTime ? now >= courseEndTime : true;
+            
+            // 顯示對應內容
+            const notReadyDiv = document.getElementById('endChatNotReady');
+            const readyDiv = document.getElementById('endChatReady');
+            
+            if (isCourseCompleted) {
+                notReadyDiv.style.display = 'none';
+                readyDiv.style.display = 'block';
+            } else {
+                readyDiv.style.display = 'none';
+                notReadyDiv.style.display = 'block';
+                
+                // 顯示剩餘時間
+                const diffMs = courseEndTime - now;
+                const diffMins = Math.ceil(diffMs / 60000);
+                const hours = Math.floor(diffMins / 60);
+                const mins = diffMins % 60;
+                
+                let waitMsg = '請等待課程結束後再關閉聊天室';
+                if (hours > 0) {
+                    waitMsg = `課程將於 ${hours} 小時 ${mins} 分鐘後結束`;
+                } else if (mins > 0) {
+                    waitMsg = `課程將於 ${mins} 分鐘後結束`;
+                }
+                document.getElementById('endChatWaitMsg').textContent = waitMsg;
+            }
+            
             openModal('endChatModal');
         }
 
