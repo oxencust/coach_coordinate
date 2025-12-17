@@ -1511,6 +1511,7 @@
             cursor: pointer;
             transition: all 0.2s;
             -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .search-result-item:active {
@@ -1518,7 +1519,12 @@
             transform: scale(0.98);
         }
 
-        .result-info { display: flex; align-items: center; gap: 12px; }
+        .result-info { 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            pointer-events: none;
+        }
 
         .result-avatar {
             width: 44px;
@@ -1804,11 +1810,14 @@
             cursor: pointer;
             transition: all 0.2s;
             -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            text-align: center;
         }
 
         .select-student-btn:active {
             border-color: var(--green);
             background: var(--green-light);
+            transform: scale(0.98);
         }
 
         .selected-student-display {
@@ -1879,6 +1888,11 @@
             cursor: pointer;
             transition: all 0.2s;
             -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .student-select-item * {
+            pointer-events: none;
         }
 
         .student-select-item:active {
@@ -2126,6 +2140,7 @@
                 <button class="close-btn" onclick="closeModal('createModal')">✕</button>
             </div>
             <div class="modal-body">
+                <label class="form-label" style="margin-bottom: 12px;">課程時間</label>
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">日期</label>
@@ -2200,7 +2215,7 @@
                     </div>
                 </div>
 
-                <button class="submit-btn" id="createRequestBtn" onclick="createRequest()">發送代課需求</button>
+                <button class="submit-btn" id="createRequestBtn" onclick="createRequest()">發起代課</button>
             </div>
         </div>
     </div>
@@ -4094,14 +4109,14 @@
                 closeModal('createModal');
                 resetForm();
                 switchTab('pending');
-                showToast('已發送代課需求給 ' + selectedCoach.name);
+                showToast('已發起代課給 ' + selectedCoach.name);
                 
             } catch (error) {
                 console.error('Create request error:', error);
                 showToast('建立失敗，請重試');
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = '發送代課需求';
+                submitBtn.textContent = '發起代課';
             }
         }
 
@@ -4193,16 +4208,31 @@
 
         // ============ 發起請求時選擇代課教練 ============
         function openCoachSelectModal() {
+            // 必須先選擇課程類型
+            if (!selectedCourse) {
+                showToast('請先選擇課程類型');
+                return;
+            }
+            
             document.getElementById('createCoachSearchInput').value = '';
-            // 排除自己，只顯示其他教練
-            const availableCoaches = allCoaches.filter(c => c.id !== currentUser.id);
+            // 排除自己，只顯示同課程類型的教練
+            const availableCoaches = allCoaches.filter(c => {
+                if (c.id === currentUser.id) return false;
+                if (!c.specialties || c.specialties.length === 0) return false;
+                return c.specialties.includes(selectedCourse);
+            });
             renderCoachSelectList(availableCoaches);
             openModal('coachSelectModal');
         }
         
         function searchCoachForCreate() {
             const query = document.getElementById('createCoachSearchInput').value.toLowerCase().trim();
-            const availableCoaches = allCoaches.filter(c => c.id !== currentUser.id);
+            // 排除自己，只顯示同課程類型的教練
+            const availableCoaches = allCoaches.filter(c => {
+                if (c.id === currentUser.id) return false;
+                if (!c.specialties || c.specialties.length === 0) return false;
+                return c.specialties.includes(selectedCourse);
+            });
             
             if (!query) {
                 renderCoachSelectList(availableCoaches);
