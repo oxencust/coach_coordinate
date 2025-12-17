@@ -1516,8 +1516,11 @@
                         content: content
                     });
                 
-                // 發送 LINE 通知給教練們
-                notifyNewMessage(content);
+                // 檢查教練是否在線，不在線才推播
+                const coachesOnline = await checkCoachesOnline();
+                if (!coachesOnline) {
+                    notifyNewMessage(content);
+                }
                 
                 // Realtime 會自動更新
             } catch (error) {
@@ -1543,6 +1546,33 @@
                     force_notify: forceNotify
                 })
             }).catch(err => console.log('Notify error:', err));
+        }
+        
+        // 檢查教練是否在聊天室（60秒內有活動視為在線）
+        async function checkCoachesOnline() {
+            if (!requestId) return true; // 預設當作在線，不推播
+            
+            try {
+                const threshold = new Date(Date.now() - 60000).toISOString(); // 60秒前
+                
+                const { data, error } = await supabaseClient
+                    .from('user_presence')
+                    .select('user_id')
+                    .eq('request_id', requestId)
+                    .eq('user_type', 'coach')
+                    .gte('last_active_at', threshold);
+                
+                if (error) {
+                    console.log('Check presence error:', error);
+                    return true; // 出錯時預設在線，不推播
+                }
+                
+                // 如果有教練在線，返回 true
+                return data && data.length > 0;
+            } catch (err) {
+                console.log('Check presence error:', err);
+                return true;
+            }
         }
 
         // 強制通知對方
