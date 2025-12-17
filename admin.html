@@ -2289,16 +2289,16 @@
                             <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">選擇課程類型：</div>
                             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                                 <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
-                                    <input type="checkbox" id="pending_pilates_${c.id}" style="width: 18px; height: 18px;"> 🧘 皮拉提斯
+                                    <input type="checkbox" id="pending_pilates_card_${c.id}" style="width: 18px; height: 18px;"> 🧘 皮拉提斯
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
-                                    <input type="checkbox" id="pending_weight_${c.id}" style="width: 18px; height: 18px;"> 💪 重訓
+                                    <input type="checkbox" id="pending_weight_card_${c.id}" style="width: 18px; height: 18px;"> 💪 重訓
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
-                                    <input type="checkbox" id="pending_stretch_${c.id}" style="width: 18px; height: 18px;"> 🤸 伸展
+                                    <input type="checkbox" id="pending_stretch_card_${c.id}" style="width: 18px; height: 18px;"> 🤸 伸展
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
-                                    <input type="checkbox" id="pending_ai_${c.id}" style="width: 18px; height: 18px;"> 🤖 AI分析
+                                    <input type="checkbox" id="pending_ai_card_${c.id}" style="width: 18px; height: 18px;"> 🤖 AI分析
                                 </label>
                             </div>
                         </div>
@@ -2318,12 +2318,23 @@
         }
         
         async function approveCoach(id, name) {
-            // 取得勾選的課程類型
+            // 取得勾選的課程類型（同時檢查表格版和卡片版）
             const specialties = [];
-            if (document.getElementById(`pending_pilates_${id}`)?.checked) specialties.push('pilates');
-            if (document.getElementById(`pending_weight_${id}`)?.checked) specialties.push('weight');
-            if (document.getElementById(`pending_stretch_${id}`)?.checked) specialties.push('stretch');
-            if (document.getElementById(`pending_ai_${id}`)?.checked) specialties.push('ai');
+            
+            // 檢查表格版或卡片版的 checkbox
+            const pilatesChecked = document.getElementById(`pending_pilates_${id}`)?.checked || 
+                                   document.getElementById(`pending_pilates_card_${id}`)?.checked;
+            const weightChecked = document.getElementById(`pending_weight_${id}`)?.checked || 
+                                  document.getElementById(`pending_weight_card_${id}`)?.checked;
+            const stretchChecked = document.getElementById(`pending_stretch_${id}`)?.checked || 
+                                   document.getElementById(`pending_stretch_card_${id}`)?.checked;
+            const aiChecked = document.getElementById(`pending_ai_${id}`)?.checked || 
+                              document.getElementById(`pending_ai_card_${id}`)?.checked;
+            
+            if (pilatesChecked) specialties.push('pilates');
+            if (weightChecked) specialties.push('weight');
+            if (stretchChecked) specialties.push('stretch');
+            if (aiChecked) specialties.push('ai');
             
             if (specialties.length === 0) {
                 showToast('請至少選擇一個課程類型');
