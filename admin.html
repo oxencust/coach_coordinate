@@ -1811,7 +1811,7 @@
                         </div>
                     </div>
                 </div>
-                <div style="display: flex; gap: 8px; align-items: center;">
+                <div id="adminInputArea" style="display: flex; gap: 8px; align-items: center;">
                     <button onclick="toggleAdminEmojiPicker()" 
                         style="padding: 10px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 50%; cursor: pointer; font-size: 18px; line-height: 1;">
                         😊
@@ -1823,6 +1823,9 @@
                         style="padding: 10px 20px; background: var(--green); color: white; border: none; border-radius: 20px; cursor: pointer;">
                         發送
                     </button>
+                </div>
+                <div id="adminChatClosed" style="display: none; text-align: center; padding: 12px; color: #666; background: #f5f5f5; border-radius: 8px;">
+                    ✅ 課程完成，聊天室已關閉
                 </div>
             </div>
         </div>
@@ -3667,6 +3670,20 @@
             
             // 刪除按鈕永遠顯示（但會有確認）
             deleteChatBtn.style.display = 'inline-block';
+            
+            // 控制輸入區域顯示（聊天室已結束則隱藏）
+            const inputArea = document.getElementById('adminInputArea');
+            const chatClosed = document.getElementById('adminChatClosed');
+            const emojiPicker = document.getElementById('adminEmojiPicker');
+            
+            if (status === 'resolved') {
+                inputArea.style.display = 'none';
+                chatClosed.style.display = 'block';
+                emojiPicker.style.display = 'none';
+            } else {
+                inputArea.style.display = 'flex';
+                chatClosed.style.display = 'none';
+            }
             
             // 載入訊息
             await loadChatMessages(requestId);
