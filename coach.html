@@ -988,6 +988,17 @@
             flex-shrink: 0;
         }
 
+        .chat-closed-notice {
+            padding: 16px 20px;
+            padding-bottom: calc(16px + env(safe-area-inset-bottom));
+            border-top: 1px solid var(--border);
+            background: var(--bg);
+            text-align: center;
+            color: var(--text-light);
+            font-size: 14px;
+            display: none;
+        }
+
         .chat-input {
             flex: 1;
             border: 1.5px solid var(--border);
@@ -2002,7 +2013,6 @@
             <div class="chat-messages" id="chatMessages"></div>
 
             <div class="typing-indicator" id="typingIndicator">
-                <span id="typingName">有人</span>正在輸入
                 <div class="typing-dots"><span></span><span></span><span></span></div>
             </div>
 
@@ -2105,7 +2115,6 @@
                     <span></span>
                     <span></span>
                 </div>
-                <span id="typingText">有人正在輸入...</span>
             </div>
 
             <div class="chat-input-area">
@@ -2119,6 +2128,9 @@
                         <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                     </svg>
                 </button>
+            </div>
+            <div class="chat-closed-notice" id="chatClosedNotice">
+                ✅ 課程完成，聊天室已關閉
             </div>
         </div>
     </div>
@@ -3112,20 +3124,32 @@
             cancelBtn.style.display = 'none';
             endBtn.classList.remove('show');
             
+            // 取得輸入區域和關閉提示
+            const inputArea = document.querySelector('.chat-input-area');
+            const closedNotice = document.getElementById('chatClosedNotice');
+            
             if (currentRequest.status === 'resolved') {
                 participantsBar.classList.remove('with-student');
                 actionBar.style.display = 'none';
+                inputArea.style.display = 'none';
+                closedNotice.style.display = 'block';
                 
             } else if (currentRequest.status === 'cancelled') {
                 participantsBar.classList.remove('with-student');
                 actionBar.style.display = 'none';
+                inputArea.style.display = 'none';
+                closedNotice.style.display = 'block';
                 
             } else if (currentRequest.status === 'cancel_pending') {
                 participantsBar.classList.remove('with-student');
                 actionBar.style.display = 'none';
+                inputArea.style.display = 'none';
+                closedNotice.style.display = 'none';
                 
             } else if (currentRequest.studentJoined) {
                 participantsBar.classList.add('with-student');
+                inputArea.style.display = 'flex';
+                closedNotice.style.display = 'none';
                 // 原教練或代課教練都可以結束對話
                 if (isOriginalCoach || isSubstituteCoach) {
                     endBtn.classList.add('show');
@@ -3134,6 +3158,8 @@
                 
             } else if (currentRequest.status === 'discussing') {
                 participantsBar.classList.remove('with-student');
+                inputArea.style.display = 'flex';
+                closedNotice.style.display = 'none';
                 // 代課教練可以確認接手
                 if (isSubstituteCoach && !currentRequest.substituteTeacher) {
                     confirmBtn.style.display = 'flex';
@@ -3150,6 +3176,8 @@
                 
             } else {
                 participantsBar.classList.remove('with-student');
+                inputArea.style.display = 'flex';
+                closedNotice.style.display = 'none';
                 if (isOriginalCoach) {
                     inviteBtn.style.display = 'flex';
                     endBtn.classList.add('show');
@@ -3511,10 +3539,8 @@
                     if (data.user_id === currentUser.id) return;
                     
                     const indicator = document.getElementById('typingIndicator');
-                    const typingText = document.getElementById('typingText');
                     
                     if (data.is_typing) {
-                        typingText.textContent = `${data.user_name} 正在輸入...`;
                         indicator.classList.add('show');
                         
                         const messagesContainer = document.getElementById('chatMessages');
