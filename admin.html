@@ -1311,6 +1311,105 @@
             border-color: #e74c3c;
         }
 
+        /* 表情貼圖選擇器 */
+        .emoji-picker {
+            position: absolute;
+            bottom: 70px;
+            left: 12px;
+            right: 12px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+            padding: 8px;
+            z-index: 100;
+            max-height: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .emoji-tabs {
+            display: flex;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+            gap: 4px;
+        }
+
+        .emoji-tab {
+            flex: 1;
+            text-align: center;
+            font-size: 20px;
+            padding: 6px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .emoji-tab:hover {
+            background: var(--bg);
+        }
+
+        .emoji-tab.active {
+            background: var(--green-light);
+        }
+
+        .emoji-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .emoji-panel {
+            display: none;
+        }
+
+        .emoji-panel.active {
+            display: grid;
+        }
+
+        .emoji-grid {
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+        }
+
+        .emoji-grid span {
+            font-size: 24px;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .emoji-grid span:hover {
+            background: var(--bg);
+        }
+
+        .emoji-grid span:active {
+            background: var(--green-light);
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 768px) {
+            .emoji-picker {
+                max-height: 250px;
+            }
+
+            .emoji-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+            
+            .emoji-grid span {
+                font-size: 22px;
+                padding: 10px 6px;
+            }
+
+            .emoji-tab {
+                font-size: 18px;
+                padding: 8px 4px;
+            }
+        }
+
         /* ============ 觸控和滾動優化 ============ */
         /* 按鈕觸控反饋 */
         button, .tab, .nav-item, .data-card, .card-btn {
@@ -1626,11 +1725,100 @@
                 </div>
                 <span id="adminTypingText">有人正在輸入...</span>
             </div>
-            <div class="modal-footer" style="padding: 12px; background: white; border-top: 1px solid #eee;">
-                <div style="display: flex; gap: 8px;">
+            <div class="modal-footer" style="padding: 12px; background: white; border-top: 1px solid #eee; position: relative;">
+                <!-- 表情貼圖選擇器 -->
+                <div id="adminEmojiPicker" class="emoji-picker" style="display: none;">
+                    <div class="emoji-tabs">
+                        <span class="emoji-tab active" onclick="switchEmojiTab('faces')">😊</span>
+                        <span class="emoji-tab" onclick="switchEmojiTab('gestures')">👍</span>
+                        <span class="emoji-tab" onclick="switchEmojiTab('hearts')">❤️</span>
+                        <span class="emoji-tab" onclick="switchEmojiTab('sports')">💪</span>
+                        <span class="emoji-tab" onclick="switchEmojiTab('time')">📅</span>
+                        <span class="emoji-tab" onclick="switchEmojiTab('contact')">📞</span>
+                        <span class="emoji-tab" onclick="switchEmojiTab('notify')">🔔</span>
+                    </div>
+                                        <div class="emoji-content">
+                        <!-- 親切回應 (8個) -->
+                        <div class="emoji-grid emoji-panel active" id="emojiPanel-faces">
+                            <span onclick="insertAdminEmoji('😊')">😊</span>
+                            <span onclick="insertAdminEmoji('🙂')">🙂</span>
+                            <span onclick="insertAdminEmoji('😀')">😀</span>
+                            <span onclick="insertAdminEmoji('🤗')">🤗</span>
+                            <span onclick="insertAdminEmoji('😄')">😄</span>
+                            <span onclick="insertAdminEmoji('👋')">👋</span>
+                            <span onclick="insertAdminEmoji('🙆')">🙆</span>
+                            <span onclick="insertAdminEmoji('😇')">😇</span>
+                        </div>
+                        <!-- 確認肯定 (7個) -->
+                        <div class="emoji-grid emoji-panel" id="emojiPanel-gestures">
+                            <span onclick="insertAdminEmoji('👍')">👍</span>
+                            <span onclick="insertAdminEmoji('👌')">👌</span>
+                            <span onclick="insertAdminEmoji('✅')">✅</span>
+                            <span onclick="insertAdminEmoji('⭕')">⭕</span>
+                            <span onclick="insertAdminEmoji('💯')">💯</span>
+                            <span onclick="insertAdminEmoji('🙏')">🙏</span>
+                            <span onclick="insertAdminEmoji('🤝')">🤝</span>
+                        </div>
+                        <!-- 感謝關心 (7個) -->
+                        <div class="emoji-grid emoji-panel" id="emojiPanel-hearts">
+                            <span onclick="insertAdminEmoji('❤️')">❤️</span>
+                            <span onclick="insertAdminEmoji('💕')">💕</span>
+                            <span onclick="insertAdminEmoji('💖')">💖</span>
+                            <span onclick="insertAdminEmoji('✨')">✨</span>
+                            <span onclick="insertAdminEmoji('⭐')">⭐</span>
+                            <span onclick="insertAdminEmoji('🌟')">🌟</span>
+                            <span onclick="insertAdminEmoji('💜')">💜</span>
+                        </div>
+                        <!-- 健身運動 (8個) -->
+                        <div class="emoji-grid emoji-panel" id="emojiPanel-sports">
+                            <span onclick="insertAdminEmoji('💪')">💪</span>
+                            <span onclick="insertAdminEmoji('🏋️')">🏋️</span>
+                            <span onclick="insertAdminEmoji('🧘')">🧘</span>
+                            <span onclick="insertAdminEmoji('🤸')">🤸</span>
+                            <span onclick="insertAdminEmoji('🏃')">🏃</span>
+                            <span onclick="insertAdminEmoji('🚴')">🚴</span>
+                            <span onclick="insertAdminEmoji('🏆')">🏆</span>
+                            <span onclick="insertAdminEmoji('🥇')">🥇</span>
+                        </div>
+                        <!-- 時間預約 (6個) -->
+                        <div class="emoji-grid emoji-panel" id="emojiPanel-time">
+                            <span onclick="insertAdminEmoji('📅')">📅</span>
+                            <span onclick="insertAdminEmoji('⏰')">⏰</span>
+                            <span onclick="insertAdminEmoji('🕐')">🕐</span>
+                            <span onclick="insertAdminEmoji('📆')">📆</span>
+                            <span onclick="insertAdminEmoji('⏳')">⏳</span>
+                            <span onclick="insertAdminEmoji('⌛')">⌛</span>
+                        </div>
+                        <!-- 溝通聯繫 (7個) -->
+                        <div class="emoji-grid emoji-panel" id="emojiPanel-contact">
+                            <span onclick="insertAdminEmoji('📞')">📞</span>
+                            <span onclick="insertAdminEmoji('💬')">💬</span>
+                            <span onclick="insertAdminEmoji('📝')">📝</span>
+                            <span onclick="insertAdminEmoji('✍️')">✍️</span>
+                            <span onclick="insertAdminEmoji('📩')">📩</span>
+                            <span onclick="insertAdminEmoji('📣')">📣</span>
+                            <span onclick="insertAdminEmoji('💡')">💡</span>
+                        </div>
+                        <!-- 提醒通知 (7個) -->
+                        <div class="emoji-grid emoji-panel" id="emojiPanel-notify">
+                            <span onclick="insertAdminEmoji('🔔')">🔔</span>
+                            <span onclick="insertAdminEmoji('⚠️')">⚠️</span>
+                            <span onclick="insertAdminEmoji('❗')">❗</span>
+                            <span onclick="insertAdminEmoji('❓')">❓</span>
+                            <span onclick="insertAdminEmoji('🎉')">🎉</span>
+                            <span onclick="insertAdminEmoji('🎁')">🎁</span>
+                            <span onclick="insertAdminEmoji('☀️')">☀️</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button onclick="toggleAdminEmojiPicker()" 
+                        style="padding: 10px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 50%; cursor: pointer; font-size: 18px; line-height: 1;">
+                        😊
+                    </button>
                     <input type="text" id="adminMessageInput" placeholder="以管理員身份發送訊息..." 
                         style="flex: 1; padding: 10px 12px; border: 1px solid #ddd; border-radius: 20px; font-size: 14px;"
-                        onkeypress="if(event.key === 'Enter') sendAdminMessage()" oninput="handleAdminTyping()">
+                        onkeypress="if(event.key === 'Enter') sendAdminMessage()" oninput="handleAdminTyping()" onfocus="hideAdminEmojiPicker()">
                     <button onclick="sendAdminMessage()" 
                         style="padding: 10px 20px; background: var(--green); color: white; border: none; border-radius: 20px; cursor: pointer;">
                         發送
@@ -1710,6 +1898,11 @@
                     <label>LINE UID</label>
                     <input type="text" id="coachLineUid" placeholder="例：U85a128929f1dbc59f7f5fa397a5cb9f2">
                     <small>教練第一次登入時會顯示，再填入這裡</small>
+                </div>
+                <div class="form-group">
+                    <label>LINE 群組 ID</label>
+                    <input type="text" id="coachLineGroupId" placeholder="例：C6b6dd103a8942e2edf5ce4879739026f">
+                    <small>推播訊息用的群組 ID</small>
                 </div>
                 <div class="form-group">
                     <label>課程類型</label>
@@ -3297,6 +3490,7 @@
             document.getElementById('coachAvatar').value = coach?.avatar || '';
             document.getElementById('coachPhone').value = coach?.phone || '';
             document.getElementById('coachLineUid').value = coach?.line_uid || '';
+            document.getElementById('coachLineGroupId').value = coach?.line_group_id || '';
             document.getElementById('coachActive').value = coach?.is_active !== false ? 'true' : 'false';
             
             // Specialties
@@ -3319,6 +3513,7 @@
             const avatar = document.getElementById('coachAvatar').value.trim() || name.charAt(0);
             const phone = document.getElementById('coachPhone').value.trim();
             const line_uid = document.getElementById('coachLineUid').value.trim();
+            const line_group_id = document.getElementById('coachLineGroupId').value.trim();
             const is_active = document.getElementById('coachActive').value === 'true';
             
             const specialties = [];
@@ -3337,7 +3532,7 @@
                     // Update
                     const { error } = await supabaseClient
                         .from('coaches')
-                        .update({ name, avatar, phone, line_uid, specialties, is_active })
+                        .update({ name, avatar, phone, line_uid, line_group_id, specialties, is_active })
                         .eq('id', id);
                     if (error) throw error;
                     await logAction('編輯教練', '教練', id, name, `課程類型: ${specialties.join(', ')}`);
@@ -3346,7 +3541,7 @@
                     // Insert
                     const { data, error } = await supabaseClient
                         .from('coaches')
-                        .insert({ name, avatar, phone, line_uid, specialties, is_active })
+                        .insert({ name, avatar, phone, line_uid, line_group_id, specialties, is_active })
                         .select()
                         .single();
                     if (error) throw error;
@@ -3483,6 +3678,9 @@
         function closeChatModal() {
             document.getElementById('chatModal').classList.remove('show');
             currentChatRoomId = null;
+            
+            // 隱藏表情貼圖選擇器
+            hideAdminEmojiPicker();
             
             // 停止 typing 狀態
             stopAdminTyping();
@@ -3697,6 +3895,50 @@
                     is_typing: false
                 }
             });
+        }
+        
+        // ============ 表情貼圖 ============
+        function toggleAdminEmojiPicker() {
+            const picker = document.getElementById('adminEmojiPicker');
+            if (picker) {
+                picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+            }
+        }
+        
+        function hideAdminEmojiPicker() {
+            const picker = document.getElementById('adminEmojiPicker');
+            if (picker) {
+                picker.style.display = 'none';
+            }
+        }
+        
+        function insertAdminEmoji(emoji) {
+            const input = document.getElementById('adminMessageInput');
+            if (!input) return;
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const text = input.value;
+            input.value = text.substring(0, start) + emoji + text.substring(end);
+            input.focus();
+            input.selectionStart = input.selectionEnd = start + emoji.length;
+            // 不自動關閉，讓用戶可以連續選擇
+        }
+        
+        function switchEmojiTab(tabName) {
+            // 切換 tab 樣式
+            document.querySelectorAll('.emoji-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 切換面板
+            document.querySelectorAll('.emoji-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            const targetPanel = document.getElementById('emojiPanel-' + tabName);
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+            }
         }
         
         async function sendAdminMessage() {
