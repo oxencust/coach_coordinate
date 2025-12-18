@@ -1030,6 +1030,7 @@
         let currentRequest = null;
         let currentStudent = null;
         let messagesSubscription = null;
+        let hasNotifiedCoaches = false; // 追蹤是否已推播過教練
 
         // ============ 取得 room 參數 ============
         function getRequestIdFromUrl() {
@@ -1214,6 +1215,9 @@
                 
                 // 訂閱即時訊息
                 subscribeToMessages();
+                
+                // 訂閱教練在線狀態（用於重置推播標記）
+                subscribeToCoachPresence();
                 
                 // 訂閱 typing 狀態
                 subscribeToTyping();
@@ -1406,6 +1410,31 @@
                 .subscribe();
         }
 
+        // 訂閱教練在線狀態，教練上線時重置推播標記
+        let presenceSubscription = null;
+        
+        function subscribeToCoachPresence() {
+            presenceSubscription = supabaseClient
+                .channel(`presence-${requestId}`)
+                .on(
+                    'postgres_changes',
+                    { 
+                        event: '*', 
+                        schema: 'public', 
+                        table: 'user_presence',
+                        filter: `request_id=eq.${requestId}`
+                    },
+                    (payload) => {
+                        // 教練上線或更新活動時間
+                        if (payload.new && payload.new.user_type === 'coach') {
+                            console.log('Coach online, reset notify flag');
+                            hasNotifiedCoaches = false;
+                        }
+                    }
+                )
+                .subscribe();
+        }
+
         // ============ Typing Indicator ============
         let typingChannel = null;
         let typingTimeout = null;
@@ -1516,10 +1545,13 @@
                         content: content
                     });
                 
-                // 檢查教練是否在線，不在線才推播
-                const coachesOnline = await checkCoachesOnline();
-                if (!coachesOnline) {
-                    notifyNewMessage(content);
+                // 只推播一次：教練不在線 且 尚未推播過
+                if (!hasNotifiedCoaches) {
+                    const coachesOnline = await checkCoachesOnline();
+                    if (!coachesOnline) {
+                        notifyNewMessage(content);
+                        hasNotifiedCoaches = true; // 標記已推播
+                    }
                 }
                 
                 // Realtime 會自動更新
@@ -1646,6 +1678,11 @@
             if (presenceInterval) {
                 clearInterval(presenceInterval);
                 presenceInterval = null;
+            }
+            // 取消教練在線訂閱
+            if (presenceSubscription) {
+                presenceSubscription.unsubscribe();
+                presenceSubscription = null;
             }
         }
 
