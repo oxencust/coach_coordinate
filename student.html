@@ -907,7 +907,6 @@
         <div class="messages-area" id="messagesArea">
             <div class="typing-indicator" id="typingIndicator">
                 <div class="typing-dots"><span></span><span></span><span></span></div>
-                <span id="typingText">有人正在輸入...</span>
             </div>
         </div>
 
@@ -1186,6 +1185,17 @@
                     };
                 }
                 
+                // 如果聊天室已結束，顯示提示並跳出
+                if (currentRequest.status === 'resolved') {
+                    alert('課程完成，聊天室已關閉');
+                    if (liff.isInClient()) {
+                        liff.closeWindow();
+                    } else {
+                        window.history.back();
+                    }
+                    return;
+                }
+                
                 // 如果狀態還不是 with-student，表示學員第一次加入
                 if (currentRequest.status !== 'with-student' && currentRequest.status !== 'resolved') {
                     // 更新狀態為 with-student
@@ -1452,12 +1462,8 @@
                     if (currentStudent && data.user_id === currentStudent.id) return;
                     
                     const indicator = document.getElementById('typingIndicator');
-                    const typingText = document.getElementById('typingText');
                     
                     if (data.is_typing) {
-                        if (typingText) {
-                            typingText.textContent = `${data.user_name} 正在輸入...`;
-                        }
                         indicator.classList.add('show');
                         
                         // 滾動到底部
