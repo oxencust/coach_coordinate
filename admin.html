@@ -743,6 +743,28 @@
             color: #9e9e9e;
             text-decoration: line-through;
         }
+        
+        /* 會員等級 badge */
+        .level-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .level-badge.normal { background: #f5f5f5; color: #666; }
+        .level-badge.silver { background: #e0e0e0; color: #424242; }
+        .level-badge.gold { background: #fff8e1; color: #f57c00; }
+        .level-badge.diamond { background: #e3f2fd; color: #1565c0; }
+        .level-badge.vip { background: #fce4ec; color: #c2185b; }
+        
+        /* 會員狀態 badge */
+        .status-badge.active { background: #e8f5e9; color: #2e7d32; }
+        .status-badge.dormant { background: #fff3e0; color: #e65100; }
+        .status-badge.churned { background: #ffebee; color: #c62828; }
+        .status-badge.invalid { background: #f5f5f5; color: #9e9e9e; }
+        .status-badge.staff { background: #e3f2fd; color: #1565c0; }
+        .status-badge.partner_coach { background: #f3e5f5; color: #7b1fa2; }
+        .status-badge.non_partner_coach { background: #eceff1; color: #546e7a; }
 
         .action-btns {
             display: flex;
@@ -1560,10 +1582,11 @@
                         <thead>
                             <tr>
                                 <th>學員</th>
-                                <th>代號</th>
+                                <th>編號</th>
                                 <th>電話</th>
-                                <th>LINE UID</th>
-                                <th>備註</th>
+                                <th>主要教練</th>
+                                <th>等級</th>
+                                <th>狀態</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -1841,31 +1864,74 @@
             <div class="modal-body">
                 <input type="hidden" id="studentId">
                 <div class="form-group">
-                    <label>姓名 *</label>
+                    <label>編號</label>
+                    <input type="text" id="studentMemberNo" placeholder="例：A001">
+                </div>
+                <div class="form-group">
+                    <label>會員姓名 *</label>
                     <input type="text" id="studentName" placeholder="例：林小姐">
                 </div>
                 <div class="form-group">
-                    <label>代號</label>
-                    <input type="text" id="studentCode" placeholder="例：A001 或暱稱" maxlength="50">
-                    <small>方便教練搜尋用的代號或暱稱</small>
+                    <label>會員暱稱</label>
+                    <input type="text" id="studentNickname" placeholder="例：小林">
                 </div>
                 <div class="form-group">
-                    <label>顯示頭像</label>
-                    <input type="text" id="studentAvatar" placeholder="例：林（通常是姓氏）" maxlength="2">
-                    <small>顯示在聊天室的頭像文字，通常是姓氏</small>
+                    <label>會員性別 *</label>
+                    <select id="studentGender">
+                        <option value="">請選擇</option>
+                        <option value="male">男</option>
+                        <option value="female">女</option>
+                        <option value="other">其他</option>
+                    </select>
                 </div>
                 <div class="form-group">
-                    <label>電話</label>
+                    <label>手機號碼 *</label>
                     <input type="tel" id="studentPhone" placeholder="例：0912-345-678">
                 </div>
                 <div class="form-group">
-                    <label>LINE UID</label>
-                    <input type="text" id="studentLineUid" placeholder="例：U85a128929f1dbc59f7f5fa397a5cb9f2">
-                    <small>學員第一次登入時會顯示，再填入這裡</small>
+                    <label>電子郵件</label>
+                    <input type="email" id="studentEmail" placeholder="例：example@mail.com">
                 </div>
                 <div class="form-group">
-                    <label>備註</label>
-                    <textarea id="studentNotes" placeholder="備註資訊..."></textarea>
+                    <label>出生日期</label>
+                    <input type="date" id="studentBirthDate">
+                </div>
+                <div class="form-group">
+                    <label>主要教練</label>
+                    <select id="studentPrimaryCoach">
+                        <option value="">請選擇</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>會員狀態</label>
+                    <select id="studentStatus">
+                        <option value="active">活躍會員</option>
+                        <option value="dormant">沉睡會員</option>
+                        <option value="churned">流失會員</option>
+                        <option value="invalid">無效會員</option>
+                        <option value="staff">館內夥伴</option>
+                        <option value="partner_coach">合作教練</option>
+                        <option value="non_partner_coach">未合作教練</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>會員等級</label>
+                    <select id="studentMemberLevel">
+                        <option value="normal">一般會員</option>
+                        <option value="silver">銀卡會員</option>
+                        <option value="gold">金卡會員</option>
+                        <option value="diamond">鑽石會員</option>
+                        <option value="vip">VIP</option>
+                    </select>
+                </div>
+                <div class="form-group" id="levelChangeReasonGroup" style="display: none;">
+                    <label>等級變更原因</label>
+                    <input type="text" id="levelChangeReason" placeholder="例：消費滿額升級">
+                </div>
+                <div class="form-group">
+                    <label>LINE UID</label>
+                    <input type="text" id="studentLineUid" placeholder="系統自動綁定" readonly style="background: #f5f5f5;">
+                    <small>學員透過 LINE 進入聊天室時會自動綁定</small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -2582,14 +2648,26 @@
         }
 
         async function loadStudents() {
-            const { data, error } = await supabaseClient
-                .from('students')
-                .select('*')
-                .order('created_at', { ascending: false });
-            
-            if (error) throw error;
-            students = data || [];
-            renderStudents();
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-students`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                
+                students = result.data || [];
+                renderStudents();
+            } catch (error) {
+                console.error('Load students error:', error);
+                students = [];
+                renderStudents();
+            }
         }
 
         async function loadCoaches() {
@@ -2802,6 +2880,26 @@
             }
         }
 
+        // 會員狀態名稱
+        const studentStatusNames = {
+            'active': '活躍會員',
+            'dormant': '沉睡會員',
+            'churned': '流失會員',
+            'invalid': '無效會員',
+            'staff': '館內夥伴',
+            'partner_coach': '合作教練',
+            'non_partner_coach': '未合作教練'
+        };
+        
+        // 會員等級名稱
+        const memberLevelNames = {
+            'normal': '一般會員',
+            'silver': '銀卡會員',
+            'gold': '金卡會員',
+            'diamond': '鑽石會員',
+            'vip': 'VIP'
+        };
+
         function renderStudents() {
             const tbody = document.getElementById('studentsTable');
             const cardList = document.getElementById('studentsCardList');
@@ -2809,7 +2907,7 @@
             if (students.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="6">
+                        <td colspan="7">
                             <div class="empty-state">
                                 <div class="icon">👤</div>
                                 <p>尚無學員資料</p>
@@ -2830,18 +2928,22 @@
             tbody.innerHTML = students.map(s => {
                 const safeName = escapeHtml(s.name || '-');
                 const safeId = escapeHtml(s.id);
+                const statusName = studentStatusNames[s.status] || s.status || '-';
+                const levelName = memberLevelNames[s.member_level] || s.member_level || '一般會員';
+                const coachName = s.primary_coach?.name || '-';
                 return `
                 <tr>
                     <td>
                         <div class="avatar-cell">
-                            <div class="avatar">${escapeHtml(s.avatar || s.name?.charAt(0) || '?')}</div>
+                            <div class="avatar">${escapeHtml(s.name?.charAt(0) || '?')}</div>
                             <span>${safeName}</span>
                         </div>
                     </td>
-                    <td>${escapeHtml(s.code || '-')}</td>
+                    <td>${escapeHtml(s.member_no || '-')}</td>
                     <td>${escapeHtml(s.phone || '-')}</td>
-                    <td style="font-size: 12px; color: var(--text-muted);">${s.line_uid ? escapeHtml(s.line_uid.substring(0, 15)) + '...' : '-'}</td>
-                    <td>${escapeHtml(s.notes || '-')}</td>
+                    <td>${escapeHtml(coachName)}</td>
+                    <td><span class="level-badge ${s.member_level || 'normal'}">${levelName}</span></td>
+                    <td><span class="status-badge ${s.status || 'active'}">${statusName}</span></td>
                     <td>
                         <div class="action-btns">
                             <button class="edit-btn" onclick="editStudent('${safeId}')">編輯</button>
@@ -2856,16 +2958,30 @@
                 cardList.innerHTML = students.map(s => {
                     const safeName = escapeHtml(s.name || '-');
                     const safeId = escapeHtml(s.id);
+                    const statusName = studentStatusNames[s.status] || s.status || '-';
+                    const levelName = memberLevelNames[s.member_level] || s.member_level || '一般會員';
+                    const coachName = s.primary_coach?.name || '-';
                     return `
                     <div class="data-card">
                         <div class="card-header">
-                            <div class="card-avatar">${escapeHtml(s.avatar || s.name?.charAt(0) || '?')}</div>
+                            <div class="card-avatar">${escapeHtml(s.name?.charAt(0) || '?')}</div>
                             <div class="card-info">
-                                <div class="card-name">${safeName}</div>
-                                <div class="card-meta">${escapeHtml(s.code || '無代號')} • ${escapeHtml(s.phone || '無電話')}</div>
+                                <div class="card-name">${safeName} ${s.nickname ? `(${escapeHtml(s.nickname)})` : ''}</div>
+                                <div class="card-meta">${escapeHtml(s.member_no || '無編號')} • ${escapeHtml(s.phone || '無電話')}</div>
                             </div>
                         </div>
-                        ${s.notes ? `<div class="card-row"><span class="card-label">備註</span><span class="card-value">${escapeHtml(s.notes)}</span></div>` : ''}
+                        <div class="card-row">
+                            <span class="card-label">主要教練</span>
+                            <span class="card-value">${escapeHtml(coachName)}</span>
+                        </div>
+                        <div class="card-row">
+                            <span class="card-label">等級</span>
+                            <span class="card-value"><span class="level-badge ${s.member_level || 'normal'}">${levelName}</span></span>
+                        </div>
+                        <div class="card-row">
+                            <span class="card-label">狀態</span>
+                            <span class="card-value"><span class="status-badge ${s.status || 'active'}">${statusName}</span></span>
+                        </div>
                         <div class="card-actions">
                             <button class="card-btn secondary" onclick="editStudent('${safeId}')">編輯</button>
                             <button class="card-btn danger" onclick="deleteStudent('${safeId}', '${escapeAttr(s.name)}')">刪除</button>
@@ -3418,15 +3534,44 @@
         }
 
         // ============ Student CRUD ============
+        let originalMemberLevel = null; // 記錄原始等級
+        
         function openStudentModal(student = null) {
             document.getElementById('studentModalTitle').textContent = student ? '編輯學員' : '新增學員';
             document.getElementById('studentId').value = student?.id || '';
+            document.getElementById('studentMemberNo').value = student?.member_no || '';
             document.getElementById('studentName').value = student?.name || '';
-            document.getElementById('studentCode').value = student?.code || '';
-            document.getElementById('studentAvatar').value = student?.avatar || '';
+            document.getElementById('studentNickname').value = student?.nickname || '';
+            document.getElementById('studentGender').value = student?.gender || '';
             document.getElementById('studentPhone').value = student?.phone || '';
+            document.getElementById('studentEmail').value = student?.email || '';
+            document.getElementById('studentBirthDate').value = student?.birth_date || '';
+            document.getElementById('studentStatus').value = student?.status || 'active';
+            document.getElementById('studentMemberLevel').value = student?.member_level || 'normal';
             document.getElementById('studentLineUid').value = student?.line_uid || '';
-            document.getElementById('studentNotes').value = student?.notes || '';
+            document.getElementById('levelChangeReason').value = '';
+            document.getElementById('levelChangeReasonGroup').style.display = 'none';
+            
+            // 記錄原始等級
+            originalMemberLevel = student?.member_level || 'normal';
+            
+            // 監聽等級變更
+            document.getElementById('studentMemberLevel').onchange = function() {
+                const reasonGroup = document.getElementById('levelChangeReasonGroup');
+                if (this.value !== originalMemberLevel && student) {
+                    reasonGroup.style.display = 'block';
+                } else {
+                    reasonGroup.style.display = 'none';
+                }
+            };
+            
+            // 填入教練選項
+            const coachSelect = document.getElementById('studentPrimaryCoach');
+            coachSelect.innerHTML = '<option value="">請選擇</option>' + 
+                coaches.filter(c => c.is_active !== false).map(c => 
+                    `<option value="${c.id}" ${student?.primary_coach_id === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
+                ).join('');
+            
             openModal('studentModal');
         }
 
@@ -3437,39 +3582,65 @@
 
         async function saveStudent() {
             const id = document.getElementById('studentId').value;
+            const member_no = document.getElementById('studentMemberNo').value.trim();
             const name = document.getElementById('studentName').value.trim();
-            const code = document.getElementById('studentCode').value.trim();
-            const avatar = document.getElementById('studentAvatar').value.trim() || name.charAt(0);
+            const nickname = document.getElementById('studentNickname').value.trim();
+            const gender = document.getElementById('studentGender').value;
             const phone = document.getElementById('studentPhone').value.trim();
+            const email = document.getElementById('studentEmail').value.trim();
+            const birth_date = document.getElementById('studentBirthDate').value || null;
+            const primary_coach_id = document.getElementById('studentPrimaryCoach').value || null;
+            const status = document.getElementById('studentStatus').value;
+            const member_level = document.getElementById('studentMemberLevel').value;
+            const level_change_reason = document.getElementById('levelChangeReason').value.trim();
             const line_uid = document.getElementById('studentLineUid').value.trim();
-            const notes = document.getElementById('studentNotes').value.trim();
 
             if (!name) {
-                showToast('請輸入姓名');
+                showToast('請輸入會員姓名');
+                return;
+            }
+            if (!gender) {
+                showToast('請選擇會員性別');
+                return;
+            }
+            if (!phone) {
+                showToast('請輸入手機號碼');
                 return;
             }
 
             try {
-                if (id) {
-                    // Update
-                    const { error } = await supabaseClient
-                        .from('students')
-                        .update({ name, code, avatar, phone, line_uid, notes })
-                        .eq('id', id);
-                    if (error) throw error;
-                    await logAction('編輯學員', '學員', id, name);
-                    showToast('學員已更新 ✓');
-                } else {
-                    // Insert
-                    const { data, error } = await supabaseClient
-                        .from('students')
-                        .insert({ name, code, avatar, phone, line_uid, notes, is_active: true })
-                        .select()
-                        .single();
-                    if (error) throw error;
-                    await logAction('新增學員', '學員', data.id, name);
-                    showToast('學員已新增 ✓');
-                }
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-student`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        action: id ? 'update' : 'create',
+                        id: id || undefined,
+                        data: {
+                            member_no,
+                            name,
+                            nickname,
+                            gender,
+                            phone,
+                            email,
+                            birth_date,
+                            primary_coach_id,
+                            status,
+                            member_level,
+                            level_change_reason,
+                            line_uid
+                        },
+                        changed_by: currentUser?.name || '管理員'
+                    })
+                });
+                
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                
+                await logAction(id ? '編輯學員' : '新增學員', '學員', result.data?.id || id, name);
+                showToast(id ? '學員已更新 ✓' : '學員已新增 ✓');
 
                 closeModal('studentModal');
                 await loadStudents();
@@ -3571,33 +3742,47 @@
             if (!deleteTarget) return;
 
             try {
-                let table, targetTypeText;
+                let targetTypeText;
                 
                 if (deleteTarget.type === 'student') {
-                    table = 'students';
                     targetTypeText = '學員';
+                    
+                    // 使用 Edge Function 刪除學員
+                    const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-student`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({
+                            action: 'delete',
+                            student: { id: deleteTarget.id }
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+                    
                 } else if (deleteTarget.type === 'coach') {
-                    table = 'coaches';
                     targetTypeText = '教練';
+                    
+                    // 教練改為停用而非刪除
+                    const { error } = await supabaseClient
+                        .from('coaches')
+                        .update({ is_active: false })
+                        .eq('id', deleteTarget.id);
+                    
+                    if (error) throw error;
+                    
                 } else if (deleteTarget.type === 'admin') {
-                    table = 'admins';
                     targetTypeText = '管理員';
-                }
-                
-                console.log('Deleting:', deleteTarget.type, deleteTarget.id);
-                
-                const { data, error } = await supabaseClient
-                    .from(table)
-                    .delete()
-                    .eq('id', deleteTarget.id)
-                    .select();
-                
-                console.log('Delete result:', data, error);
-                
-                if (error) throw error;
-                
-                if (!data || data.length === 0) {
-                    console.warn('No rows deleted - may be RLS issue');
+                    
+                    const { error } = await supabaseClient
+                        .from('admins')
+                        .delete()
+                        .eq('id', deleteTarget.id);
+                    
+                    if (error) throw error;
                 }
                 
                 await logAction(`刪除${targetTypeText}`, targetTypeText, deleteTarget.id, deleteTarget.name);
