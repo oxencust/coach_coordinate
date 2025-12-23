@@ -2664,27 +2664,36 @@
         }
 
         async function loadStudents() {
-            const { data, error } = await supabaseClient
-                .from('students')
-                .select('*')
-                .neq('is_active', false);
-            
-            if (error) {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-students`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({})  // 查詢所有學員
+                });
+                
+                const result = await response.json();
+                if (!result.success) {
+                    console.error('Load students error:', result.error);
+                    allStudents = [];
+                    return;
+                }
+                
+                allStudents = (result.data || []).map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    nickname: s.nickname,
+                    member_no: s.member_no,
+                    phone: s.phone,
+                    line_uid: s.line_uid
+                }));
+                console.log('Loaded students:', allStudents);
+            } catch (error) {
                 console.error('Load students error:', error);
                 allStudents = [];
-                return;
             }
-            allStudents = (data || []).map(s => ({
-                id: s.id,
-                name: s.name,
-                avatar: s.avatar,
-                code: s.code,
-                course: `第 ${s.current_course_count || 0} 堂`,
-                phone: s.phone,
-                notes: s.notes,
-                line_uid: s.line_uid
-            }));
-            console.log('Loaded students:', allStudents);
         }
 
         async function loadRequests() {
@@ -3356,7 +3365,7 @@
             showToast('正在通知對方...');
             
             try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-new-message`, {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-coaches`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3364,7 +3373,6 @@
                     },
                     body: JSON.stringify({
                         request_id: currentRequest.id,
-                        sender_type: 'coach',
                         sender_id: currentUser.id,
                         sender_name: currentUser.name,
                         message_content: '📢 請查看聊天室',
@@ -3720,13 +3728,26 @@
             document.getElementById('inviteLinkBox').textContent = inviteLink;
             
             const studentId = currentRequest.student?.id || currentRequest.student_id;
-            const { data: student } = await supabaseClient
-                .from('students')
-                .select('line_uid')
-                .eq('id', studentId)
-                .single();
             
-            const hasLineUid = student && student.line_uid;
+            // 透過 Edge Function 查詢學員 line_uid
+            let hasLineUid = false;
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/search-student`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ search: studentId })
+                });
+                const result = await response.json();
+                if (result.success && result.data && result.data.length > 0) {
+                    const student = result.data.find(s => s.id === studentId);
+                    hasLineUid = student && student.line_uid;
+                }
+            } catch (e) {
+                console.error('Check student line_uid error:', e);
+            }
             
             const hintEl = document.getElementById('inviteHint');
             const lineBtnEl = document.getElementById('lineInviteBtn');
