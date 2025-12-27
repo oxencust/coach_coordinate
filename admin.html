@@ -2686,10 +2686,14 @@
             // 標記已登入，讓 CSS 控制底部導航顯示
             document.body.classList.add('logged-in');
             
-            // 一般管理員隱藏操作紀錄
+            // 一般管理員隱藏操作紀錄和刪除聊天室按鈕
             if (!isSuperAdmin()) {
                 const logsTabBtn = document.getElementById('logsTabBtn');
                 if (logsTabBtn) logsTabBtn.style.display = 'none';
+                
+                // 隱藏聊天室內的刪除按鈕
+                const deleteChatBtn = document.getElementById('adminDeleteChatBtn');
+                if (deleteChatBtn) deleteChatBtn.style.display = 'none';
             }
         }
 
@@ -3569,6 +3573,9 @@
                 // 訂閱全域訊息更新
                 subscribeToGlobalMessages();
                 
+                // 訂閱聊天室狀態變更（結束時自動備份）
+                subscribeToRequestStatus();
+                
                 showToast('載入完成 ✓');
             } catch (error) {
                 console.error('Load error:', error);
@@ -3611,6 +3618,43 @@
                                 loadChatMessages(newMessage.request_id);
                             }
                         }
+                    }
+                )
+                .subscribe();
+        }
+        
+        // 訂閱聊天室狀態變更 - 結束時自動備份
+        let requestStatusSubscription = null;
+        
+        function subscribeToRequestStatus() {
+            if (requestStatusSubscription) {
+                requestStatusSubscription.unsubscribe();
+            }
+            
+            requestStatusSubscription = supabaseClient
+                .channel('admin-request-status')
+                .on(
+                    'postgres_changes',
+                    { 
+                        event: 'UPDATE', 
+                        schema: 'public', 
+                        table: 'substitute_requests'
+                    },
+                    async (payload) => {
+                        console.log('Request status changed:', payload);
+                        const updatedRequest = payload.new;
+                        const oldRequest = payload.old;
+                        
+                        // 當狀態變成 resolved 時自動備份
+                        if (updatedRequest.status === 'resolved' && oldRequest.status !== 'resolved') {
+                            console.log('Chat resolved, auto backup:', updatedRequest.id);
+                            showToast('📦 正在自動備份對話紀錄...');
+                            await backupChatToSheet(updatedRequest.id);
+                            showToast('✅ 對話紀錄已自動備份');
+                        }
+                        
+                        // 重新載入代課請求列表
+                        await loadRequests();
                     }
                 )
                 .subscribe();
@@ -4275,19 +4319,25 @@
                         <button class="edit-btn" style="background: #e8f5e9; color: #2e7d32;" onclick="exportChatRoom('${safeId}')">
                             📤
                         </button>
-                        <button class="delete-btn" onclick="deleteRequest('${safeId}', '${safeStudentName}')">
-                            🗑️
-                        </button>
                     `;
+                    if (isSuperAdmin()) {
+                        actionButtons += `
+                            <button class="delete-btn" onclick="deleteRequest('${safeId}', '${safeStudentName}')">
+                                🗑️
+                            </button>
+                        `;
+                    }
                 }
                 
                 // 已取消狀態：可以刪除
                 if (r.status === 'cancelled') {
-                    actionButtons += `
-                        <button class="delete-btn" onclick="deleteRequest('${safeId}', '${safeStudentName}')">
-                            🗑️
-                        </button>
-                    `;
+                    if (isSuperAdmin()) {
+                        actionButtons += `
+                            <button class="delete-btn" onclick="deleteRequest('${safeId}', '${safeStudentName}')">
+                                🗑️
+                            </button>
+                        `;
+                    }
                 }
                 
                 // 狀態樣式
@@ -4363,7 +4413,7 @@
                         `;
                     }
                     
-                    if (r.status === 'cancelled' || r.status === 'resolved') {
+                    if ((r.status === 'cancelled' || r.status === 'resolved') && isSuperAdmin()) {
                         cardButtons += `<button class="card-btn danger" onclick="deleteRequest('${safeId}', '${safeStudentName}')">🗑️ 刪除</button>`;
                     }
                     
@@ -4906,6 +4956,15 @@
                 } else if (deleteTarget.type === 'admin') {
                     targetTypeText = '管理員';
                     
+                    // 雙重檢查：確保不是創始管理員
+                    const targetAdmin = admins.find(a => a.id === deleteTarget.id);
+                    if (targetAdmin && targetAdmin.is_owner) {
+                        showToast('無法刪除創始管理員');
+                        closeModal('deleteModal');
+                        deleteTarget = null;
+                        return;
+                    }
+                    
                     const { error } = await supabaseClient
                         .from('admins')
                         .delete()
@@ -5298,6 +5357,12 @@
 
         // ============ Delete Request ============
         async function deleteRequest(requestId, studentName) {
+            // 權限檢查：只有超級管理員可以刪除
+            if (!isSuperAdmin()) {
+                showToast('僅限超級管理員刪除');
+                return;
+            }
+            
             if (!confirm(`確定要刪除 ${studentName} 的代課請求嗎？\n\n⚠️ 刪除前會自動備份到 Google Sheet\n此操作完成後無法復原！`)) {
                 return;
             }
@@ -5359,6 +5424,12 @@
         }
 
         async function deleteFromChat() {
+            // 權限檢查：只有超級管理員可以刪除
+            if (!isSuperAdmin()) {
+                showToast('僅限超級管理員刪除');
+                return;
+            }
+            
             if (!currentChatRoomId) return;
             
             const request = requests.find(r => r.id === currentChatRoomId);
@@ -5405,45 +5476,88 @@
             }
         }
         
-        // 備份聊天室到 Google Sheet
+        // 備份聊天室到 Google Sheet（使用 Google Apps Script）
+        // ⚠️ 請將下方 URL 改為你的 Apps Script 網址
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOGRzAKYnSzOc-c8m0Xdy1MPwK3u8z9cRJYUXEfyoB-ZG908nycOk8moGiip_08Rh6cA/exec';
+        
         async function backupChatToSheet(requestId) {
             try {
-                // 1. 取得備份資料
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/backup-chat-to-sheet`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({ 
-                        action: 'single',
-                        request_id: requestId 
-                    })
-                });
+                // 1. 查詢聊天室資訊
+                const { data: request, error: reqError } = await supabaseClient
+                    .from('substitute_requests')
+                    .select('*')
+                    .eq('id', requestId)
+                    .single();
                 
-                const result = await response.json();
-                
-                if (!result.success) {
-                    console.error('Backup failed:', result.error);
-                    // 備份失敗不阻止刪除，但記錄錯誤
+                if (reqError || !request) {
+                    console.error('找不到聊天室:', reqError);
                     return;
                 }
                 
-                // 2. 傳送到 Make.com webhook 寫入 Google Sheet
-                const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/YOUR_WEBHOOK_ID'; // 請替換為實際的 webhook URL
+                // 2. 查詢訊息
+                const { data: messages, error: msgError } = await supabaseClient
+                    .from('messages')
+                    .select('*')
+                    .eq('request_id', requestId)
+                    .order('created_at', { ascending: true });
                 
-                // 如果有設定 webhook URL，則傳送資料
-                if (MAKE_WEBHOOK_URL && !MAKE_WEBHOOK_URL.includes('YOUR_WEBHOOK_ID')) {
-                    await fetch(MAKE_WEBHOOK_URL, {
+                if (msgError) {
+                    console.error('查詢訊息失敗:', msgError);
+                    return;
+                }
+                
+                // 3. 格式化對話內容
+                const courseTypeNames = {
+                    'pilates': '皮拉提斯',
+                    'weight': '重量訓練',
+                    'stretch': '伸展課程',
+                    'ai': 'AI 體態分析'
+                };
+                
+                const statusNamesBackup = {
+                    'pending': '等待中',
+                    'discussing': '討論中',
+                    'with-student': '學員已加入',
+                    'resolved': '已解決',
+                    'cancel_pending': '待取消確認',
+                    'cancelled': '已取消'
+                };
+                
+                const conversationLines = (messages || []).map(msg => {
+                    const time = new Date(msg.created_at).toLocaleString('zh-TW', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    const sender = msg.sender_name || msg.sender_type || '系統';
+                    const content = (msg.content || '').replace(/\n/g, ' ');
+                    return `【${sender} ${time}】${content}`;
+                });
+                
+                const backupData = {
+                    date: new Date(request.created_at).toISOString().split('T')[0],
+                    student_info: `${request.student_name || '-'}(${request.student_no || '-'})`,
+                    course_type: courseTypeNames[request.course_type] || request.course_type || '-',
+                    status: statusNamesBackup[request.status] || request.status || '-',
+                    conversation: conversationLines.join('\n'),
+                    message_count: messages?.length || 0
+                };
+                
+                // 4. 傳送到 Google Apps Script
+                if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('YOUR_SCRIPT_ID')) {
+                    await fetch(APPS_SCRIPT_URL, {
                         method: 'POST',
+                        mode: 'no-cors', // Apps Script 需要 no-cors
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify(result.data)
+                        body: JSON.stringify(backupData)
                     });
+                    console.log('Chat backed up to Google Sheet');
+                } else {
+                    console.log('Apps Script URL 未設定，跳過備份');
                 }
-                
-                console.log('Chat backed up:', result.data);
                 
             } catch (error) {
                 console.error('Backup to sheet error:', error);
@@ -5541,15 +5655,17 @@
                 }
                 html += activeAdmins.map(a => {
                     const isCurrentAdmin = currentAdmin && a.id === currentAdmin.id;
+                    const isOwner = a.is_owner === true; // 主管理員保護
                     const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
                     const safeName = escapeHtml(a.name || '-');
                     const safeId = escapeHtml(a.id);
                     const safeAttrName = escapeAttr(a.name || '管理員');
                     const isSuperRole = a.role === 'super_admin';
-                    const roleText = isSuperRole ? '🔐 主管理員' : '👤 一般管理員';
+                    const roleText = isOwner ? '👑 創始管理員' : (isSuperRole ? '🔐 主管理員' : '👤 一般管理員');
                     
                     let roleBtn = '';
-                    if (isSuperAdmin() && !isCurrentAdmin) {
+                    // 主管理員（is_owner）不能被升降級
+                    if (isSuperAdmin() && !isCurrentAdmin && !isOwner) {
                         if (isSuperRole) {
                             roleBtn = `<button class="edit-btn" style="background: #fff3e0; color: #e65100; font-size: 11px;" onclick="updateAdminRole('${safeId}', '${safeAttrName}', 'admin')">↓ 降級</button>`;
                         } else {
@@ -5559,13 +5675,14 @@
                     
                     return `
                         <tr>
-                            <td>${safeName}${isCurrentAdmin ? ' <span style="color: var(--green);">(我)</span>' : ''}</td>
+                            <td>${safeName}${isCurrentAdmin ? ' <span style="color: var(--green);">(我)</span>' : ''}${isOwner ? ' <span style="color: #f39c12;">👑</span>' : ''}</td>
                             <td><span style="font-size: 12px;">${roleText}</span> ${roleBtn}</td>
                             <td><code style="font-size: 11px;">${escapeHtml(a.line_uid || '-')}</code></td>
                             <td>${createdAt}</td>
                             <td>
-                                ${isSuperAdmin() ? `<button class="edit-btn" onclick="editAdmin('${safeId}')">編輯</button>` : ''}
-                                ${isSuperAdmin() && !isCurrentAdmin ? `<button class="delete-btn" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
+                                ${isSuperAdmin() && !isOwner ? `<button class="edit-btn" onclick="editAdmin('${safeId}')">編輯</button>` : ''}
+                                ${isSuperAdmin() && !isCurrentAdmin && !isOwner ? `<button class="delete-btn" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
+                                ${isOwner ? '<span style="color: #f39c12; font-size: 11px;">受保護</span>' : ''}
                             </td>
                         </tr>
                     `;
@@ -5619,15 +5736,17 @@
                     
                     cardHtml += activeAdmins.map(a => {
                         const isCurrentAdmin = currentAdmin && a.id === currentAdmin.id;
+                        const isOwner = a.is_owner === true; // 主管理員保護
                         const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
                         const safeName = escapeHtml(a.name || '-');
                         const safeId = escapeHtml(a.id);
                         const safeAttrName = escapeAttr(a.name || '管理員');
                         const isSuperRole = a.role === 'super_admin';
-                        const roleText = isSuperRole ? '🔐 主管理員' : '👤 一般管理員';
+                        const roleText = isOwner ? '👑 創始管理員' : (isSuperRole ? '🔐 主管理員' : '👤 一般管理員');
                         
                         let roleBtn = '';
-                        if (isSuperAdmin() && !isCurrentAdmin) {
+                        // 主管理員（is_owner）不能被升降級
+                        if (isSuperAdmin() && !isCurrentAdmin && !isOwner) {
                             if (isSuperRole) {
                                 roleBtn = `<button class="card-btn" style="background: #fff3e0; color: #e65100;" onclick="updateAdminRole('${safeId}', '${safeAttrName}', 'admin')">↓ 降級</button>`;
                             } else {
@@ -5643,6 +5762,7 @@
                                         <div class="card-name">
                                             ${safeName}
                                             ${isCurrentAdmin ? '<span style="color: var(--green); font-size: 12px;">(我)</span>' : ''}
+                                            ${isOwner ? '<span style="color: #f39c12; font-size: 12px;">👑</span>' : ''}
                                         </div>
                                         <div class="card-meta">${roleText} • 建立於 ${createdAt}</div>
                                     </div>
@@ -5650,8 +5770,9 @@
                                 ${isSuperAdmin() ? `
                                 <div class="card-actions">
                                     ${roleBtn}
-                                    <button class="card-btn secondary" onclick="editAdmin('${safeId}')">編輯</button>
-                                    ${!isCurrentAdmin ? `<button class="card-btn danger" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
+                                    ${!isOwner ? `<button class="card-btn secondary" onclick="editAdmin('${safeId}')">編輯</button>` : ''}
+                                    ${!isCurrentAdmin && !isOwner ? `<button class="card-btn danger" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
+                                    ${isOwner ? '<span style="color: #f39c12; font-size: 11px;">受保護</span>' : ''}
                                 </div>
                                 ` : ''}
                             </div>
@@ -5721,6 +5842,13 @@
         }
         
         async function updateAdminRole(id, name, newRole) {
+            // 檢查是否為受保護的主管理員
+            const targetAdmin = admins.find(a => a.id === id);
+            if (targetAdmin && targetAdmin.is_owner) {
+                showToast('無法變更創始管理員的角色');
+                return;
+            }
+            
             const roleText = newRole === 'super_admin' ? '主管理員' : '一般管理員';
             if (!confirm(`確定要將 ${name} ${newRole === 'super_admin' ? '升級為主管理員' : '降級為一般管理員'}？`)) {
                 return;
@@ -5812,6 +5940,14 @@
 
         function deleteAdmin(id, name) {
             console.log('deleteAdmin called with:', id, name);
+            
+            // 檢查是否為受保護的主管理員
+            const targetAdmin = admins.find(a => a.id === id);
+            if (targetAdmin && targetAdmin.is_owner) {
+                showToast('無法刪除創始管理員');
+                return;
+            }
+            
             if (currentAdmin && id === currentAdmin.id) {
                 showToast('無法刪除自己');
                 return;
