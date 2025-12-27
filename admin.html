@@ -1744,6 +1744,10 @@
                     <div class="action-bar-top">
                         <h2>👤 學員管理 <span id="studentsCount" style="font-size: 14px; font-weight: normal; color: var(--text-muted);"></span></h2>
                         <div class="action-buttons">
+                            <select class="page-size-select" id="studentsPageSize" onchange="changeStudentsPageSize()" style="padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: white; cursor: pointer;">
+                                <option value="10">10 筆/頁</option>
+                                <option value="30" selected>30 筆/頁</option>
+                            </select>
                             <button class="refresh-btn" onclick="refreshStudents()">🔄 重新整理</button>
                             <button class="add-btn" onclick="openStudentModal()">+ 新增學員</button>
                         </div>
@@ -2068,6 +2072,9 @@
                     <span class="status-value" id="chatStatusValue">-</span>
                 </div>
                 <div class="chat-action-btns">
+                    <button class="admin-action-btn" id="adminManageMembersBtn" onclick="openManageMembersFromChat()" style="background: #e3f2fd; color: #1565c0;">
+                        👥 管理成員
+                    </button>
                     <button class="admin-action-btn confirm-cancel-btn" id="adminConfirmCancelBtn" onclick="confirmCancelFromChat()" style="display: none;">
                         ✓ 確認取消
                     </button>
@@ -2564,7 +2571,7 @@
         let students = [];
         let studentsTotal = 0;      // 學員總數
         let studentsOffset = 0;     // 目前載入位置
-        let studentsLimit = 50;     // 每次載入筆數
+        let studentsLimit = 30;     // 每次載入筆數（預設 30）
         let studentsHasMore = false; // 是否還有更多
         let studentsSearchTerm = ''; // 搜尋關鍵字
         let studentsLoading = false; // 載入中狀態
@@ -3633,6 +3640,13 @@
             await loadStudents(false);
         }
         
+        // 變更每頁顯示筆數
+        function changeStudentsPageSize() {
+            const select = document.getElementById('studentsPageSize');
+            studentsLimit = parseInt(select.value) || 30;
+            loadStudents(true);
+        }
+        
         // 伺服器端搜尋學員
         let studentSearchTimeout = null;
         function searchStudentsServer() {
@@ -3885,6 +3899,9 @@
             const tbody = document.getElementById('studentsTable');
             const cardList = document.getElementById('studentsCardList');
             
+            // 判斷是否可以刪除（只有 super_admin 可以刪除）
+            const canDelete = isSuperAdmin();
+            
             // 初次體驗項目名稱
             const experienceNames = {
                 'pilates': '皮拉提斯',
@@ -3943,7 +3960,7 @@
                     <td>
                         <div class="action-btns">
                             <button class="edit-btn" onclick="editStudent('${safeId}')">編輯</button>
-                            <button class="delete-btn" onclick="deleteStudent('${safeId}', '${escapeAttr(s.name)}')">刪除</button>
+                            ${canDelete ? `<button class="delete-btn" onclick="deleteStudent('${safeId}', '${escapeAttr(s.name)}')">刪除</button>` : ''}
                         </div>
                     </td>
                 </tr>
@@ -3980,7 +3997,7 @@
                         </div>
                         <div class="card-actions">
                             <button class="card-btn secondary" onclick="editStudent('${safeId}')">編輯</button>
-                            <button class="card-btn danger" onclick="deleteStudent('${safeId}', '${escapeAttr(s.name)}')">刪除</button>
+                            ${canDelete ? `<button class="card-btn danger" onclick="deleteStudent('${safeId}', '${escapeAttr(s.name)}')">刪除</button>` : ''}
                         </div>
                     </div>
                 `}).join('');
@@ -4037,6 +4054,9 @@
             const tbody = document.getElementById('coachesTable');
             const cardList = document.getElementById('coachesCardList');
             
+            // 判斷是否可以刪除（只有 super_admin 可以刪除）
+            const canDelete = isSuperAdmin();
+            
             if (coaches.length === 0) {
                 tbody.innerHTML = `
                     <tr>
@@ -4087,7 +4107,7 @@
                     <td>
                         <div class="action-btns">
                             <button class="edit-btn" onclick="editCoach('${safeId}')">編輯</button>
-                            <button class="delete-btn" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>
+                            ${canDelete ? `<button class="delete-btn" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>` : ''}
                         </div>
                     </td>
                 </tr>
@@ -4121,7 +4141,7 @@
                             <div class="card-actions">
                                 <button class="card-btn secondary" onclick="editCoach('${safeId}')">編輯</button>
                                 ${c.line_uid ? `<button class="card-btn warning" onclick="copyCoachLink('${escapeAttr(c.line_uid)}', '${escapeAttr(c.name)}')">📋 複製連結</button>` : ''}
-                                <button class="card-btn danger" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>
+                                ${canDelete ? `<button class="card-btn danger" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>` : ''}
                             </div>
                         </div>
                     `;
@@ -4174,10 +4194,7 @@
                 // 根據狀態決定操作按鈕
                 let actionButtons = `
                     <button class="edit-btn" onclick="openChatRoom('${safeId}', '${safeStudentName}', '${safeCourseDate}')">
-                        💬
-                    </button>
-                    <button class="edit-btn" style="background: #e3f2fd; color: #1565c0;" onclick="openManageMembers('${safeId}')">
-                        👥
+                        💬 聊天室
                     </button>
                 `;
                 
@@ -5893,6 +5910,15 @@
         
         // ============ 管理成員 ============
         let currentManageRequestId = null;
+        
+        // 從聊天室內開啟管理成員
+        function openManageMembersFromChat() {
+            if (!currentChatRoomId) {
+                showToast('請先開啟聊天室');
+                return;
+            }
+            openManageMembers(currentChatRoomId);
+        }
         
         async function openManageMembers(requestId) {
             currentManageRequestId = requestId;
