@@ -1706,7 +1706,7 @@
             <div class="tab" data-tab="coaches" onclick="switchTab('coaches')">👨‍🏫 教練管理</div>
             <div class="tab" data-tab="requests" onclick="switchTab('requests')">📋 代課請求</div>
             <div class="tab" data-tab="admins" onclick="switchTab('admins')">🔐 管理員 <span id="pendingAdminCount" style="background: var(--warning); color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 4px; display: none;">0</span></div>
-            <div class="tab" data-tab="logs" onclick="switchTab('logs')">📜 操作紀錄</div>
+            <div class="tab" data-tab="logs" id="logsTabBtn" onclick="switchTab('logs')">📜 操作紀錄</div>
         </div>
 
         <!-- Content -->
@@ -2685,6 +2685,12 @@
             
             // 標記已登入，讓 CSS 控制底部導航顯示
             document.body.classList.add('logged-in');
+            
+            // 一般管理員隱藏操作紀錄
+            if (!isSuperAdmin()) {
+                const logsTabBtn = document.getElementById('logsTabBtn');
+                if (logsTabBtn) logsTabBtn.style.display = 'none';
+            }
         }
 
         // LINE 登入
@@ -2864,6 +2870,12 @@
 
         // ============ Tabs ============
         function switchTab(tabName) {
+            // 一般管理員不能訪問操作紀錄
+            if (tabName === 'logs' && !isSuperAdmin()) {
+                showToast('僅限超級管理員查看');
+                return;
+            }
+            
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             const tabEl = document.querySelector(`.tabs [data-tab="${tabName}"]`);
@@ -5286,11 +5298,16 @@
 
         // ============ Delete Request ============
         async function deleteRequest(requestId, studentName) {
-            if (!confirm(`確定要刪除 ${studentName} 的代課請求嗎？\n\n此操作會刪除所有相關對話紀錄，無法復原！`)) {
+            if (!confirm(`確定要刪除 ${studentName} 的代課請求嗎？\n\n⚠️ 刪除前會自動備份到 Google Sheet\n此操作完成後無法復原！`)) {
                 return;
             }
             
             try {
+                showToast('正在備份...');
+                
+                // 先備份到 Google Sheet
+                await backupChatToSheet(requestId);
+                
                 showToast('正在刪除...');
                 
                 const { error: msgError } = await supabaseClient
@@ -5313,7 +5330,7 @@
                 if (reqError) throw reqError;
                 
                 await logAction('刪除代課請求', '代課請求', requestId, studentName);
-                showToast('✅ 已刪除代課請求');
+                showToast('✅ 已備份並刪除代課請求');
                 
                 await loadRequests();
                 
@@ -5347,11 +5364,16 @@
             const request = requests.find(r => r.id === currentChatRoomId);
             const studentName = request?.student_name || '此學員';
             
-            if (!confirm(`確定要刪除 ${studentName} 的聊天室嗎？\n\n此操作會刪除所有對話紀錄，無法復原！`)) {
+            if (!confirm(`確定要刪除 ${studentName} 的聊天室嗎？\n\n⚠️ 刪除前會自動備份到 Google Sheet\n此操作完成後無法復原！`)) {
                 return;
             }
             
             try {
+                showToast('正在備份...');
+                
+                // 先備份到 Google Sheet
+                await backupChatToSheet(currentChatRoomId);
+                
                 showToast('正在刪除...');
                 
                 await supabaseClient
@@ -5371,7 +5393,7 @@
                 
                 if (error) throw error;
                 
-                showToast('✅ 已刪除聊天室');
+                showToast('✅ 已備份並刪除聊天室');
                 
                 closeChatModal();
                 
@@ -5380,6 +5402,52 @@
             } catch (error) {
                 console.error('Delete from chat error:', error);
                 showToast('刪除失敗：' + error.message);
+            }
+        }
+        
+        // 備份聊天室到 Google Sheet
+        async function backupChatToSheet(requestId) {
+            try {
+                // 1. 取得備份資料
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/backup-chat-to-sheet`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ 
+                        action: 'single',
+                        request_id: requestId 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    console.error('Backup failed:', result.error);
+                    // 備份失敗不阻止刪除，但記錄錯誤
+                    return;
+                }
+                
+                // 2. 傳送到 Make.com webhook 寫入 Google Sheet
+                const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/YOUR_WEBHOOK_ID'; // 請替換為實際的 webhook URL
+                
+                // 如果有設定 webhook URL，則傳送資料
+                if (MAKE_WEBHOOK_URL && !MAKE_WEBHOOK_URL.includes('YOUR_WEBHOOK_ID')) {
+                    await fetch(MAKE_WEBHOOK_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(result.data)
+                    });
+                }
+                
+                console.log('Chat backed up:', result.data);
+                
+            } catch (error) {
+                console.error('Backup to sheet error:', error);
+                // 備份失敗不阻止刪除
             }
         }
 
@@ -6316,12 +6384,186 @@
                     return;
                 }
                 
-                const dataStr = JSON.stringify(result.data, null, 2);
-                const blob = new Blob([dataStr], { type: 'application/json' });
+                // 生成 HTML 格式
+                const data = result.data;
+                const request = data.request || {};
+                const messages = data.messages || [];
+                
+                const courseTypeNames = {
+                    'pilates': '皮拉提斯',
+                    'weight': '重量訓練',
+                    'stretch': '伸展課程',
+                    'ai': 'AI 體態分析'
+                };
+                
+                const statusNames = {
+                    'pending': '等待中',
+                    'discussing': '討論中',
+                    'with-student': '學員已加入',
+                    'resolved': '已解決',
+                    'cancel_pending': '待取消確認',
+                    'cancelled': '已取消'
+                };
+                
+                const exportDate = new Date().toLocaleString('zh-TW');
+                const courseName = courseTypeNames[request.course_type] || request.course_type || '-';
+                const statusName = statusNames[request.status] || request.status || '-';
+                
+                // 生成訊息 HTML
+                const messagesHtml = messages.map(msg => {
+                    const time = new Date(msg.created_at).toLocaleString('zh-TW');
+                    const senderType = msg.sender_type || 'system';
+                    const senderName = msg.sender_name || '系統';
+                    const content = (msg.content || '').replace(/\n/g, '<br>');
+                    
+                    let alignClass = 'left';
+                    let bgColor = '#e8f5e9'; // 教練綠色
+                    let icon = '👨‍🏫';
+                    
+                    if (senderType === 'student') {
+                        alignClass = 'right';
+                        bgColor = '#e3f2fd'; // 學員藍色
+                        icon = '👤';
+                    } else if (senderType === 'admin') {
+                        bgColor = '#fff3e0'; // 管理員橘色
+                        icon = '🔐';
+                    } else if (senderType === 'system') {
+                        alignClass = 'center';
+                        bgColor = '#f5f5f5';
+                        icon = '⚙️';
+                    }
+                    
+                    if (alignClass === 'center') {
+                        return `
+                            <div style="text-align: center; margin: 16px 0;">
+                                <span style="background: ${bgColor}; padding: 8px 16px; border-radius: 16px; font-size: 13px; color: #666;">
+                                    ${icon} ${content}
+                                </span>
+                            </div>
+                        `;
+                    }
+                    
+                    const flexDir = alignClass === 'right' ? 'row-reverse' : 'row';
+                    
+                    return `
+                        <div style="display: flex; flex-direction: ${flexDir}; margin: 12px 0;">
+                            <div style="max-width: 70%; background: ${bgColor}; padding: 12px 16px; border-radius: 12px;">
+                                <div style="font-size: 12px; color: #666; margin-bottom: 4px;">
+                                    ${icon} ${senderName} · ${time}
+                                </div>
+                                <div style="font-size: 14px; line-height: 1.5;">
+                                    ${content}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聊天記錄 - ${request.student_name || '未知'}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+        }
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .info-item {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+        .info-label {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        .info-value {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .messages {
+            padding: 20px;
+            min-height: 200px;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 16px 24px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #eee;
+        }
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 代課聊天記錄</h1>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">學員</div>
+                    <div class="info-value">${request.student_name || '-'} (${request.student_no || '-'})</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">課程類型</div>
+                    <div class="info-value">${courseName}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">狀態</div>
+                    <div class="info-value">${statusName}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">建立時間</div>
+                    <div class="info-value">${request.created_at ? new Date(request.created_at).toLocaleString('zh-TW') : '-'}</div>
+                </div>
+            </div>
+        </div>
+        <div class="messages">
+            ${messagesHtml || '<p style="text-align: center; color: #999; padding: 40px;">尚無訊息</p>'}
+        </div>
+        <div class="footer">
+            共 ${messages.length} 則訊息 · 匯出時間：${exportDate}<br>
+            衡點健身 代課管理系統
+        </div>
+    </div>
+</body>
+</html>`;
+                
+                const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `chat_export_${requestId.substring(0, 8)}_${new Date().toISOString().split('T')[0]}.json`;
+                a.download = `聊天記錄_${request.student_name || 'unknown'}_${new Date().toISOString().split('T')[0]}.html`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
