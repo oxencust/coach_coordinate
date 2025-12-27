@@ -1747,6 +1747,7 @@
                             <select class="page-size-select" id="studentsPageSize" onchange="changeStudentsPageSize()" style="padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: white; cursor: pointer;">
                                 <option value="10">10 筆/頁</option>
                                 <option value="30" selected>30 筆/頁</option>
+                                <option value="50">50 筆/頁</option>
                             </select>
                             <button class="refresh-btn" onclick="refreshStudents()">🔄 重新整理</button>
                             <button class="add-btn" onclick="openStudentModal()">+ 新增學員</button>
@@ -1773,6 +1774,16 @@
                         <tbody id="studentsTable">
                         </tbody>
                     </table>
+                </div>
+                <!-- 分頁控制 -->
+                <div class="pagination-container" id="studentsPagination" style="display: flex; justify-content: center; align-items: center; gap: 12px; padding: 16px; flex-wrap: wrap;">
+                    <button class="pagination-btn" id="studentsPrevBtn" onclick="studentsGoPrev()" style="padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: white; cursor: pointer; font-size: 14px;">
+                        ← 上一頁
+                    </button>
+                    <span id="studentsPageInfo" style="font-size: 14px; color: var(--text-muted);">第 1 頁，共 1 頁</span>
+                    <button class="pagination-btn" id="studentsNextBtn" onclick="studentsGoNext()" style="padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: white; cursor: pointer; font-size: 14px;">
+                        下一頁 →
+                    </button>
                 </div>
             </div>
 
@@ -2569,12 +2580,12 @@
 
         // ============ Data ============
         let students = [];
-        let studentsTotal = 0;      // 學員總數
-        let studentsOffset = 0;     // 目前載入位置
-        let studentsLimit = 30;     // 每次載入筆數（預設 30）
-        let studentsHasMore = false; // 是否還有更多
-        let studentsSearchTerm = ''; // 搜尋關鍵字
-        let studentsLoading = false; // 載入中狀態
+        let studentsTotal = 0;        // 學員總數
+        let studentsCurrentPage = 1;  // 目前頁碼
+        let studentsLimit = 30;       // 每頁筆數（預設 30）
+        let studentsTotalPages = 1;   // 總頁數
+        let studentsSearchTerm = '';  // 搜尋關鍵字
+        let studentsLoading = false;  // 載入中狀態
         
         let coaches = [];
         let pendingCoaches = [];
@@ -2994,7 +3005,7 @@
                 if (searchInput) searchInput.value = '';
                 studentsSearchTerm = '';
                 
-                await loadStudents(true);
+                await loadStudents(1); // 回到第一頁
                 showToast('已重新整理 ✓');
             } catch (error) {
                 console.error('Refresh students error:', error);
@@ -3576,17 +3587,13 @@
             }
         }
 
-        async function loadStudents(reset = true) {
+        async function loadStudents(page = 1) {
             if (studentsLoading) return;
             studentsLoading = true;
             
             try {
-                // 重置時清空資料
-                if (reset) {
-                    students = [];
-                    studentsOffset = 0;
-                    studentsHasMore = false;
-                }
+                studentsCurrentPage = page;
+                const offset = (page - 1) * studentsLimit;
                 
                 // 使用 Edge Function 查詢
                 const response = await fetch(`${SUPABASE_URL}/functions/v1/get-students`, {
@@ -3598,7 +3605,7 @@
                     body: JSON.stringify({
                         search: studentsSearchTerm || undefined,
                         limit: studentsLimit,
-                        offset: studentsOffset
+                        offset: offset
                     })
                 });
                 
@@ -3607,44 +3614,69 @@
                 
                 if (!result.success) throw new Error(result.error || '載入失敗');
                 
-                // 合併資料
-                if (reset) {
-                    students = result.data || [];
-                } else {
-                    students = [...students, ...(result.data || [])];
-                }
-                
+                students = result.data || [];
                 studentsTotal = result.total || 0;
-                studentsHasMore = result.hasMore || false;
-                studentsOffset += result.data?.length || 0;
+                studentsTotalPages = Math.ceil(studentsTotal / studentsLimit) || 1;
                 
                 renderStudents();
                 updateStudentsCount();
+                updateStudentsPagination();
                 
             } catch (error) {
                 console.error('Load students error:', error);
-                if (reset) {
-                    students = [];
-                    studentsTotal = 0;
-                }
+                students = [];
+                studentsTotal = 0;
+                studentsTotalPages = 1;
                 renderStudents();
                 updateStudentsCount();
+                updateStudentsPagination();
             } finally {
                 studentsLoading = false;
             }
         }
         
-        // 載入更多學員
-        async function loadMoreStudents() {
-            if (!studentsHasMore || studentsLoading) return;
-            await loadStudents(false);
+        // 上一頁
+        function studentsGoPrev() {
+            if (studentsCurrentPage > 1) {
+                loadStudents(studentsCurrentPage - 1);
+            }
+        }
+        
+        // 下一頁
+        function studentsGoNext() {
+            if (studentsCurrentPage < studentsTotalPages) {
+                loadStudents(studentsCurrentPage + 1);
+            }
+        }
+        
+        // 更新分頁狀態
+        function updateStudentsPagination() {
+            const prevBtn = document.getElementById('studentsPrevBtn');
+            const nextBtn = document.getElementById('studentsNextBtn');
+            const pageInfo = document.getElementById('studentsPageInfo');
+            
+            if (prevBtn) {
+                prevBtn.disabled = studentsCurrentPage <= 1;
+                prevBtn.style.opacity = studentsCurrentPage <= 1 ? '0.5' : '1';
+                prevBtn.style.cursor = studentsCurrentPage <= 1 ? 'not-allowed' : 'pointer';
+            }
+            
+            if (nextBtn) {
+                nextBtn.disabled = studentsCurrentPage >= studentsTotalPages;
+                nextBtn.style.opacity = studentsCurrentPage >= studentsTotalPages ? '0.5' : '1';
+                nextBtn.style.cursor = studentsCurrentPage >= studentsTotalPages ? 'not-allowed' : 'pointer';
+            }
+            
+            if (pageInfo) {
+                pageInfo.textContent = `第 ${studentsCurrentPage} 頁，共 ${studentsTotalPages} 頁（${studentsTotal} 筆）`;
+            }
         }
         
         // 變更每頁顯示筆數
         function changeStudentsPageSize() {
             const select = document.getElementById('studentsPageSize');
             studentsLimit = parseInt(select.value) || 30;
-            loadStudents(true);
+            loadStudents(1); // 回到第一頁
         }
         
         // 伺服器端搜尋學員
@@ -3661,7 +3693,7 @@
             // 延遲搜尋（避免輸入時頻繁請求）
             studentSearchTimeout = setTimeout(() => {
                 studentsSearchTerm = searchTerm;
-                loadStudents(true);
+                loadStudents(1); // 搜尋時回到第一頁
             }, 300);
         }
 
@@ -4001,40 +4033,10 @@
                         </div>
                     </div>
                 `}).join('');
-                
-                // 載入更多按鈕（手機版）
-                if (studentsHasMore) {
-                    cardList.innerHTML += `
-                        <div class="load-more-container">
-                            <button class="load-more-btn" onclick="loadMoreStudents()">
-                                載入更多 (${students.length}/${studentsTotal})
-                            </button>
-                        </div>
-                    `;
-                } else if (studentsTotal > 0) {
-                    cardList.innerHTML += `
-                        <div class="load-more-container">
-                            <span class="load-more-info">已顯示全部 ${studentsTotal} 筆</span>
-                        </div>
-                    `;
-                }
             }
             
             // 更新標題顯示總數
             updateStudentsCount();
-            
-            // 表格載入更多按鈕（電腦版）
-            if (studentsHasMore) {
-                tbody.innerHTML += `
-                    <tr>
-                        <td colspan="7" style="text-align: center; padding: 16px;">
-                            <button class="load-more-btn" onclick="loadMoreStudents()">
-                                載入更多 (${students.length}/${studentsTotal})
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }
         }
         
         // 更新學員總數顯示
@@ -4708,7 +4710,7 @@
                 showToast(id ? '學員已更新 ✓' : '學員已新增 ✓');
 
                 closeModal('studentModal');
-                await loadStudents(true);
+                await loadStudents(studentsCurrentPage); // 保持當前頁
             } catch (error) {
                 console.error('Save student error:', error);
                 showToast('儲存失敗：' + error.message);
@@ -4865,7 +4867,7 @@
                 await new Promise(resolve => setTimeout(resolve, 300));
                 
                 if (targetType === 'student') {
-                    await loadStudents(true);
+                    await loadStudents(studentsCurrentPage); // 保持當前頁
                 } else if (targetType === 'coach') {
                     await loadCoaches();
                 } else if (targetType === 'admin') {
