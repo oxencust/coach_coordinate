@@ -4959,15 +4959,21 @@
             container.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">載入中...</div>';
             
             try {
-                const { data: messages, error } = await supabaseClient
-                    .from('messages')
-                    .select('*')
-                    .eq('request_id', requestId)
-                    .order('created_at', { ascending: true });
+                // 使用 Edge Function 取得訊息（包含發送者名稱）
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-chat-messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ request_id: requestId })
+                });
                 
-                if (error) throw error;
+                const result = await response.json();
                 
-                renderChatMessages(messages || []);
+                if (!result.success) throw new Error(result.error || '載入失敗');
+                
+                renderChatMessages(result.data || []);
             } catch (error) {
                 console.error('Load messages error:', error);
                 container.innerHTML = '<div style="text-align: center; padding: 20px; color: #f00;">載入失敗</div>';
@@ -6108,7 +6114,7 @@
             try {
                 showToast('匯出中...');
                 
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/export-chat-room`, {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/export-chat-roomy`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
