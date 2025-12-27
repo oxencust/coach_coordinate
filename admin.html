@@ -5963,8 +5963,8 @@
         
         // ============ 管理成員 ============
         let currentManageRequestId = null;
-        let pendingCoaches = [];  // 待加入的教練
-        let pendingStudents = []; // 待加入的學員
+        let pendingMemberCoaches = [];  // 待加入的教練
+        let pendingMemberStudents = []; // 待加入的學員
         
         // 從聊天室內開啟管理成員
         function openManageMembersFromChat() {
@@ -5977,8 +5977,8 @@
         
         async function openManageMembers(requestId) {
             currentManageRequestId = requestId;
-            pendingCoaches = [];
-            pendingStudents = [];
+            pendingMemberCoaches = [];
+            pendingMemberStudents = [];
             
             try {
                 const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
@@ -6045,12 +6045,12 @@
             }
             
             // 檢查是否已在待加入列表
-            if (pendingCoaches.find(c => c.id === coachId)) {
+            if (pendingMemberCoaches.find(c => c.id === coachId)) {
                 showToast('此教練已在待加入列表');
                 return;
             }
             
-            pendingCoaches.push({ id: coachId, name: coachName });
+            pendingMemberCoaches.push({ id: coachId, name: coachName });
             select.value = '';
             renderPendingMembers();
             showToast('已加入待加入列表');
@@ -6121,12 +6121,12 @@
             input.value = '';
             
             // 檢查是否已在待加入列表
-            if (pendingStudents.find(s => s.id === studentId)) {
+            if (pendingMemberStudents.find(s => s.id === studentId)) {
                 showToast('此學員已在待加入列表');
                 return;
             }
             
-            pendingStudents.push({ 
+            pendingMemberStudents.push({ 
                 id: studentId, 
                 name: name, 
                 memberNo: memberNo,
@@ -6142,21 +6142,21 @@
             const coachesList = document.getElementById('pendingCoachesList');
             const studentsList = document.getElementById('pendingStudentsList');
             
-            if (pendingCoaches.length === 0 && pendingStudents.length === 0) {
+            if (pendingMemberCoaches.length === 0 && pendingMemberStudents.length === 0) {
                 section.style.display = 'none';
                 return;
             }
             
             section.style.display = 'block';
             
-            coachesList.innerHTML = pendingCoaches.map((c, index) => `
+            coachesList.innerHTML = pendingMemberCoaches.map((c, index) => `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: white; border-radius: 6px; margin-bottom: 4px;">
                     <span>👨‍🏫 ${escapeHtml(c.name)}</span>
                     <button onclick="removePendingMember('coach', ${index})" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 16px;">✕</button>
                 </div>
             `).join('');
             
-            studentsList.innerHTML = pendingStudents.map((s, index) => `
+            studentsList.innerHTML = pendingMemberStudents.map((s, index) => `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: white; border-radius: 6px; margin-bottom: 4px;">
                     <div>
                         <span>👤 ${escapeHtml(s.name)}</span>
@@ -6170,29 +6170,29 @@
         // 從待加入列表移除
         function removePendingMember(type, index) {
             if (type === 'coach') {
-                pendingCoaches.splice(index, 1);
+                pendingMemberCoaches.splice(index, 1);
             } else {
-                pendingStudents.splice(index, 1);
+                pendingMemberStudents.splice(index, 1);
             }
             renderPendingMembers();
         }
         
         // 確認加入成員
         async function confirmAddMembers() {
-            if (pendingCoaches.length === 0 && pendingStudents.length === 0) {
+            if (pendingMemberCoaches.length === 0 && pendingMemberStudents.length === 0) {
                 showToast('請先選擇要加入的成員');
                 return;
             }
             
             // 組合確認訊息
             let confirmMsg = '確定要加入以下成員嗎？\n\n';
-            if (pendingCoaches.length > 0) {
+            if (pendingMemberCoaches.length > 0) {
                 confirmMsg += '教練（將推播 LINE 訊息到群組）：\n';
-                confirmMsg += pendingCoaches.map(c => `  • ${c.name}`).join('\n') + '\n\n';
+                confirmMsg += pendingMemberCoaches.map(c => `  • ${c.name}`).join('\n') + '\n\n';
             }
-            if (pendingStudents.length > 0) {
+            if (pendingMemberStudents.length > 0) {
                 confirmMsg += '學員（將透過官方 LINE 傳送連結）：\n';
-                confirmMsg += pendingStudents.map(s => `  • ${s.name}`).join('\n');
+                confirmMsg += pendingMemberStudents.map(s => `  • ${s.name}`).join('\n');
             }
             
             if (!confirm(confirmMsg)) {
@@ -6203,7 +6203,7 @@
                 showToast('處理中...');
                 
                 // 加入教練
-                for (const coach of pendingCoaches) {
+                for (const coach of pendingMemberCoaches) {
                     const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
                         method: 'POST',
                         headers: {
@@ -6225,7 +6225,7 @@
                 }
                 
                 // 加入學員
-                for (const student of pendingStudents) {
+                for (const student of pendingMemberStudents) {
                     const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
                         method: 'POST',
                         headers: {
@@ -6247,8 +6247,8 @@
                 }
                 
                 // 清空待加入列表
-                pendingCoaches = [];
-                pendingStudents = [];
+                pendingMemberCoaches = [];
+                pendingMemberStudents = [];
                 
                 showToast('✅ 成員已加入，已發送通知');
                 await openManageMembers(currentManageRequestId);
