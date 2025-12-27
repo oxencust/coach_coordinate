@@ -3580,35 +3580,32 @@
                     studentsHasMore = false;
                 }
                 
-                // 使用 Edge Function 查詢
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-students`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        search: studentsSearchTerm || undefined,
-                        limit: studentsLimit,
-                        offset: studentsOffset
-                    })
-                });
+                // 直接使用 Supabase Client 查詢
+                let query = supabaseClient
+                    .from('students')
+                    .select('*, primary_coach:coaches!primary_coach_id(id, name)', { count: 'exact' })
+                    .order('created_at', { ascending: false })
+                    .range(studentsOffset, studentsOffset + studentsLimit - 1);
                 
-                const result = await response.json();
-                console.log('get-students response:', result); // Debug 用
+                // 如果有搜尋關鍵字
+                if (studentsSearchTerm) {
+                    query = query.or(`name.ilike.%${studentsSearchTerm}%,phone.ilike.%${studentsSearchTerm}%,nickname.ilike.%${studentsSearchTerm}%,member_no.ilike.%${studentsSearchTerm}%,student_code.ilike.%${studentsSearchTerm}%`);
+                }
                 
-                if (!result.success) throw new Error(result.error || '載入失敗');
+                const { data, error, count } = await query;
+                
+                if (error) throw error;
                 
                 // 合併資料
                 if (reset) {
-                    students = result.data || [];
+                    students = data || [];
                 } else {
-                    students = [...students, ...(result.data || [])];
+                    students = [...students, ...(data || [])];
                 }
                 
-                studentsTotal = result.total || 0;
-                studentsHasMore = result.hasMore || false;
-                studentsOffset += result.data?.length || 0;
+                studentsTotal = count || 0;
+                studentsHasMore = (studentsOffset + studentsLimit) < (count || 0);
+                studentsOffset += data?.length || 0;
                 
                 renderStudents();
             } catch (error) {
@@ -4677,6 +4674,1454 @@
                             fitness_goal
                         },
                         changed_by: '管理員'
+                    })
+                });
+                
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                
+                await logAction(id ? '編輯學員' : '新增學員', '學員', result.data?.id || id, name);
+                showToast(id ? '學員已更新 ✓' : '學員已新增 ✓');
+
+                closeModal('studentModal');
+                await loadStudents(true);
+            } catch (error) {
+                console.error('Save student error:', error);
+                showToast('儲存失敗：' + error.message);
+            }
+        }
+
+        function deleteStudent(id, name) {
+            // 只有 super_admin 可以刪除
+            if (!isSuperAdmin()) {
+                showToast('只有主管理員可以刪除學員');
+                return;
+            }
+            deleteTarget = { type: 'student', id, name };
+            document.getElementById('deleteMessage').textContent = `確定要刪除學員「${name}」嗎？此操作無法復原。`;
+            openModal('deleteModal');
+        }
+
+        // ============ Coach CRUD ============
+        function openCoachModal(coach = null) {
+            document.getElementById('coachModalTitle').textContent = coach ? '編輯教練' : '新增教練';
+            document.getElementById('coachId').value = coach?.id || '';
+            document.getElementById('coachName').value = coach?.name || '';
+            document.getElementById('coachAvatar').value = coach?.avatar || '';
+            document.getElementById('coachPhone').value = coach?.phone || '';
+            document.getElementById('coachLineUid').value = coach?.line_uid || '';
+            document.getElementById('coachLineGroupId').value = coach?.line_group_id || '';
+            document.getElementById('coachActive').value = coach?.is_active !== false ? 'true' : 'false';
+            
+            document.getElementById('specialtyPilates').checked = (coach?.specialties || []).includes('pilates');
+            document.getElementById('specialtyWeight').checked = (coach?.specialties || []).includes('weight');
+            document.getElementById('specialtyStretch').checked = (coach?.specialties || []).includes('stretch');
+            document.getElementById('specialtyAi').checked = (coach?.specialties || []).includes('ai');
+            
+            openModal('coachModal');
+        }
+
+        function editCoach(id) {
+            const coach = coaches.find(c => c.id === id);
+            if (coach) openCoachModal(coach);
+        }
+
+        async function saveCoach() {
+            const id = document.getElementById('coachId').value;
+            const name = document.getElementById('coachName').value.trim();
+            const avatar = document.getElementById('coachAvatar').value.trim() || name.charAt(0);
+            const phone = document.getElementById('coachPhone').value.trim();
+            const line_uid = document.getElementById('coachLineUid').value.trim();
+            const line_group_id = document.getElementById('coachLineGroupId').value.trim();
+            const is_active = document.getElementById('coachActive').value === 'true';
+            
+            const specialties = [];
+            if (document.getElementById('specialtyPilates').checked) specialties.push('pilates');
+            if (document.getElementById('specialtyWeight').checked) specialties.push('weight');
+            if (document.getElementById('specialtyStretch').checked) specialties.push('stretch');
+            if (document.getElementById('specialtyAi').checked) specialties.push('ai');
+
+            if (!name) {
+                showToast('請輸入姓名');
+                return;
+            }
+
+            try {
+                if (id) {
+                    const { error } = await supabaseClient
+                        .from('coaches')
+                        .update({ name, avatar, phone, line_uid, line_group_id, specialties, is_active })
+                        .eq('id', id);
+                    if (error) throw error;
+                    await logAction('編輯教練', '教練', id, name, `課程類型: ${specialties.join(', ')}`);
+                    showToast('教練已更新 ✓');
+                } else {
+                    const { data, error } = await supabaseClient
+                        .from('coaches')
+                        .insert({ name, avatar, phone, line_uid, line_group_id, specialties, is_active })
+                        .select()
+                        .single();
+                    if (error) throw error;
+                    await logAction('新增教練', '教練', data.id, name, `課程類型: ${specialties.join(', ')}`);
+                    showToast('教練已新增 ✓');
+                }
+
+                closeModal('coachModal');
+                await loadCoaches();
+            } catch (error) {
+                console.error('Save coach error:', error);
+                showToast('儲存失敗：' + error.message);
+            }
+        }
+
+        function deleteCoach(id, name) {
+            // 只有 super_admin 可以刪除
+            if (!isSuperAdmin()) {
+                showToast('只有主管理員可以刪除教練');
+                return;
+            }
+            deleteTarget = { type: 'coach', id, name };
+            document.getElementById('deleteMessage').textContent = `確定要刪除教練「${name}」嗎？此操作無法復原。`;
+            openModal('deleteModal');
+        }
+
+        // ============ Delete Confirm ============
+        async function confirmDelete() {
+            if (!deleteTarget) return;
+
+            try {
+                let targetTypeText;
+                
+                if (deleteTarget.type === 'student') {
+                    targetTypeText = '學員';
+                    
+                    const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-student`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({
+                            action: 'delete',
+                            student: { id: deleteTarget.id }
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+                    
+                } else if (deleteTarget.type === 'coach') {
+                    targetTypeText = '教練';
+                    
+                    const { error } = await supabaseClient
+                        .from('coaches')
+                        .update({ is_active: false })
+                        .eq('id', deleteTarget.id);
+                    
+                    if (error) throw error;
+                    
+                } else if (deleteTarget.type === 'admin') {
+                    targetTypeText = '管理員';
+                    
+                    const { error } = await supabaseClient
+                        .from('admins')
+                        .delete()
+                        .eq('id', deleteTarget.id);
+                    
+                    if (error) throw error;
+                }
+                
+                await logAction(`刪除${targetTypeText}`, targetTypeText, deleteTarget.id, deleteTarget.name);
+                showToast(`已刪除${targetTypeText} ✓`);
+                closeModal('deleteModal');
+                
+                const targetType = deleteTarget.type;
+                deleteTarget = null;
+                
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                if (targetType === 'student') {
+                    await loadStudents(true);
+                } else if (targetType === 'coach') {
+                    await loadCoaches();
+                } else if (targetType === 'admin') {
+                    await loadAdmins();
+                }
+                
+            } catch (error) {
+                console.error('Delete error:', error);
+                showToast('刪除失敗：' + error.message);
+                deleteTarget = null;
+            }
+        }
+
+        // ============ Modal ============
+        function openModal(id) {
+            document.getElementById(id).classList.add('show');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
+        // ============ Chat Room Functions ============
+        let currentChatRoomId = null;
+        let chatSubscription = null;
+        
+        async function openChatRoom(requestId, studentName, courseDate) {
+            currentChatRoomId = requestId;
+            document.getElementById('chatModalTitle').textContent = `💬 ${studentName} - ${courseDate}`;
+            document.getElementById('chatModal').classList.add('show');
+            
+            const request = requests.find(r => r.id === requestId);
+            const status = request?.status || 'pending';
+            
+            const statusEl = document.getElementById('chatStatusValue');
+            statusEl.textContent = statusNames[status] || status;
+            statusEl.className = `status-value ${status}`;
+            
+            const confirmCancelBtn = document.getElementById('adminConfirmCancelBtn');
+            const deleteChatBtn = document.getElementById('adminDeleteChatBtn');
+            
+            if (status === 'cancel_pending') {
+                confirmCancelBtn.style.display = 'inline-block';
+            } else {
+                confirmCancelBtn.style.display = 'none';
+            }
+            
+            deleteChatBtn.style.display = 'inline-block';
+            
+            const inputArea = document.getElementById('adminInputArea');
+            const chatClosed = document.getElementById('adminChatClosed');
+            const emojiPicker = document.getElementById('adminEmojiPicker');
+            
+            if (status === 'resolved') {
+                inputArea.style.display = 'none';
+                chatClosed.style.display = 'block';
+                emojiPicker.style.display = 'none';
+            } else {
+                inputArea.style.display = 'flex';
+                chatClosed.style.display = 'none';
+            }
+            
+            await loadChatMessages(requestId);
+            subscribeToChatMessages(requestId);
+        }
+        
+        function closeChatModal() {
+            document.getElementById('chatModal').classList.remove('show');
+            currentChatRoomId = null;
+            hideAdminEmojiPicker();
+            stopAdminTyping();
+            
+            if (chatSubscription) {
+                chatSubscription.unsubscribe();
+                chatSubscription = null;
+            }
+            
+            if (adminTypingChannel) {
+                adminTypingChannel.unsubscribe();
+                adminTypingChannel = null;
+            }
+            
+            const indicator = document.getElementById('adminTypingIndicator');
+            if (indicator) {
+                indicator.classList.remove('show');
+            }
+        }
+        
+        async function loadChatMessages(requestId) {
+            const container = document.getElementById('chatMessages');
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">載入中...</div>';
+            
+            try {
+                const { data: messages, error } = await supabaseClient
+                    .from('messages')
+                    .select(`
+                        *,
+                        sender_coach:coaches!sender_coach_id(id, name, avatar),
+                        sender_student:students!sender_student_id(id, name, avatar)
+                    `)
+                    .eq('request_id', requestId)
+                    .order('created_at', { ascending: true });
+                
+                if (error) throw error;
+                
+                renderChatMessages(messages || []);
+            } catch (error) {
+                console.error('Load messages error:', error);
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #f00;">載入失敗</div>';
+            }
+        }
+        
+        function renderChatMessages(messages) {
+            const container = document.getElementById('chatMessages');
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">尚無訊息</div>';
+                return;
+            }
+            
+            container.innerHTML = messages.map(m => {
+                if (m.message_type === 'system') {
+                    return `
+                        <div style="text-align: center; padding: 8px 16px; margin: 8px 16px;">
+                            <span style="background: #e0e0e0; color: #666; padding: 4px 12px; border-radius: 12px; font-size: 12px;">
+                                ${escapeHtml(m.content)}
+                            </span>
+                        </div>
+                    `;
+                }
+                
+                let senderName = '未知';
+                let senderType = '';
+                let bgColor = 'var(--green-light)';
+                let align = 'flex-start';
+                
+                if (m.sender_name === '管理員' || m.sender_type === 'admin') {
+                    senderName = '管理員';
+                    senderType = 'admin';
+                    bgColor = 'var(--yellow)';
+                    align = 'flex-end';
+                } else if (m.sender_coach) {
+                    senderName = m.sender_coach.name || '未知教練';
+                    senderType = 'coach';
+                    bgColor = 'var(--green-light)';
+                } else if (m.sender_student) {
+                    senderName = m.sender_student.name || '未知學員';
+                    senderType = 'student';
+                    bgColor = 'var(--pink-light)';
+                }
+                
+                const roleLabel = senderType === 'admin' ? ' (管理員)' : 
+                                  senderType === 'coach' ? ' (教練)' : 
+                                  senderType === 'student' ? ' (學員)' : '';
+                
+                return `
+                    <div style="display: flex; justify-content: ${align}; padding: 4px 16px;">
+                        <div style="max-width: 70%;">
+                            <div style="font-size: 11px; color: #999; margin-bottom: 2px;">
+                                ${escapeHtml(senderName)}${roleLabel}
+                            </div>
+                            <div style="background: ${bgColor}; padding: 10px 14px; border-radius: 16px; font-size: 14px;">
+                                ${escapeHtml(m.content)}
+                            </div>
+                            <div style="font-size: 10px; color: #bbb; margin-top: 2px;">
+                                ${formatTime(m.created_at)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function formatTime(dateStr) {
+            const date = new Date(dateStr);
+            return `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+        }
+        
+        function subscribeToChatMessages(requestId) {
+            chatSubscription = supabaseClient
+                .channel(`admin-chat-${requestId}`)
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'messages',
+                    filter: `request_id=eq.${requestId}`
+                }, (payload) => {
+                    loadChatMessages(requestId);
+                })
+                .subscribe();
+            
+            subscribeToAdminTyping(requestId);
+        }
+        
+        // ============ Typing Indicator ============
+        let adminTypingChannel = null;
+        let adminTypingTimeout = null;
+        let adminIsTyping = false;
+        
+        function subscribeToAdminTyping(requestId) {
+            if (adminTypingChannel) {
+                adminTypingChannel.unsubscribe();
+            }
+            
+            adminTypingChannel = supabaseClient
+                .channel(`typing-${requestId}`)
+                .on('broadcast', { event: 'typing' }, (payload) => {
+                    const data = payload.payload;
+                    
+                    if (data.user_id === 'admin') return;
+                    
+                    const indicator = document.getElementById('adminTypingIndicator');
+                    const typingText = document.getElementById('adminTypingText');
+                    
+                    if (data.is_typing) {
+                        typingText.textContent = `${data.user_name} 正在輸入...`;
+                        indicator.classList.add('show');
+                        
+                        const container = document.getElementById('chatMessages');
+                        container.scrollTop = container.scrollHeight;
+                    } else {
+                        indicator.classList.remove('show');
+                    }
+                })
+                .subscribe();
+        }
+        
+        function handleAdminTyping() {
+            if (!adminTypingChannel) return;
+            
+            if (!adminIsTyping) {
+                adminIsTyping = true;
+                adminTypingChannel.send({
+                    type: 'broadcast',
+                    event: 'typing',
+                    payload: {
+                        user_id: 'admin',
+                        user_name: '管理員',
+                        is_typing: true
+                    }
+                });
+            }
+            
+            if (adminTypingTimeout) {
+                clearTimeout(adminTypingTimeout);
+            }
+            
+            adminTypingTimeout = setTimeout(() => {
+                stopAdminTyping();
+            }, 2000);
+        }
+        
+        function stopAdminTyping() {
+            if (!adminTypingChannel || !adminIsTyping) return;
+            
+            adminIsTyping = false;
+            adminTypingChannel.send({
+                type: 'broadcast',
+                event: 'typing',
+                payload: {
+                    user_id: 'admin',
+                    user_name: '管理員',
+                    is_typing: false
+                }
+            });
+        }
+        
+        // ============ 表情貼圖 ============
+        function toggleAdminEmojiPicker() {
+            const picker = document.getElementById('adminEmojiPicker');
+            if (picker) {
+                picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+            }
+        }
+        
+        function hideAdminEmojiPicker() {
+            const picker = document.getElementById('adminEmojiPicker');
+            if (picker) {
+                picker.style.display = 'none';
+            }
+        }
+        
+        function insertAdminEmoji(emoji) {
+            const input = document.getElementById('adminMessageInput');
+            if (!input) return;
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const text = input.value;
+            input.value = text.substring(0, start) + emoji + text.substring(end);
+            input.focus();
+            input.selectionStart = input.selectionEnd = start + emoji.length;
+        }
+        
+        function switchEmojiTab(tabName) {
+            document.querySelectorAll('.emoji-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.emoji-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            const targetPanel = document.getElementById('emojiPanel-' + tabName);
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+            }
+        }
+        
+        async function sendAdminMessage() {
+            const input = document.getElementById('adminMessageInput');
+            const content = input.value.trim();
+            
+            if (!content || !currentChatRoomId) return;
+            
+            stopAdminTyping();
+            
+            try {
+                const { error } = await supabaseClient
+                    .from('messages')
+                    .insert({
+                        request_id: currentChatRoomId,
+                        sender_type: 'admin',
+                        sender_name: '管理員',
+                        message_type: 'text',
+                        content: content
+                    });
+                
+                if (error) throw error;
+                
+                input.value = '';
+                
+            } catch (error) {
+                console.error('Send message error:', error);
+                showToast('發送失敗');
+            }
+        }
+
+        // ============ Confirm Cancel Request ============
+        async function confirmCancelRequest(requestId, studentName) {
+            if (!confirm(`確定要取消 ${studentName} 的代課請求嗎？\n\n此操作無法復原。`)) {
+                return;
+            }
+            
+            try {
+                showToast('正在取消...');
+                
+                const { error } = await supabaseClient
+                    .from('substitute_requests')
+                    .update({ status: 'cancelled' })
+                    .eq('id', requestId);
+                
+                if (error) throw error;
+                
+                await supabaseClient
+                    .from('messages')
+                    .insert({
+                        request_id: requestId,
+                        message_type: 'system',
+                        system_subtype: 'cancelled',
+                        content: '❌ 管理員已確認取消此代課請求'
+                    });
+                
+                await logAction('確認取消代課', '代課請求', requestId, studentName);
+                showToast('✅ 已取消代課請求');
+                
+                await loadRequests();
+                
+            } catch (error) {
+                console.error('Confirm cancel error:', error);
+                showToast('取消失敗：' + error.message);
+            }
+        }
+
+        // ============ Delete Request ============
+        async function deleteRequest(requestId, studentName) {
+            if (!confirm(`確定要刪除 ${studentName} 的代課請求嗎？\n\n此操作會刪除所有相關對話紀錄，無法復原！`)) {
+                return;
+            }
+            
+            try {
+                showToast('正在刪除...');
+                
+                const { error: msgError } = await supabaseClient
+                    .from('messages')
+                    .delete()
+                    .eq('request_id', requestId);
+                
+                if (msgError) throw msgError;
+                
+                const { error: partError } = await supabaseClient
+                    .from('request_participants')
+                    .delete()
+                    .eq('request_id', requestId);
+                
+                const { error: reqError } = await supabaseClient
+                    .from('substitute_requests')
+                    .delete()
+                    .eq('id', requestId);
+                
+                if (reqError) throw reqError;
+                
+                await logAction('刪除代課請求', '代課請求', requestId, studentName);
+                showToast('✅ 已刪除代課請求');
+                
+                await loadRequests();
+                
+            } catch (error) {
+                console.error('Delete request error:', error);
+                showToast('刪除失敗：' + error.message);
+            }
+        }
+
+        // ============ Chat Room Actions ============
+        async function confirmCancelFromChat() {
+            if (!currentChatRoomId) return;
+            
+            const request = requests.find(r => r.id === currentChatRoomId);
+            const studentName = request?.student_name || '此學員';
+            
+            await confirmCancelRequest(currentChatRoomId, studentName);
+            
+            const statusEl = document.getElementById('chatStatusValue');
+            statusEl.textContent = '已取消';
+            statusEl.className = 'status-value cancelled';
+            
+            document.getElementById('adminConfirmCancelBtn').style.display = 'none';
+            
+            await loadChatMessages(currentChatRoomId);
+        }
+
+        async function deleteFromChat() {
+            if (!currentChatRoomId) return;
+            
+            const request = requests.find(r => r.id === currentChatRoomId);
+            const studentName = request?.student_name || '此學員';
+            
+            if (!confirm(`確定要刪除 ${studentName} 的聊天室嗎？\n\n此操作會刪除所有對話紀錄，無法復原！`)) {
+                return;
+            }
+            
+            try {
+                showToast('正在刪除...');
+                
+                await supabaseClient
+                    .from('messages')
+                    .delete()
+                    .eq('request_id', currentChatRoomId);
+                
+                await supabaseClient
+                    .from('request_participants')
+                    .delete()
+                    .eq('request_id', currentChatRoomId);
+                
+                const { error } = await supabaseClient
+                    .from('substitute_requests')
+                    .delete()
+                    .eq('id', currentChatRoomId);
+                
+                if (error) throw error;
+                
+                showToast('✅ 已刪除聊天室');
+                
+                closeChatModal();
+                
+                await loadRequests();
+                
+            } catch (error) {
+                console.error('Delete from chat error:', error);
+                showToast('刪除失敗：' + error.message);
+            }
+        }
+
+        // ============ Admin CRUD ============
+        async function loadAdmins() {
+            console.log('Loading admins...');
+            try {
+                const { data, error } = await supabaseClient
+                    .from('admins')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                admins = data || [];
+                console.log('Loaded admins:', admins.length, admins.map(a => a.name));
+                renderAdmins();
+            } catch (error) {
+                console.error('Load admins error:', error);
+                showToast('載入管理員失敗');
+            }
+        }
+
+        function renderAdmins() {
+            const tbody = document.getElementById('adminsTable');
+            const cardList = document.getElementById('adminsCardList');
+            
+            const pendingAdminsData = admins.filter(a => !a.is_active);
+            const activeAdmins = admins.filter(a => a.is_active);
+            
+            updateNavBadges();
+            
+            if (admins.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <div class="icon">🔐</div>
+                                <p>尚無管理員資料</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                if (cardList) cardList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">🔐</div>
+                        <p>尚無管理員資料</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            if (pendingAdminsData.length > 0) {
+                html += `
+                    <tr style="background: #fff3cd;">
+                        <td colspan="5" style="font-weight: bold; color: #856404;">
+                            ⏳ 待審核 (${pendingAdminsData.length})
+                        </td>
+                    </tr>
+                `;
+                html += pendingAdminsData.map(a => {
+                    const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
+                    const safeName = escapeHtml(a.name || '-');
+                    const safeId = escapeHtml(a.id);
+                    const safeAttrName = escapeAttr(a.name || '管理員');
+                    return `
+                        <tr style="background: #fffdf0;">
+                            <td>${safeName}</td>
+                            <td><span style="color: var(--warning);">⏳ 待審核</span></td>
+                            <td><code style="font-size: 11px;">${escapeHtml(a.line_uid || '-')}</code></td>
+                            <td>${createdAt}</td>
+                            <td>
+                                ${isSuperAdmin() ? `<button class="edit-btn" style="background: var(--success);" onclick="approveAdmin('${safeId}', '${safeAttrName}')">✓ 核准</button>` : ''}
+                                ${isSuperAdmin() ? `<button class="delete-btn" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">✗ 拒絕</button>` : '<span style="color: var(--text-muted); font-size: 12px;">請主管理員審核</span>'}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            
+            if (activeAdmins.length > 0) {
+                if (pendingAdminsData.length > 0) {
+                    html += `
+                        <tr style="background: #e8f5e9;">
+                            <td colspan="5" style="font-weight: bold; color: #2e7d32;">
+                                ✓ 已啟用 (${activeAdmins.length})
+                            </td>
+                        </tr>
+                    `;
+                }
+                html += activeAdmins.map(a => {
+                    const isCurrentAdmin = currentAdmin && a.id === currentAdmin.id;
+                    const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
+                    const safeName = escapeHtml(a.name || '-');
+                    const safeId = escapeHtml(a.id);
+                    const safeAttrName = escapeAttr(a.name || '管理員');
+                    const isSuperRole = a.role === 'super_admin';
+                    const roleText = isSuperRole ? '🔐 主管理員' : '👤 一般管理員';
+                    
+                    let roleBtn = '';
+                    if (isSuperAdmin() && !isCurrentAdmin) {
+                        if (isSuperRole) {
+                            roleBtn = `<button class="edit-btn" style="background: #fff3e0; color: #e65100; font-size: 11px;" onclick="updateAdminRole('${safeId}', '${safeAttrName}', 'admin')">↓ 降級</button>`;
+                        } else {
+                            roleBtn = `<button class="edit-btn" style="background: #e3f2fd; color: #1565c0; font-size: 11px;" onclick="updateAdminRole('${safeId}', '${safeAttrName}', 'super_admin')">↑ 升級</button>`;
+                        }
+                    }
+                    
+                    return `
+                        <tr>
+                            <td>${safeName}${isCurrentAdmin ? ' <span style="color: var(--green);">(我)</span>' : ''}</td>
+                            <td><span style="font-size: 12px;">${roleText}</span> ${roleBtn}</td>
+                            <td><code style="font-size: 11px;">${escapeHtml(a.line_uid || '-')}</code></td>
+                            <td>${createdAt}</td>
+                            <td>
+                                ${isSuperAdmin() ? `<button class="edit-btn" onclick="editAdmin('${safeId}')">編輯</button>` : ''}
+                                ${isSuperAdmin() && !isCurrentAdmin ? `<button class="delete-btn" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            
+            tbody.innerHTML = html;
+
+            if (cardList) {
+                let cardHtml = '';
+                
+                if (pendingAdminsData.length > 0) {
+                    cardHtml += `<div class="section-header" onclick="toggleSection(this)">
+                        <div class="section-title">⏳ 待審核 <span class="section-count">${pendingAdminsData.length}</span></div>
+                        <span class="section-toggle">▼</span>
+                    </div>
+                    <div class="section-content">`;
+                    
+                    cardHtml += pendingAdminsData.map(a => {
+                        const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
+                        const safeName = escapeHtml(a.name || '-');
+                        const safeId = escapeHtml(a.id);
+                        const safeAttrName = escapeAttr(a.name || '管理員');
+                        return `
+                            <div class="data-card" style="border-left: 4px solid var(--warning);">
+                                <div class="card-header">
+                                    <div class="card-avatar" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);">
+                                        ${escapeHtml(a.name?.charAt(0) || '?')}
+                                    </div>
+                                    <div class="card-info">
+                                        <div class="card-name">${safeName} <span class="card-badge pending">待審核</span></div>
+                                        <div class="card-meta">申請於 ${createdAt}</div>
+                                    </div>
+                                </div>
+                                <div class="card-actions">
+                                    ${isSuperAdmin() ? `<button class="card-btn primary" onclick="approveAdmin('${safeId}', '${safeAttrName}')">✓ 核准</button>` : ''}
+                                    ${isSuperAdmin() ? `<button class="card-btn danger" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">✗ 拒絕</button>` : '<span style="color: var(--text-muted); font-size: 12px;">請主管理員審核</span>'}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    cardHtml += '</div>';
+                }
+                
+                if (activeAdmins.length > 0) {
+                    cardHtml += `<div class="section-header green" onclick="toggleSection(this)">
+                        <div class="section-title">✓ 已啟用 <span class="section-count green">${activeAdmins.length}</span></div>
+                        <span class="section-toggle">▼</span>
+                    </div>
+                    <div class="section-content">`;
+                    
+                    cardHtml += activeAdmins.map(a => {
+                        const isCurrentAdmin = currentAdmin && a.id === currentAdmin.id;
+                        const createdAt = new Date(a.created_at).toLocaleDateString('zh-TW');
+                        const safeName = escapeHtml(a.name || '-');
+                        const safeId = escapeHtml(a.id);
+                        const safeAttrName = escapeAttr(a.name || '管理員');
+                        const isSuperRole = a.role === 'super_admin';
+                        const roleText = isSuperRole ? '🔐 主管理員' : '👤 一般管理員';
+                        
+                        let roleBtn = '';
+                        if (isSuperAdmin() && !isCurrentAdmin) {
+                            if (isSuperRole) {
+                                roleBtn = `<button class="card-btn" style="background: #fff3e0; color: #e65100;" onclick="updateAdminRole('${safeId}', '${safeAttrName}', 'admin')">↓ 降級</button>`;
+                            } else {
+                                roleBtn = `<button class="card-btn" style="background: #e3f2fd; color: #1565c0;" onclick="updateAdminRole('${safeId}', '${safeAttrName}', 'super_admin')">↑ 升級</button>`;
+                            }
+                        }
+                        
+                        return `
+                            <div class="data-card">
+                                <div class="card-header">
+                                    <div class="card-avatar">${escapeHtml(a.name?.charAt(0) || '?')}</div>
+                                    <div class="card-info">
+                                        <div class="card-name">
+                                            ${safeName}
+                                            ${isCurrentAdmin ? '<span style="color: var(--green); font-size: 12px;">(我)</span>' : ''}
+                                        </div>
+                                        <div class="card-meta">${roleText} • 建立於 ${createdAt}</div>
+                                    </div>
+                                </div>
+                                ${isSuperAdmin() ? `
+                                <div class="card-actions">
+                                    ${roleBtn}
+                                    <button class="card-btn secondary" onclick="editAdmin('${safeId}')">編輯</button>
+                                    ${!isCurrentAdmin ? `<button class="card-btn danger" onclick="deleteAdmin('${safeId}', '${safeAttrName}')">刪除</button>` : ''}
+                                </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                    cardHtml += '</div>';
+                }
+                
+                cardList.innerHTML = cardHtml;
+            }
+            
+            const pendingCountEl = document.getElementById('pendingAdminCount');
+            if (pendingAdminsData.length > 0) {
+                pendingCountEl.textContent = pendingAdminsData.length;
+                pendingCountEl.style.display = 'inline';
+            } else {
+                pendingCountEl.style.display = 'none';
+            }
+            
+            const addAdminBtn = document.getElementById('addAdminBtn');
+            if (addAdminBtn) {
+                addAdminBtn.style.display = isSuperAdmin() ? 'flex' : 'none';
+            }
+        }
+        
+        function toggleSection(header) {
+            header.classList.toggle('collapsed');
+            const content = header.nextElementSibling;
+            if (content && content.classList.contains('section-content')) {
+                content.classList.toggle('collapsed');
+            }
+        }
+
+        let pendingApprovalAdmin = null;
+        
+        function approveAdmin(id, name) {
+            pendingApprovalAdmin = { id, name };
+            document.getElementById('approveAdminName').textContent = name;
+            document.getElementById('approveAdminRole').value = 'admin';
+            openModal('approveAdminModal');
+        }
+        
+        async function confirmApproveAdmin() {
+            if (!pendingApprovalAdmin) return;
+            
+            const role = document.getElementById('approveAdminRole').value;
+            const { id, name } = pendingApprovalAdmin;
+            
+            try {
+                const { error } = await supabaseClient
+                    .from('admins')
+                    .update({ is_active: true, role: role })
+                    .eq('id', id);
+                
+                if (error) throw error;
+                
+                const roleText = role === 'super_admin' ? '主管理員' : '一般管理員';
+                await logAction('核准管理員', '管理員', id, `${name} (${roleText})`);
+                showToast(`已核准 ${name} 為${roleText} ✓`);
+                closeModal('approveAdminModal');
+                pendingApprovalAdmin = null;
+                await loadAdmins();
+            } catch (error) {
+                console.error('Approve admin error:', error);
+                showToast('核准失敗：' + error.message);
+            }
+        }
+        
+        async function updateAdminRole(id, name, newRole) {
+            const roleText = newRole === 'super_admin' ? '主管理員' : '一般管理員';
+            if (!confirm(`確定要將 ${name} ${newRole === 'super_admin' ? '升級為主管理員' : '降級為一般管理員'}？`)) {
+                return;
+            }
+            
+            try {
+                const { error } = await supabaseClient
+                    .from('admins')
+                    .update({ role: newRole })
+                    .eq('id', id);
+                
+                if (error) throw error;
+                
+                await logAction(`${newRole === 'super_admin' ? '升級' : '降級'}管理員`, '管理員', id, `${name} → ${roleText}`);
+                showToast(`已將 ${name} 設為${roleText} ✓`);
+                await loadAdmins();
+            } catch (error) {
+                console.error('Update role error:', error);
+                showToast('更新失敗：' + error.message);
+            }
+        }
+
+        function openAdminModal(admin = null) {
+            if (!admin && !isSuperAdmin()) {
+                showToast('只有主管理員可以新增管理員');
+                return;
+            }
+            
+            document.getElementById('adminModalTitle').textContent = admin ? '編輯管理員' : '新增管理員';
+            document.getElementById('adminId').value = admin?.id || '';
+            document.getElementById('adminNameInput').value = admin?.name || '';
+            document.getElementById('adminLineUid').value = admin?.line_uid || '';
+            document.getElementById('adminActive').value = admin?.is_active !== false ? 'true' : 'false';
+            openModal('adminModal');
+        }
+
+        function editAdmin(id) {
+            const admin = admins.find(a => a.id === id);
+            if (admin) openAdminModal(admin);
+        }
+
+        async function saveAdmin() {
+            const id = document.getElementById('adminId').value;
+            const name = document.getElementById('adminNameInput').value.trim();
+            const line_uid = document.getElementById('adminLineUid').value.trim();
+            const is_active = document.getElementById('adminActive').value === 'true';
+
+            if (!name) {
+                showToast('請輸入名稱');
+                return;
+            }
+
+            if (!line_uid || !line_uid.startsWith('U')) {
+                showToast('請輸入有效的 LINE UID（U開頭）');
+                return;
+            }
+
+            try {
+                if (id) {
+                    const { error } = await supabaseClient
+                        .from('admins')
+                        .update({ name, line_uid, is_active })
+                        .eq('id', id);
+                    if (error) throw error;
+                    await logAction('編輯管理員', '管理員', id, name);
+                    showToast('管理員已更新 ✓');
+                } else {
+                    const { data, error } = await supabaseClient
+                        .from('admins')
+                        .insert({ name, line_uid, is_active, role: 'admin' })
+                        .select()
+                        .single();
+                    if (error) throw error;
+                    await logAction('新增管理員', '管理員', data.id, name);
+                    showToast('管理員已新增 ✓');
+                }
+
+                closeModal('adminModal');
+                await loadAdmins();
+            } catch (error) {
+                console.error('Save admin error:', error);
+                if (error.message?.includes('duplicate')) {
+                    showToast('此 LINE UID 已存在');
+                } else {
+                    showToast('儲存失敗：' + error.message);
+                }
+            }
+        }
+
+        function deleteAdmin(id, name) {
+            console.log('deleteAdmin called with:', id, name);
+            if (currentAdmin && id === currentAdmin.id) {
+                showToast('無法刪除自己');
+                return;
+            }
+            deleteTarget = { type: 'admin', id, name };
+            document.getElementById('deleteMessage').textContent = `確定要刪除管理員「${name}」嗎？`;
+            openModal('deleteModal');
+        }
+
+        // ============ HTML Escape Helpers ============
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            const str = String(text);
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+        
+        function escapeAttr(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/'/g, '&#39;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        // ============ Toast ============
+        let toastTimeout = null;
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            
+            if (toastTimeout) {
+                clearTimeout(toastTimeout);
+            }
+            
+            toast.textContent = message;
+            toast.classList.add('show');
+            
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+                toastTimeout = null;
+            }, 2500);
+        }
+
+        // ============ Init ============
+        document.addEventListener('DOMContentLoaded', checkAuth);
+
+        function addTableLabels() {
+            document.querySelectorAll('table').forEach(table => {
+                const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent.trim());
+                table.querySelectorAll('tbody tr').forEach(row => {
+                    row.querySelectorAll('td').forEach((td, index) => {
+                        if (headers[index] && !td.hasAttribute('colspan')) {
+                            td.setAttribute('data-label', headers[index]);
+                        }
+                    });
+                });
+            });
+        }
+
+        const observer = new MutationObserver(() => {
+            addTableLabels();
+        });
+        
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        // ============ 建立聊天室 ============
+        let selectedChatRoomCoaches = [];
+        let selectedChatRoomStudents = [];
+        
+        function openCreateChatRoomModal() {
+            document.getElementById('chatRoomCourseDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('chatRoomCourseTime').value = '';
+            document.getElementById('chatRoomReason').value = '';
+            
+            selectedChatRoomCoaches = [];
+            selectedChatRoomStudents = [];
+            
+            const coachList = document.getElementById('chatRoomCoachList');
+            coachList.innerHTML = coaches.filter(c => c.is_active !== false).map(c => `
+                <label style="display: flex; align-items: center; padding: 8px; cursor: pointer; border-radius: 6px; margin-bottom: 4px; background: ${selectedChatRoomCoaches.includes(c.id) ? '#e3f2fd' : '#f5f5f5'};">
+                    <input type="checkbox" value="${c.id}" onchange="toggleChatRoomCoach('${c.id}')" style="margin-right: 8px;">
+                    <span>${escapeHtml(c.name)}</span>
+                </label>
+            `).join('');
+            
+            document.getElementById('chatRoomStudentList').innerHTML = '';
+            
+            openModal('createChatRoomModal');
+        }
+        
+        function toggleChatRoomCoach(coachId) {
+            const index = selectedChatRoomCoaches.indexOf(coachId);
+            if (index > -1) {
+                selectedChatRoomCoaches.splice(index, 1);
+            } else {
+                if (selectedChatRoomCoaches.length >= 3) {
+                    showToast('最多只能選擇 3 位教練');
+                    return;
+                }
+                selectedChatRoomCoaches.push(coachId);
+            }
+        }
+        
+        async function searchStudentForChatRoom() {
+            const memberNo = document.getElementById('chatRoomStudentNo').value.trim();
+            const name = document.getElementById('chatRoomStudentName').value.trim();
+            
+            if (!memberNo || !name) {
+                showToast('請輸入編號和姓名');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/search-student`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ member_no: memberNo, name: name })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success || !result.data) {
+                    showToast('找不到此學員');
+                    return;
+                }
+                
+                const student = result.data;
+                
+                if (selectedChatRoomStudents.find(s => s.id === student.id)) {
+                    showToast('此學員已加入');
+                    return;
+                }
+                
+                if (selectedChatRoomStudents.length >= 3) {
+                    showToast('最多只能選擇 3 位學員');
+                    return;
+                }
+                
+                selectedChatRoomStudents.push(student);
+                renderChatRoomStudents();
+                
+                document.getElementById('chatRoomStudentNo').value = '';
+                document.getElementById('chatRoomStudentName').value = '';
+                
+            } catch (error) {
+                console.error('Search student error:', error);
+                showToast('搜尋失敗');
+            }
+        }
+        
+        function renderChatRoomStudents() {
+            const container = document.getElementById('chatRoomStudentList');
+            container.innerHTML = selectedChatRoomStudents.map(s => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f5f5f5; border-radius: 6px; margin-bottom: 4px;">
+                    <span>${escapeHtml(s.name)} (${escapeHtml(s.member_no)})</span>
+                    <button onclick="removeChatRoomStudent('${s.id}')" style="background: none; border: none; color: #e74c3c; cursor: pointer;">✕</button>
+                </div>
+            `).join('');
+        }
+        
+        function removeChatRoomStudent(studentId) {
+            selectedChatRoomStudents = selectedChatRoomStudents.filter(s => s.id !== studentId);
+            renderChatRoomStudents();
+        }
+        
+        async function createChatRoom() {
+            const courseType = document.getElementById('chatRoomCourseType').value;
+            const courseDate = document.getElementById('chatRoomCourseDate').value;
+            const courseTime = document.getElementById('chatRoomCourseTime').value;
+            const reason = document.getElementById('chatRoomReason').value;
+            
+            if (selectedChatRoomCoaches.length === 0) {
+                showToast('請至少選擇一位教練');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/create-chat-room`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        course_type: courseType,
+                        course_date: courseDate,
+                        course_time: courseTime,
+                        reason: reason,
+                        coach_ids: selectedChatRoomCoaches,
+                        student_ids: selectedChatRoomStudents.map(s => s.id)
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showToast(result.error || '建立失敗');
+                    return;
+                }
+                
+                closeModal('createChatRoomModal');
+                showToast('✅ 聊天室已建立');
+                await loadRequests();
+                
+            } catch (error) {
+                console.error('Create chat room error:', error);
+                showToast('建立失敗');
+            }
+        }
+        
+        // ============ 管理成員 ============
+        let currentManageRequestId = null;
+        
+        async function openManageMembers(requestId) {
+            currentManageRequestId = requestId;
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        action: 'list',
+                        request_id: requestId
+                    })
+                });
+                
+                const result = await response.json();
+                const members = result.data || [];
+                
+                const coachMembers = members.filter(m => m.member_type === 'coach' && m.is_active);
+                document.getElementById('memberCoachList').innerHTML = coachMembers.map(m => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f5f5f5; border-radius: 6px; margin-bottom: 4px;">
+                        <span>${escapeHtml(m.member_name)}</span>
+                        <button onclick="removeMember('${m.member_id}', 'coach')" style="background: none; border: none; color: #e74c3c; cursor: pointer;">✕</button>
+                    </div>
+                `).join('') || '<p style="color: #999; font-size: 13px;">尚無教練</p>';
+                
+                const studentMembers = members.filter(m => m.member_type === 'student' && m.is_active);
+                document.getElementById('memberStudentList').innerHTML = studentMembers.map(m => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f5f5f5; border-radius: 6px; margin-bottom: 4px;">
+                        <span>${escapeHtml(m.member_name)}</span>
+                        <button onclick="removeMember('${m.member_id}', 'student')" style="background: none; border: none; color: #e74c3c; cursor: pointer;">✕</button>
+                    </div>
+                `).join('') || '<p style="color: #999; font-size: 13px;">尚無學員</p>';
+                
+                const existingCoachIds = coachMembers.map(m => m.member_id);
+                document.getElementById('addCoachSelect').innerHTML = '<option value="">選擇教練加入...</option>' +
+                    coaches.filter(c => c.is_active !== false && !existingCoachIds.includes(c.id))
+                        .map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+                
+                openModal('manageMembersModal');
+                
+            } catch (error) {
+                console.error('Load members error:', error);
+                showToast('載入失敗');
+            }
+        }
+        
+        async function addCoachToRoom() {
+            const coachId = document.getElementById('addCoachSelect').value;
+            if (!coachId) {
+                showToast('請選擇教練');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        action: 'add',
+                        request_id: currentManageRequestId,
+                        member_type: 'coach',
+                        member_id: coachId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showToast(result.error || '加入失敗');
+                    return;
+                }
+                
+                showToast('✅ 教練已加入');
+                await openManageMembers(currentManageRequestId);
+                
+            } catch (error) {
+                console.error('Add coach error:', error);
+                showToast('加入失敗');
+            }
+        }
+        
+        async function addStudentToRoom() {
+            const memberNo = document.getElementById('addStudentNo').value.trim();
+            const name = document.getElementById('addStudentName').value.trim();
+            
+            if (!memberNo || !name) {
+                showToast('請輸入編號和姓名');
+                return;
+            }
+            
+            try {
+                const searchResponse = await fetch(`${SUPABASE_URL}/functions/v1/search-student`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ member_no: memberNo, name: name })
+                });
+                
+                const searchResult = await searchResponse.json();
+                
+                if (!searchResult.success || !searchResult.data) {
+                    showToast('找不到此學員');
+                    return;
+                }
+                
+                const student = searchResult.data;
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        action: 'add',
+                        request_id: currentManageRequestId,
+                        member_type: 'student',
+                        member_id: student.id
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showToast(result.error || '加入失敗');
+                    return;
+                }
+                
+                document.getElementById('addStudentNo').value = '';
+                document.getElementById('addStudentName').value = '';
+                
+                showToast('✅ 學員已加入');
+                await openManageMembers(currentManageRequestId);
+                
+            } catch (error) {
+                console.error('Add student error:', error);
+                showToast('加入失敗');
+            }
+        }
+        
+        async function removeMember(memberId, memberType) {
+            if (!confirm(`確定要移除此${memberType === 'coach' ? '教練' : '學員'}嗎？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        action: 'remove',
+                        request_id: currentManageRequestId,
+                        member_type: memberType,
+                        member_id: memberId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showToast(result.error || '移除失敗');
+                    return;
+                }
+                
+                showToast('✅ 已移除');
+                await openManageMembers(currentManageRequestId);
+                
+            } catch (error) {
+                console.error('Remove member error:', error);
+                showToast('移除失敗');
+            }
+        }
+        
+        // ============ 匯出聊天室 ============
+        async function exportChatRoom(requestId) {
+            try {
+                showToast('匯出中...');
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/export-chat-room`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ request_id: requestId })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showToast(result.error || '匯出失敗');
+                    return;
+                }
+                
+                const dataStr = JSON.stringify(result.data, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `chat_export_${requestId.substring(0, 8)}_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showToast('✅ 匯出完成');
+                
+            } catch (error) {
+                console.error('Export error:', error);
+                showToast('匯出失敗');
+            }
+        }
+    </script>
+</body>
+</html>員'
                     })
                 });
                 
