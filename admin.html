@@ -1744,11 +1744,6 @@
                     <div class="action-bar-top">
                         <h2>👤 學員管理 <span id="studentsCount" style="font-size: 14px; font-weight: normal; color: var(--text-muted);"></span></h2>
                         <div class="action-buttons">
-                            <select class="page-size-select" id="studentsPageSize" onchange="changeStudentsPageSize()" style="padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: white; cursor: pointer;">
-                                <option value="10">10 筆/頁</option>
-                                <option value="30" selected>30 筆/頁</option>
-                                <option value="50">50 筆/頁</option>
-                            </select>
                             <button class="refresh-btn" onclick="refreshStudents()">🔄 重新整理</button>
                             <button class="add-btn" onclick="openStudentModal()">+ 新增學員</button>
                         </div>
@@ -1764,6 +1759,7 @@
                             <tr>
                                 <th>編號</th>
                                 <th>姓名</th>
+                                <th>LINE名稱</th>
                                 <th>手機號碼</th>
                                 <th>性別</th>
                                 <th>會員等級</th>
@@ -1777,6 +1773,11 @@
                 </div>
                 <!-- 分頁控制 -->
                 <div class="pagination-container" id="studentsPagination" style="display: flex; justify-content: center; align-items: center; gap: 12px; padding: 16px; flex-wrap: wrap;">
+                    <select class="page-size-select" id="studentsPageSizeBottom" onchange="changeStudentsPageSize()" style="padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: white; cursor: pointer;">
+                        <option value="10">10 筆/頁</option>
+                        <option value="30" selected>30 筆/頁</option>
+                        <option value="50">50 筆/頁</option>
+                    </select>
                     <button class="pagination-btn" id="studentsPrevBtn" onclick="studentsGoPrev()" style="padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: white; cursor: pointer; font-size: 14px;">
                         ← 上一頁
                     </button>
@@ -2537,10 +2538,9 @@
                 <div class="form-group">
                     <label>學員（最多 3 位）</label>
                     <div id="memberStudentList" style="margin-bottom: 12px;"></div>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="addStudentNo" placeholder="編號" style="flex: 1;">
-                        <input type="text" id="addStudentName" placeholder="姓名" style="flex: 1;">
-                        <button onclick="addStudentToRoom()" style="padding: 8px 16px; background: var(--blue); color: white; border: none; border-radius: 6px; cursor: pointer;">➕</button>
+                    <div style="position: relative;">
+                        <input type="text" id="searchStudentInput" placeholder="🔍 搜尋學員姓名..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ddd;" oninput="searchStudentForMember()" autocomplete="off">
+                        <div id="studentSearchResults" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 6px; max-height: 200px; overflow-y: auto; display: none; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
                     </div>
                 </div>
             </div>
@@ -3674,7 +3674,7 @@
         
         // 變更每頁顯示筆數
         function changeStudentsPageSize() {
-            const select = document.getElementById('studentsPageSize');
+            const select = document.getElementById('studentsPageSizeBottom');
             studentsLimit = parseInt(select.value) || 30;
             loadStudents(1); // 回到第一頁
         }
@@ -3952,7 +3952,7 @@
             if (students.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7">
+                        <td colspan="8">
                             <div class="empty-state">
                                 <div class="icon">👤</div>
                                 <p>尚無學員資料</p>
@@ -3976,6 +3976,7 @@
                 const levelName = memberLevelNames[s.member_level] || s.member_level || '一般會員';
                 const genderName = genderNames[s.gender] || '-';
                 const experienceName = experienceNames[s.first_experience] || '-';
+                const displayName = escapeHtml(s.displayname || '-');
                 return `
                 <tr>
                     <td>${escapeHtml(s.member_no || '-')}</td>
@@ -3985,6 +3986,7 @@
                             <span>${safeName}</span>
                         </div>
                     </td>
+                    <td>${displayName}</td>
                     <td>${escapeHtml(s.phone || '-')}</td>
                     <td>${genderName}</td>
                     <td><span class="level-badge ${s.member_level || 'normal'}">${levelName}</span></td>
@@ -4006,6 +4008,7 @@
                     const levelName = memberLevelNames[s.member_level] || s.member_level || '一般會員';
                     const genderName = genderNames[s.gender] || '-';
                     const experienceName = experienceNames[s.first_experience] || '-';
+                    const displayName = escapeHtml(s.displayname || '-');
                     return `
                     <div class="data-card">
                         <div class="card-header">
@@ -4014,6 +4017,10 @@
                                 <div class="card-name">${safeName}</div>
                                 <div class="card-meta">${escapeHtml(s.member_no || '無編號')} • ${escapeHtml(s.phone || '無電話')}</div>
                             </div>
+                        </div>
+                        <div class="card-row">
+                            <span class="card-label">LINE名稱</span>
+                            <span class="card-value">${displayName}</span>
                         </div>
                         <div class="card-row">
                             <span class="card-label">性別</span>
@@ -6014,34 +6021,74 @@
             }
         }
         
-        async function addStudentToRoom() {
-            const memberNo = document.getElementById('addStudentNo').value.trim();
-            const name = document.getElementById('addStudentName').value.trim();
+        // 搜尋學員（管理成員用）
+        let memberStudentSearchTimeout = null;
+        async function searchStudentForMember() {
+            const input = document.getElementById('searchStudentInput');
+            const resultsDiv = document.getElementById('studentSearchResults');
+            const searchTerm = input?.value?.trim() || '';
             
-            if (!memberNo || !name) {
-                showToast('請輸入編號和姓名');
+            // 清除之前的計時器
+            if (memberStudentSearchTimeout) {
+                clearTimeout(memberStudentSearchTimeout);
+            }
+            
+            if (searchTerm.length < 1) {
+                resultsDiv.style.display = 'none';
                 return;
             }
             
-            try {
-                const searchResponse = await fetch(`${SUPABASE_URL}/functions/v1/search-student`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({ member_no: memberNo, name: name })
-                });
-                
-                const searchResult = await searchResponse.json();
-                
-                if (!searchResult.success || !searchResult.data) {
-                    showToast('找不到此學員');
-                    return;
+            // 延遲搜尋
+            memberStudentSearchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`${SUPABASE_URL}/functions/v1/get-students`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({
+                            search: searchTerm,
+                            limit: 10,
+                            offset: 0
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success && result.data && result.data.length > 0) {
+                        resultsDiv.innerHTML = result.data.map(s => `
+                            <div onclick="selectStudentForMember('${escapeAttr(s.id)}', '${escapeAttr(s.member_no || '')}', '${escapeAttr(s.name || '')}', '${escapeAttr(s.displayname || '')}')" 
+                                 style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.2s;"
+                                 onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+                                <div style="font-weight: 500;">${escapeHtml(s.name || '-')}</div>
+                                <div style="font-size: 12px; color: #666;">
+                                    編號: ${escapeHtml(s.member_no || '-')} | LINE: ${escapeHtml(s.displayname || '-')}
+                                </div>
+                            </div>
+                        `).join('');
+                        resultsDiv.style.display = 'block';
+                    } else {
+                        resultsDiv.innerHTML = '<div style="padding: 12px; color: #999; text-align: center;">找不到符合的學員</div>';
+                        resultsDiv.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('Search student error:', error);
+                    resultsDiv.style.display = 'none';
                 }
-                
-                const student = searchResult.data;
-                
+            }, 300);
+        }
+        
+        // 選擇學員加入聊天室
+        async function selectStudentForMember(studentId, memberNo, name, displayname) {
+            const input = document.getElementById('searchStudentInput');
+            const resultsDiv = document.getElementById('studentSearchResults');
+            
+            // 隱藏搜尋結果
+            resultsDiv.style.display = 'none';
+            input.value = '';
+            
+            try {
                 const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
                     method: 'POST',
                     headers: {
@@ -6052,7 +6099,7 @@
                         action: 'add',
                         request_id: currentManageRequestId,
                         member_type: 'student',
-                        member_id: student.id
+                        member_id: studentId
                     })
                 });
                 
@@ -6062,9 +6109,6 @@
                     showToast(result.error || '加入失敗');
                     return;
                 }
-                
-                document.getElementById('addStudentNo').value = '';
-                document.getElementById('addStudentName').value = '';
                 
                 showToast('✅ 學員已加入');
                 await openManageMembers(currentManageRequestId);
