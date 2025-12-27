@@ -1706,8 +1706,6 @@
             <div class="tab" data-tab="coaches" onclick="switchTab('coaches')">👨‍🏫 教練管理</div>
             <div class="tab" data-tab="requests" onclick="switchTab('requests')">📋 代課請求</div>
             <div class="tab" data-tab="admins" onclick="switchTab('admins')">🔐 管理員 <span id="pendingAdminCount" style="background: var(--warning); color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 4px; display: none;">0</span></div>
-            <div class="tab" data-tab="permissions" id="permissionsTab" onclick="switchTab('permissions')" style="display: none; background: linear-gradient(135deg, #667eea, #764ba2); color: white;">🔑 權限管理</div>
-            <div class="tab" data-tab="staff" onclick="switchTab('staff')">👥 行政人員</div>
             <div class="tab" data-tab="logs" onclick="switchTab('logs')">📜 操作紀錄</div>
         </div>
 
@@ -1874,36 +1872,6 @@
                 </div>
             </div>
 
-            <!-- Staff Tab -->
-            <div class="tab-content" id="staffTab">
-                <div class="action-bar">
-                    <div class="action-bar-top">
-                        <h2>👥 行政人員管理</h2>
-                        <button class="add-btn" onclick="openStaffModal()">+ 新增人員</button>
-                    </div>
-                    <input type="text" class="search-box" placeholder="🔍 搜尋姓名、職位..." id="staffSearch" oninput="filterStaff()">
-                </div>
-                <!-- 手機版卡片列表 -->
-                <div class="card-list" id="staffCardList"></div>
-                <!-- 電腦版表格 -->
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>姓名</th>
-                                <th>LINE ID</th>
-                                <th>職位</th>
-                                <th>負責</th>
-                                <th>狀態</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="staffTable">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             <!-- Logs Tab -->
             <div class="tab-content" id="logsTab">
                 <div class="action-bar">
@@ -1932,42 +1900,28 @@
                     </table>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Permissions Tab -->
-            <div class="tab-content" id="permissionsTab">
-                <div class="action-bar">
-                    <div class="action-bar-top">
-                        <h2>🔑 權限管理</h2>
-                        <div class="action-buttons">
-                            <button class="refresh-btn" onclick="refreshPermissions()">🔄 重新整理</button>
-                            <button class="add-btn" onclick="openAddPermissionAdminModal()">+ 新增管理員</button>
-                        </div>
-                    </div>
-                </div>
-                
+    <!-- Permission List Modal (權限管理列表) -->
+    <div class="modal-overlay" id="permissionListModal">
+        <div class="modal" style="max-width: 600px; max-height: 85vh; overflow-y: auto;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
+                <h3>🔑 權限管理</h3>
+                <button class="modal-close" onclick="closeModal('permissionListModal')" style="color: white;">&times;</button>
+            </div>
+            <div class="modal-body">
                 <!-- 權限說明 -->
                 <div style="background: #f0f4ff; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: #5c6bc0;">
-                    <strong>💡 說明：</strong> 在此管理各管理員的細部權限。🔒 標記表示最初超級管理員，無法被修改或刪除。
+                    <strong>💡 說明：</strong> 管理各管理員的細部權限。🔒 標記表示最初超級管理員，無法被修改。
                 </div>
-
-                <!-- 手機版卡片列表 -->
-                <div class="card-list" id="permissionsCardList"></div>
                 
-                <!-- 電腦版表格 -->
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>管理員</th>
-                                <th>角色</th>
-                                <th>權限數量</th>
-                                <th>狀態</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="permissionsTable">
-                        </tbody>
-                    </table>
+                <!-- 管理員權限列表 -->
+                <div id="permissionListContent">
+                    <div class="loading-state" style="text-align: center; padding: 40px;">
+                        <div style="font-size: 24px;">⏳</div>
+                        <p>載入中...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2419,10 +2373,8 @@
             <div class="modal-body">
                 <p style="margin-bottom: 16px;">核准 <strong id="approveAdminName"></strong> 為：</p>
                 <div class="form-group">
-                    <select id="approveAdminRole" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 15px;">
-                        <option value="admin">👤 一般管理員</option>
-                        <option value="super_admin">🔐 主管理員（可管理其他管理員）</option>
-                    </select>
+                    <label>角色名稱</label>
+                    <input type="text" id="approveAdminRole" placeholder="例如：主管理員、一般管理員、櫃台人員..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 15px;">
                 </div>
             </div>
             <div class="modal-footer">
@@ -2451,6 +2403,10 @@
                     <small style="color: var(--text-muted);">請輸入對方的 LINE UID（可從教練/學員資料中查看）</small>
                 </div>
                 <div class="form-group">
+                    <label>角色</label>
+                    <input type="text" id="adminRoleInput" placeholder="例如：主管理員、櫃台人員、教練主管...">
+                </div>
+                <div class="form-group">
                     <label>狀態</label>
                     <select id="adminActive">
                         <option value="true">啟用</option>
@@ -2461,46 +2417,6 @@
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeModal('adminModal')">取消</button>
                 <button class="btn-save" onclick="saveAdmin()">儲存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Staff Modal -->
-    <div class="modal-overlay" id="staffModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="staffModalTitle">新增行政人員</h3>
-                <button class="modal-close" onclick="closeModal('staffModal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="staffId">
-                <div class="form-group">
-                    <label>姓名 *</label>
-                    <input type="text" id="staffName" placeholder="請輸入姓名">
-                </div>
-                <div class="form-group">
-                    <label>LINE ID</label>
-                    <input type="text" id="staffLineUid" placeholder="LINE UID（選填）">
-                </div>
-                <div class="form-group">
-                    <label>職位</label>
-                    <input type="text" id="staffPosition" placeholder="例如：櫃檯、清潔、行政">
-                </div>
-                <div class="form-group">
-                    <label>負責</label>
-                    <input type="text" id="staffResponsibility" placeholder="例如：早班、晚班、器材維護">
-                </div>
-                <div class="form-group">
-                    <label>狀態</label>
-                    <select id="staffActive">
-                        <option value="true">啟用</option>
-                        <option value="false">停用</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-cancel" onclick="closeModal('staffModal')">取消</button>
-                <button class="btn-save" onclick="saveStaff()">儲存</button>
             </div>
         </div>
     </div>
@@ -2531,10 +2447,6 @@
             <span class="nav-icon">⚙️</span>
             <span class="nav-label">設定</span>
             <span class="nav-badge" id="navAdminCount" style="display: none;">0</span>
-        </div>
-        <div class="nav-item" data-tab="staff" onclick="switchTabMobile('staff')">
-            <span class="nav-icon">👥</span>
-            <span class="nav-label">行政</span>
         </div>
     </div>
 
@@ -3168,8 +3080,66 @@
                 showToast('只有最高管理員可以管理權限');
                 return;
             }
-            // 切換到權限管理 Tab
-            switchTab('permissions');
+            // 開啟權限管理 Modal
+            openModal('permissionListModal');
+            loadPermissions();
+        }
+        
+        function renderPermissionList() {
+            const container = document.getElementById('permissionListContent');
+            if (!container) return;
+            
+            if (permissionAdmins.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="padding: 40px; text-align: center;">
+                        <div style="font-size: 48px; margin-bottom: 16px;">🔑</div>
+                        <p>尚無管理員資料</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = permissionAdmins.map(admin => {
+                const permissions = adminPermissionsMap[admin.id] || [];
+                const isProtected = isOriginalSuperAdmin(admin);
+                const isCurrentUser = currentAdmin && admin.id === currentAdmin.id;
+                const roleText = admin.role || '一般管理員';
+                
+                // 權限數量
+                let permText = '';
+                if (admin.role === 'super_admin') {
+                    permText = '<span class="permission-badge full">完整權限</span>';
+                } else if (permissions.length === 0) {
+                    permText = '<span class="permission-badge none">無權限</span>';
+                } else {
+                    permText = `<span class="permission-badge partial">${permissions.length} 項權限</span>`;
+                }
+                
+                // 操作按鈕
+                let actions = '';
+                if (isProtected) {
+                    actions = '<span style="color: var(--text-muted); font-size: 12px;">🔒 受保護</span>';
+                } else if (!isCurrentUser) {
+                    actions = `<button class="card-btn primary" onclick="openPermissionEdit('${admin.id}', '${escapeAttr(admin.name)}')">編輯權限</button>`;
+                } else {
+                    actions = '<span style="color: var(--text-muted); font-size: 12px;">無法編輯自己</span>';
+                }
+                
+                return `
+                    <div class="permission-list-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: ${isProtected ? '#fff8f0' : 'var(--bg)'}; border-radius: 8px; margin-bottom: 8px; ${isProtected ? 'border-left: 3px solid #e65100;' : ''}">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 500;">
+                                ${escapeHtml(admin.name || '-')}
+                                ${isCurrentUser ? '<span style="color: var(--green); font-size: 12px; margin-left: 4px;">(我)</span>' : ''}
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                                ${escapeHtml(roleText)} • ${permText}
+                            </div>
+                        </div>
+                        <div>${actions}</div>
+                    </div>
+                `;
+            }).join('');
         }
         
         async function loadPermissions() {
@@ -3181,29 +3151,39 @@
                     .eq('is_active', true)
                     .order('created_at', { ascending: true });
                 
-                if (adminsError) throw adminsError;
-                permissionAdmins = adminsData || [];
+                if (adminsError) {
+                    console.error('Load admins error:', adminsError);
+                    permissionAdmins = [];
+                } else {
+                    permissionAdmins = adminsData || [];
+                }
                 
-                // 載入所有權限
-                const { data: permissionsData, error: permissionsError } = await supabaseClient
-                    .from('admin_permissions')
-                    .select('*');
-                
-                if (permissionsError) throw permissionsError;
-                
-                // 建立權限對照表
+                // 載入所有權限（表可能不存在）
                 adminPermissionsMap = {};
-                (permissionsData || []).forEach(p => {
-                    if (!adminPermissionsMap[p.admin_id]) {
-                        adminPermissionsMap[p.admin_id] = [];
+                try {
+                    const { data: permissionsData, error: permissionsError } = await supabaseClient
+                        .from('admin_permissions')
+                        .select('*');
+                    
+                    if (!permissionsError && permissionsData) {
+                        // 建立權限對照表
+                        permissionsData.forEach(p => {
+                            if (!adminPermissionsMap[p.admin_id]) {
+                                adminPermissionsMap[p.admin_id] = [];
+                            }
+                            adminPermissionsMap[p.admin_id].push(p.permission_key);
+                        });
                     }
-                    adminPermissionsMap[p.admin_id].push(p.permission_key);
-                });
+                } catch (permErr) {
+                    console.warn('admin_permissions 表可能不存在:', permErr);
+                }
                 
-                renderPermissions();
+                renderPermissionList();
             } catch (error) {
                 console.error('Load permissions error:', error);
-                showToast('載入權限失敗');
+                permissionAdmins = [];
+                adminPermissionsMap = {};
+                renderPermissionList();
             }
         }
         
@@ -3212,7 +3192,7 @@
             return admin.role === 'super_admin' && !admin.created_by;
         }
         
-        function renderPermissions() {
+        function renderPermissionList() {
             const tbody = document.getElementById('permissionsTable');
             const cardList = document.getElementById('permissionsCardList');
             
@@ -3376,7 +3356,7 @@
                 await logAction('修改權限', '管理員', adminId, admin?.name || adminId);
                 
                 closeModal('permissionEditModal');
-                renderPermissions();
+                renderPermissionList();
                 showToast('權限已更新 ✓');
                 
             } catch (error) {
@@ -3441,7 +3421,7 @@
                 await logAction('新增權限', '管理員', adminId, admin?.name || adminId);
                 
                 closeModal('addPermissionAdminModal');
-                renderPermissions();
+                renderPermissionList();
                 showToast('已新增管理員權限 ✓');
                 
             } catch (error) {
@@ -3514,7 +3494,6 @@
                     loadCoaches(),
                     loadRequests(),
                     loadAdmins(),
-                    loadStaff(),
                     loadLogs()
                 ]);
                 
@@ -3601,32 +3580,32 @@
                     studentsHasMore = false;
                 }
                 
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-students`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        search: studentsSearchTerm || undefined,
-                        limit: studentsLimit,
-                        offset: studentsOffset
-                    })
-                });
+                // 直接使用 Supabase Client 查詢
+                let query = supabaseClient
+                    .from('students')
+                    .select('*, primary_coach:coaches!primary_coach_id(id, name)', { count: 'exact' })
+                    .order('created_at', { ascending: false })
+                    .range(studentsOffset, studentsOffset + studentsLimit - 1);
                 
-                const result = await response.json();
-                if (!result.success) throw new Error(result.error);
+                // 如果有搜尋關鍵字
+                if (studentsSearchTerm) {
+                    query = query.or(`name.ilike.%${studentsSearchTerm}%,phone.ilike.%${studentsSearchTerm}%,nickname.ilike.%${studentsSearchTerm}%,member_no.ilike.%${studentsSearchTerm}%,student_code.ilike.%${studentsSearchTerm}%`);
+                }
+                
+                const { data, error, count } = await query;
+                
+                if (error) throw error;
                 
                 // 合併資料
                 if (reset) {
-                    students = result.data || [];
+                    students = data || [];
                 } else {
-                    students = [...students, ...(result.data || [])];
+                    students = [...students, ...(data || [])];
                 }
                 
-                studentsTotal = result.total || 0;
-                studentsHasMore = result.hasMore || false;
-                studentsOffset += result.data?.length || 0;
+                studentsTotal = count || 0;
+                studentsHasMore = (studentsOffset + studentsLimit) < (count || 0);
+                studentsOffset += data?.length || 0;
                 
                 renderStudents();
             } catch (error) {
@@ -5642,12 +5621,6 @@
             if (permissionManageBtn) {
                 permissionManageBtn.style.display = isSuperAdmin ? 'flex' : 'none';
             }
-            
-            // 只有主管理員可以看到權限管理 Tab
-            const permissionsTabEl = document.getElementById('permissionsTab');
-            if (permissionsTabEl) {
-                permissionsTabEl.style.display = isSuperAdmin ? 'block' : 'none';
-            }
         }
         
         // 摺疊區塊切換
@@ -5666,14 +5639,14 @@
         function approveAdmin(id, name) {
             pendingApprovalAdmin = { id, name };
             document.getElementById('approveAdminName').textContent = name;
-            document.getElementById('approveAdminRole').value = 'admin';
+            document.getElementById('approveAdminRole').value = '一般管理員';
             openModal('approveAdminModal');
         }
         
         async function confirmApproveAdmin() {
             if (!pendingApprovalAdmin) return;
             
-            const role = document.getElementById('approveAdminRole').value;
+            const role = document.getElementById('approveAdminRole').value.trim() || '一般管理員';
             const { id, name } = pendingApprovalAdmin;
             
             try {
@@ -5684,9 +5657,8 @@
                 
                 if (error) throw error;
                 
-                const roleText = role === 'super_admin' ? '主管理員' : '一般管理員';
-                await logAction('核准管理員', '管理員', id, `${name} (${roleText})`);
-                showToast(`已核准 ${name} 為${roleText} ✓`);
+                await logAction('核准管理員', '管理員', id, `${name} (${role})`);
+                showToast(`已核准 ${name} 為 ${role} ✓`);
                 closeModal('approveAdminModal');
                 pendingApprovalAdmin = null;
                 await loadAdmins();
@@ -5697,8 +5669,8 @@
         }
         
         async function updateAdminRole(id, name, newRole) {
-            const roleText = newRole === 'super_admin' ? '主管理員' : '一般管理員';
-            if (!confirm(`確定要將 ${name} ${newRole === 'super_admin' ? '升級為主管理員' : '降級為一般管理員'}？`)) {
+            const roleText = newRole;
+            if (!confirm(`確定要將 ${name} 的角色改為「${newRole}」？`)) {
                 return;
             }
             
@@ -5710,8 +5682,8 @@
                 
                 if (error) throw error;
                 
-                await logAction(`${newRole === 'super_admin' ? '升級' : '降級'}管理員`, '管理員', id, `${name} → ${roleText}`);
-                showToast(`已將 ${name} 設為${roleText} ✓`);
+                await logAction('更新角色', '管理員', id, `${name} → ${roleText}`);
+                showToast(`已將 ${name} 設為 ${roleText} ✓`);
                 await loadAdmins();
             } catch (error) {
                 console.error('Update role error:', error);
@@ -5731,6 +5703,7 @@
             document.getElementById('adminId').value = admin?.id || '';
             document.getElementById('adminNameInput').value = admin?.name || '';
             document.getElementById('adminLineUid').value = admin?.line_uid || '';
+            document.getElementById('adminRoleInput').value = admin?.role || '';
             document.getElementById('adminActive').value = admin?.is_active !== false ? 'true' : 'false';
             openModal('adminModal');
         }
@@ -5744,6 +5717,7 @@
             const id = document.getElementById('adminId').value;
             const name = document.getElementById('adminNameInput').value.trim();
             const line_uid = document.getElementById('adminLineUid').value.trim();
+            const role = document.getElementById('adminRoleInput').value.trim() || '一般管理員';
             const is_active = document.getElementById('adminActive').value === 'true';
 
             if (!name) {
@@ -5761,16 +5735,22 @@
                     // Update
                     const { error } = await supabaseClient
                         .from('admins')
-                        .update({ name, line_uid, is_active })
+                        .update({ name, line_uid, role, is_active })
                         .eq('id', id);
                     if (error) throw error;
                     await logAction('編輯管理員', '管理員', id, name);
                     showToast('管理員已更新 ✓');
                 } else {
-                    // Insert（預設為一般管理員）
+                    // Insert
                     const { data, error } = await supabaseClient
                         .from('admins')
-                        .insert({ name, line_uid, is_active, role: 'admin' })
+                        .insert({ 
+                            name, 
+                            line_uid, 
+                            role, 
+                            is_active,
+                            created_by: currentAdmin?.id 
+                        })
                         .select()
                         .single();
                     if (error) throw error;
