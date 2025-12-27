@@ -3580,32 +3580,35 @@
                     studentsHasMore = false;
                 }
                 
-                // 直接使用 Supabase Client 查詢
-                let query = supabaseClient
-                    .from('students')
-                    .select('*, primary_coach:coaches!primary_coach_id(id, name)', { count: 'exact' })
-                    .order('created_at', { ascending: false })
-                    .range(studentsOffset, studentsOffset + studentsLimit - 1);
+                // 使用 Edge Function 查詢
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-students`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        search: studentsSearchTerm || undefined,
+                        limit: studentsLimit,
+                        offset: studentsOffset
+                    })
+                });
                 
-                // 如果有搜尋關鍵字
-                if (studentsSearchTerm) {
-                    query = query.or(`name.ilike.%${studentsSearchTerm}%,phone.ilike.%${studentsSearchTerm}%,nickname.ilike.%${studentsSearchTerm}%,member_no.ilike.%${studentsSearchTerm}%,student_code.ilike.%${studentsSearchTerm}%`);
-                }
+                const result = await response.json();
+                console.log('get-students response:', result); // Debug 用
                 
-                const { data, error, count } = await query;
-                
-                if (error) throw error;
+                if (!result.success) throw new Error(result.error || '載入失敗');
                 
                 // 合併資料
                 if (reset) {
-                    students = data || [];
+                    students = result.data || [];
                 } else {
-                    students = [...students, ...(data || [])];
+                    students = [...students, ...(result.data || [])];
                 }
                 
-                studentsTotal = count || 0;
-                studentsHasMore = (studentsOffset + studentsLimit) < (count || 0);
-                studentsOffset += data?.length || 0;
+                studentsTotal = result.total || 0;
+                studentsHasMore = result.hasMore || false;
+                studentsOffset += result.data?.length || 0;
                 
                 renderStudents();
             } catch (error) {
