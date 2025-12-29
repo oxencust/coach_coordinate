@@ -1029,7 +1029,10 @@
         let currentRequest = null;
         let currentStudent = null;
         let messagesSubscription = null;
-        let hasNotifiedCoaches = false; // 追蹤是否已推播過教練
+let hasNotifiedCoaches = false;
+let presenceChannel = null;
+let notifyCooldown = false;
+let cooldownTimer = null;
 
         // ============ 取得 room 參數 ============
         function getRequestIdFromUrl() {
@@ -1234,9 +1237,17 @@
                 
                 // 開始在線狀態追蹤
                 startPresenceTracking();
+
+                // 加入即時 Presence 頻道（讓教練即時看到學員狀態）
+joinPresenceChannel();
                 
                 // 頁面離開時停止追蹤
-                window.addEventListener('beforeunload', stopPresenceTracking);
+               window.addEventListener('beforeunload', () => {
+    stopPresenceTracking();
+    if (cooldownTimer) {
+        clearInterval(cooldownTimer);
+    }
+});
                 
             } catch (error) {
                 console.error('Init error:', error);
@@ -1612,44 +1623,81 @@
             }
         }
 
-        // 強制通知對方
-        async function forceNotify() {
-            if (!requestId || !currentStudent) return;
-            
-            // 確認彈窗
-            if (!confirm('確定要通知教練嗎？\n\n教練將收到 LINE 推播通知，提醒他們查看聊天室。')) {
-                return;
-            }
-            
-            showToast('正在通知教練...');
-            
-            try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-coaches`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        request_id: requestId,
-                        sender_id: currentStudent.id,
-                        sender_name: currentStudent.name,
-                        message_content: '📢 請查看聊天室',
-                        force_notify: true
-                    })
-                });
-                
-                const result = await response.json();
-                if (result.notified > 0) {
-                    showToast(`已通知 ${result.notified} 位教練 ✓`);
-                } else {
-                    showToast('沒有需要通知的人');
-                }
-            } catch (err) {
-                console.error('Force notify error:', err);
-                showToast('通知失敗');
-            }
+        // 強制通知對方（含 30 秒冷卻）
+async function forceNotify() {
+    if (!requestId || !currentStudent) return;
+    
+    // 檢查冷卻中
+    if (notifyCooldown) {
+        showToast('請稍候再試');
+        return;
+    }
+    
+    // 確認彈窗
+    if (!confirm('確定要通知教練嗎？\n\n教練將收到 LINE 推播通知，提醒他們查看聊天室。')) {
+        return;
+    }
+    
+    // 開始冷卻
+    startNotifyCooldown();
+    
+    showToast('正在通知教練...');
+    
+    try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-coaches`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                request_id: requestId,
+                sender_id: currentStudent.id,
+                sender_name: currentStudent.name,
+                message_content: '📢 請查看聊天室',
+                force_notify: true
+            })
+        });
+        
+        const result = await response.json();
+        if (result.notified > 0) {
+            showToast(`已通知 ${result.notified} 位教練 ✓`);
+        } else {
+            showToast('沒有需要通知的人');
         }
+    } catch (err) {
+        console.error('Force notify error:', err);
+        showToast('通知失敗');
+    }
+}
+
+// 通知冷卻倒數
+function startNotifyCooldown() {
+    notifyCooldown = true;
+    let countdown = 30;
+    
+    const notifyBtn = document.querySelector('.notify-btn');
+    notifyBtn.disabled = true;
+    notifyBtn.style.opacity = '0.6';
+    notifyBtn.style.cursor = 'not-allowed';
+    notifyBtn.innerHTML = `<span style="font-size:12px;">${countdown}</span>`;
+    
+    cooldownTimer = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+            notifyBtn.innerHTML = `<span style="font-size:12px;">${countdown}</span>`;
+        } else {
+            // 冷卻結束
+            clearInterval(cooldownTimer);
+            cooldownTimer = null;
+            notifyCooldown = false;
+            notifyBtn.disabled = false;
+            notifyBtn.style.opacity = '1';
+            notifyBtn.style.cursor = 'pointer';
+            notifyBtn.innerHTML = '📢';
+        }
+    }, 1000);
+}
 
         // ============ 在線狀態追蹤 ============
         let presenceInterval = null;
@@ -1673,22 +1721,57 @@
             }
         }
 
+// ============ Realtime Presence (即時在線狀態) ============
+async function joinPresenceChannel() {
+    if (!requestId || !currentStudent) return;
+    
+    // 清除舊的
+    if (presenceChannel) {
+        await presenceChannel.untrack();
+        presenceChannel.unsubscribe();
+    }
+    
+    presenceChannel = supabaseClient
+        .channel(`room-presence-${requestId}`)
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log('Student joined presence channel');
+                await presenceChannel.track({
+                    user_type: 'student',
+                    user_id: currentStudent.id,
+                    user_name: currentStudent.name,
+                    online_at: new Date().toISOString()
+                });
+            }
+        });
+}
+
+function leavePresenceChannel() {
+    if (presenceChannel) {
+        presenceChannel.untrack();
+        presenceChannel.unsubscribe();
+        presenceChannel = null;
+    }
+}
+        
         function startPresenceTracking() {
             updatePresence();
             presenceInterval = setInterval(updatePresence, 30000); // 每 30 秒更新
         }
 
         function stopPresenceTracking() {
-            if (presenceInterval) {
-                clearInterval(presenceInterval);
-                presenceInterval = null;
-            }
-            // 取消教練在線訂閱
-            if (presenceSubscription) {
-                presenceSubscription.unsubscribe();
-                presenceSubscription = null;
-            }
-        }
+    if (presenceInterval) {
+        clearInterval(presenceInterval);
+        presenceInterval = null;
+    }
+    // 離開即時 Presence 頻道
+    leavePresenceChannel();
+    // 取消教練在線訂閱
+    if (presenceSubscription) {
+        presenceSubscription.unsubscribe();
+        presenceSubscription = null;
+    }
+}
 
         function sendQuick(content) {
             document.getElementById('chatInput').value = content;
