@@ -1547,6 +1547,7 @@
                     .insert({
                         request_id: requestId,
                         sender_student_id: currentStudent.id,
+                        sender_name: currentStudent.name,
                         message_type: 'text',
                         content: content
                     });
@@ -1567,9 +1568,9 @@
             }
         }
         
-        // 通知新訊息（不等待結果）
+        // 通知教練（不等待結果）
         function notifyNewMessage(content, forceNotify = false) {
-            fetch(`${SUPABASE_URL}/functions/v1/notify-new-message`, {
+            fetch(`${SUPABASE_URL}/functions/v1/notify-coaches`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1577,7 +1578,6 @@
                 },
                 body: JSON.stringify({
                     request_id: requestId,
-                    sender_type: 'student',
                     sender_id: currentStudent.id,
                     sender_name: currentStudent.name,
                     message_content: content,
@@ -1625,7 +1625,7 @@
             showToast('正在通知教練...');
             
             try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-new-message`, {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-coaches`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1633,7 +1633,6 @@
                     },
                     body: JSON.stringify({
                         request_id: requestId,
-                        sender_type: 'student',
                         sender_id: currentStudent.id,
                         sender_name: currentStudent.name,
                         message_content: '📢 請查看聊天室',
