@@ -1180,7 +1180,7 @@
                     currentStudent = {
                         id: student.id,
                         name: student.name,
-                        avatar: student.avatar,
+                        avatar: student.avatar || student.name?.charAt(0) || '?',
                         lineUid: profile.userId
                     };
                 }
@@ -1313,7 +1313,7 @@
             if (currentRequest.substitute_coach_name) {
                 avatarsHtml += `<div class="p-avatar" title="${currentRequest.substitute_coach_name}">${currentRequest.substitute_coach_avatar || currentRequest.substitute_coach_name?.charAt(0)}</div>`;
             }
-            avatarsHtml += `<div class="p-avatar me" title="我">${currentStudent.avatar}</div>`;
+            avatarsHtml += `<div class="p-avatar me" title="我">${currentStudent.avatar || currentStudent.name?.charAt(0) || '?'}</div>`;
             document.getElementById('participantsAvatars').innerHTML = avatarsHtml;
         }
 
