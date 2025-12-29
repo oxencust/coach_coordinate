@@ -1320,11 +1320,7 @@
         async function loadMessages() {
             const { data, error } = await supabaseClient
                 .from('messages')
-                .select(`
-                    *,
-                    sender_coach:coaches!sender_coach_id(id, name, avatar),
-                    sender_student:students!sender_student_id(id, name, avatar)
-                `)
+                .select('*')
                 .eq('request_id', requestId)
                 .order('created_at', { ascending: true });
             
@@ -1332,6 +1328,8 @@
                 console.error('Load messages error:', error);
                 return;
             }
+            
+            console.log('Loaded messages:', data);
             
             // 找到學員加入的訊息時間點
             const joinedMessage = data.find(msg => 
@@ -1369,7 +1367,6 @@
                     msgEl.className = `system-message ${msg.system_subtype === 'student_joined' ? 'joined' : ''}`;
                     msgEl.textContent = msg.content;
                 } else {
-                    const sender = msg.sender_coach || msg.sender_student;
                     const isSent = msg.sender_student_id === currentStudent.id;
                     const time = new Date(msg.created_at);
                     const timeStr = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
@@ -1382,12 +1379,14 @@
                             <div class="message-time">${timeStr}</div>
                         `;
                     } else {
+                        const senderName = msg.sender_name || '教練';
+                        const senderAvatar = senderName.charAt(0) || '?';
                         const role = msg.sender_coach_id === currentRequest.original_coach_id ? 'original' : 'substitute';
                         const roleText = role === 'original' ? '原教練' : '代課';
                         msgEl.innerHTML = `
                             <div class="message-header">
-                                <span class="msg-avatar">${sender?.avatar || '?'}</span>
-                                <span class="msg-sender">${sender?.name || '未知'} <span class="role ${role}">${roleText}</span></span>
+                                <span class="msg-avatar">${senderAvatar}</span>
+                                <span class="msg-sender">${senderName} <span class="role ${role}">${roleText}</span></span>
                             </div>
                             <div class="message-bubble">${msg.content}</div>
                             <div class="message-time">${timeStr}</div>
