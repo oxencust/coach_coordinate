@@ -2797,11 +2797,7 @@
         async function loadMessages(requestId) {
             const { data, error } = await supabaseClient
                 .from('messages')
-                .select(`
-                    *,
-                    sender_coach:coaches!sender_coach_id(id, name, avatar),
-                    sender_student:students!sender_student_id(id, name, avatar)
-                `)
+                .select('*')
                 .eq('request_id', requestId)
                 .order('created_at', { ascending: true });
             
@@ -2824,14 +2820,18 @@
                     };
                 }
                 
-                const sender = m.sender_coach || m.sender_student;
+                // 判斷發送者類型
+                const isStudent = m.sender_student_id || m.sender_type === 'student';
+                const senderId = m.sender_coach_id || m.sender_student_id || m.sender_id;
+                const senderName = m.sender_name || '未知';
+                
                 return {
                     id: m.id,
                     sender: {
-                        id: sender?.id,
-                        name: sender?.name || '未知',
-                        avatar: sender?.avatar || '?',
-                        role: m.sender_coach_id ? 'teacher' : 'student'
+                        id: senderId,
+                        name: senderName,
+                        avatar: senderName ? senderName.charAt(0) : '?',
+                        role: isStudent ? 'student' : 'teacher'
                     },
                     content: m.content,
                     time: timeStr
@@ -2842,11 +2842,7 @@
         async function loadParticipants(requestId) {
             const { data, error } = await supabaseClient
                 .from('request_participants')
-                .select(`
-                    *,
-                    coach:coaches(id, name, avatar),
-                    student:students(id, name, avatar)
-                `)
+                .select('*')
                 .eq('request_id', requestId);
             
             if (error) {
@@ -2855,12 +2851,11 @@
             }
             
             return data.map(p => {
-                const person = p.coach || p.student;
                 return {
-                    id: person?.id,
-                    name: person?.name || '未知',
-                    avatar: person?.avatar || '?',
-                    role: p.role
+                    id: p.participant_id,
+                    name: p.participant_name || '未知',
+                    avatar: p.participant_name ? p.participant_name.charAt(0) : '?',
+                    role: p.participant_type === 'student' ? 'student' : 'teacher'
                 };
             });
         }
@@ -2967,6 +2962,7 @@
                 .insert({
                     request_id: requestId,
                     sender_coach_id: currentUser.id,
+                    sender_name: currentUser.name,
                     message_type: 'text',
                     content: content
                 })
