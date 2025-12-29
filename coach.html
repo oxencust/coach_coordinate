@@ -2823,7 +2823,7 @@
                     course_type: r.course_type,
                     reason: r.reason,
                     status: mapStatus(r.status),
-                    studentJoined: r.student_joined,
+                    studentJoined: r.status === 'with_student' || r.student_joined,
                     participants: participants,
                     messages: messages,
                     unread: 0
@@ -3043,17 +3043,30 @@ function subscribeToStudentPresence(requestId) {
             }
         })
         .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                console.log('Coach joined presence channel');
-                // 教練加入 presence
-                await studentPresenceChannel.track({
-                    user_type: 'coach',
-                    user_id: currentUser.id,
-                    user_name: currentUser.name,
-                    online_at: new Date().toISOString()
-                });
-            }
+    if (status === 'SUBSCRIBED') {
+        console.log('Coach joined presence channel');
+        // 教練加入 presence
+        await studentPresenceChannel.track({
+            user_type: 'coach',
+            user_id: currentUser.id,
+            user_name: currentUser.name,
+            online_at: new Date().toISOString()
         });
+        
+        // 訂閱成功後，立即檢查一次學生是否在線
+        setTimeout(() => {
+            const state = studentPresenceChannel.presenceState();
+            let studentOnline = false;
+            for (const key in state) {
+                if (state[key].some(u => u.user_type === 'student')) {
+                    studentOnline = true;
+                    break;
+                }
+            }
+            updateStudentStatusUI(studentOnline);
+        }, 500);
+    }
+});
 }
 
 function unsubscribeStudentPresence() {
@@ -3281,7 +3294,7 @@ function updateStudentStatusUI(isOnline) {
                 inputArea.style.display = 'none';
                 closedNotice.style.display = 'none';
                 
-            } else if (currentRequest.studentJoined) {
+            } else if (currentRequest.studentJoined || currentRequest.status === 'with-student') {
                 participantsBar.classList.add('with-student');
                 inputArea.style.display = 'flex';
                 subscribeToStudentPresence(requestId);
