@@ -2697,8 +2697,7 @@
                 // 直接從 Supabase 查詢所有學員
                 const { data, error } = await supabaseClient
                     .from('students')
-                    .select('id, name, phone, line_uid, line_display_name, notes')
-                    .eq('is_active', true)
+                    .select('id, name, phone, member_no, line_uid, line_display_name, fitness_goal')
                     .order('name', { ascending: true });
                 
                 if (error) {
@@ -2710,12 +2709,12 @@
                 allStudents = (data || []).map(s => ({
                     id: s.id,
                     name: s.name,
-                    code: '',
+                    code: s.member_no || '',
                     phone: s.phone || '',
                     avatar: s.name?.charAt(0) || '?',
                     line_uid: s.line_uid,
                     line_display_name: s.line_display_name || '',
-                    notes: s.notes || ''
+                    notes: s.fitness_goal || ''
                 }));
                 console.log('Loaded students:', allStudents.length, 'records');
             } catch (error) {
