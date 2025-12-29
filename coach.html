@@ -2697,7 +2697,7 @@
                 // 直接從 Supabase 查詢所有學員
                 const { data, error } = await supabaseClient
                     .from('students')
-                    .select('id, name, code, phone, avatar, line_uid, line_display_name, notes')
+                    .select('id, name, phone, avatar, line_uid, line_display_name, notes')
                     .eq('is_active', true)
                     .order('name', { ascending: true });
                 
@@ -2710,7 +2710,7 @@
                 allStudents = (data || []).map(s => ({
                     id: s.id,
                     name: s.name,
-                    code: s.code || '',
+                    code: '',
                     phone: s.phone || '',
                     avatar: s.avatar || s.name?.charAt(0) || '?',
                     line_uid: s.line_uid,
