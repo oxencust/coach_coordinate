@@ -2018,6 +2018,7 @@
 
             <div class="action-bar" id="actionBar">
                 <button class="action-btn pink" onclick="openSearchStudent()">🔍 查詢學員</button>
+                <button class="action-btn blue" id="addCoachBtn" onclick="openAddCoachModal()" style="display:none;">➕ 新增教練</button>
                 <button class="action-btn confirm" id="confirmSubstituteBtn" onclick="confirmSubstitute()" style="display:none;">✅ 確認接手</button>
                 <button class="action-btn cancel" id="cancelRequestBtn" onclick="requestCancelSubstitute()" style="display:none;">❌ 申請取消</button>
             </div>
@@ -2231,21 +2232,29 @@
                 <button class="close-btn" onclick="closeModal('searchStudentModal')">✕</button>
             </div>
             <div class="modal-body">
-                <div class="search-input-wrapper">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" class="search-input" id="studentSearchInput" 
-                        placeholder="輸入學員姓名或代號..." oninput="searchStudentForInvite()">
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 4px;">學員編號</label>
+                    <input type="text" class="search-input" id="studentSearchMemberNo" 
+                        placeholder="例：HDS02500001" style="padding-left: 12px;">
                 </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 4px;">學員姓名</label>
+                    <input type="text" class="search-input" id="studentSearchName" 
+                        placeholder="例：王小明" style="padding-left: 12px;">
+                </div>
+                <button onclick="searchStudentByIdAndName()" style="width: 100%; padding: 12px; background: var(--blue); color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer;">
+                    🔍 搜尋
+                </button>
                 
                 <!-- 找不到學員提示 -->
-                <div class="add-student-hint" id="addStudentHint" style="display: none;">
+                <div class="add-student-hint" id="addStudentHint" style="display: none; margin-top: 16px;">
                     <div class="hint-content" style="flex-direction: column; align-items: flex-start; gap: 4px;">
                         <span>🔍 找不到此學員</span>
-                        <span style="font-size: 12px; color: var(--text-muted);">請聯繫行政人員新增學員資料</span>
+                        <span style="font-size: 12px; color: var(--text-muted);">請確認編號和姓名是否正確</span>
                     </div>
                 </div>
                 
-                <div class="search-results" id="searchResults"></div>
+                <div class="search-results" id="searchResults" style="margin-top: 16px;"></div>
             </div>
         </div>
     </div>
@@ -2310,8 +2319,8 @@
             <!-- 課程完成可結束 -->
             <div class="confirm-content" id="endChatReady" style="display: none;">
                 <div class="confirm-icon">👋</div>
-                <h3>結束這次代課討論？</h3>
-                <p>結束後，所有參與者都會收到通知。</p>
+                <h3>結束聊天室？</h3>
+                <p id="endChatReadyMsg">您是最後一位教練，確定要結束聊天室嗎？</p>
                 <div class="confirm-buttons">
                     <button class="confirm-btn cancel" onclick="closeModal('endChatModal')">繼續討論</button>
                     <button class="confirm-btn success" onclick="endChat()">確認結束</button>
@@ -2334,6 +2343,26 @@
                         placeholder="輸入學員姓名搜尋..." oninput="searchStudentForCreate()">
                 </div>
                 <div class="student-select-list" id="studentSelectList">
+                    <!-- 動態生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Coach to Chat Modal -->
+    <div class="modal-overlay" id="addCoachToChatModal" onclick="closeModalIfOutside(event, 'addCoachToChatModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>➕ 新增教練到聊天室</h2>
+                <button class="close-btn" onclick="closeModal('addCoachToChatModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-input-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="addCoachSearchInput" 
+                        placeholder="輸入教練姓名搜尋..." oninput="searchCoachToAdd()">
+                </div>
+                <div class="student-select-list" id="addCoachList">
                     <!-- 動態生成 -->
                 </div>
             </div>
@@ -2665,31 +2694,30 @@
 
         async function loadStudents() {
             try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-students`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({})  // 查詢所有學員
-                });
+                // 直接從 Supabase 查詢所有學員
+                const { data, error } = await supabaseClient
+                    .from('students')
+                    .select('id, name, code, phone, avatar, line_uid, line_display_name, notes')
+                    .eq('is_active', true)
+                    .order('name', { ascending: true });
                 
-                const result = await response.json();
-                if (!result.success) {
-                    console.error('Load students error:', result.error);
+                if (error) {
+                    console.error('Load students error:', error);
                     allStudents = [];
                     return;
                 }
                 
-                allStudents = (result.data || []).map(s => ({
+                allStudents = (data || []).map(s => ({
                     id: s.id,
                     name: s.name,
-                    nickname: s.nickname,
-                    member_no: s.member_no,
-                    phone: s.phone,
-                    line_uid: s.line_uid
+                    code: s.code || '',
+                    phone: s.phone || '',
+                    avatar: s.avatar || s.name?.charAt(0) || '?',
+                    line_uid: s.line_uid,
+                    line_display_name: s.line_display_name || '',
+                    notes: s.notes || ''
                 }));
-                console.log('Loaded students:', allStudents);
+                console.log('Loaded students:', allStudents.length, 'records');
             } catch (error) {
                 console.error('Load students error:', error);
                 allStudents = [];
@@ -2704,11 +2732,25 @@
             
             if (error) throw error;
             
+            // 計算 7 天前的時間
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            
             // 只有原教練和被指派的代課教練可以看到
+            // 已結束超過 7 天的不顯示
             const filteredData = data.filter(r => {
-                if (r.original_coach_id === currentUser.id) return true;
-                if (r.substitute_coach_id === currentUser.id) return true;
-                return false;
+                // 檢查權限
+                const hasPermission = r.original_coach_id === currentUser.id || 
+                                      r.substitute_coach_id === currentUser.id;
+                if (!hasPermission) return false;
+                
+                // 如果已結束且超過 7 天，不顯示
+                if (r.status === 'resolved' && r.closed_at) {
+                    const closedDate = new Date(r.closed_at);
+                    if (closedDate < sevenDaysAgo) return false;
+                }
+                
+                return true;
             });
             
             requests = await Promise.all(filteredData.map(async r => {
@@ -3124,6 +3166,7 @@
             const actionBar = document.getElementById('actionBar');
             const confirmBtn = document.getElementById('confirmSubstituteBtn');
             const cancelBtn = document.getElementById('cancelRequestBtn');
+            const addCoachBtn = document.getElementById('addCoachBtn');
             
             const isOriginalCoach = currentRequest.originalTeacher.id === currentUser.id;
             const isSubstituteCoach = currentRequest.substituteTeacher?.id === currentUser.id;
@@ -3131,6 +3174,7 @@
             inviteBtn.style.display = 'none';
             confirmBtn.style.display = 'none';
             cancelBtn.style.display = 'none';
+            addCoachBtn.style.display = 'none';
             endBtn.classList.remove('show');
             
             // 取得輸入區域和關閉提示
@@ -3163,6 +3207,10 @@
                 if (isOriginalCoach || isSubstituteCoach) {
                     endBtn.classList.add('show');
                 }
+                // 原教練可以新增教練
+                if (isOriginalCoach) {
+                    addCoachBtn.style.display = 'flex';
+                }
                 actionBar.style.display = 'flex';
                 
             } else if (currentRequest.status === 'discussing') {
@@ -3173,9 +3221,10 @@
                 if (isSubstituteCoach && !currentRequest.substituteTeacher) {
                     confirmBtn.style.display = 'flex';
                 }
-                // 原教練可以邀請學員
+                // 原教練可以邀請學員和新增教練
                 if (isOriginalCoach) {
                     inviteBtn.style.display = 'flex';
+                    addCoachBtn.style.display = 'flex';
                 }
                 // 原教練或代課教練都可以結束對話
                 if (isOriginalCoach || isSubstituteCoach) {
@@ -3189,6 +3238,7 @@
                 closedNotice.style.display = 'none';
                 if (isOriginalCoach) {
                     inviteBtn.style.display = 'flex';
+                    addCoachBtn.style.display = 'flex';
                     endBtn.classList.add('show');
                     if (!currentRequest.student?.id) {
                         cancelBtn.style.display = 'flex';
@@ -3265,13 +3315,13 @@
                                 <div class="student-info-avatar">${msg.student.name.charAt(0)}</div>
                                 <div>
                                     <div class="student-info-name">${msg.student.name}</div>
-                                    <div class="student-info-detail">${msg.student.course}</div>
+                                    <div class="student-info-detail">${msg.student.code || ''}</div>
                                 </div>
                             </div>
                             <div class="student-info-grid">
                                 <div class="student-info-item">
-                                    <div class="student-info-label">電話</div>
-                                    <div class="student-info-value">${msg.student.phone}</div>
+                                    <div class="student-info-label">LINE</div>
+                                    <div class="student-info-value">${msg.student.line_display_name || '未綁定'}</div>
                                 </div>
                                 <div class="student-info-item">
                                     <div class="student-info-label">備註</div>
@@ -3588,10 +3638,10 @@
             return `
                 <div class="search-result-item">
                     <div class="result-info">
-                        <div class="result-avatar">${student.name.charAt(0)}</div>
+                        <div class="result-avatar">${student.avatar || student.name.charAt(0)}</div>
                         <div>
-                            <div class="result-name">${student.name}</div>
-                            <div class="result-detail">${student.course} · ${student.phone || '未填電話'}</div>
+                            <div class="result-name">${student.name}${student.code ? ` <span style="color: var(--text-muted); font-size: 12px;">(${student.code})</span>` : ''}</div>
+                            <div class="result-detail">${student.line_display_name || '未綁定LINE'}</div>
                         </div>
                     </div>
                 </div>
@@ -3645,50 +3695,79 @@
             openModal('searchStudentModal');
         }
         
-        function searchStudentForInvite() {
-            const query = document.getElementById('studentSearchInput').value.toLowerCase().trim();
+        async function searchStudentByIdAndName() {
+            const memberNo = document.getElementById('studentSearchMemberNo').value.trim();
+            const name = document.getElementById('studentSearchName').value.trim();
             const resultsContainer = document.getElementById('searchResults');
             const addHint = document.getElementById('addStudentHint');
             
-            if (!query) {
-                resultsContainer.innerHTML = `
-                    <div style="text-align: center; padding: 30px; color: var(--text-muted);">
-                        <div style="font-size: 32px; margin-bottom: 8px;">👆</div>
-                        <p>輸入學員姓名或代號搜尋</p>
-                    </div>
-                `;
-                addHint.style.display = 'none';
+            if (!memberNo || !name) {
+                showToast('請輸入編號和姓名');
                 return;
             }
             
-            const results = allStudents.filter(s => 
-                s.name.toLowerCase().includes(query) ||
-                (s.code && s.code.toLowerCase().includes(query))
-            );
+            resultsContainer.innerHTML = `
+                <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    <div style="font-size: 32px; margin-bottom: 8px;">⏳</div>
+                    <p>搜尋中...</p>
+                </div>
+            `;
+            addHint.style.display = 'none';
             
-            if (results.length === 0) {
-                resultsContainer.innerHTML = `
-                    <div style="text-align: center; padding: 30px; color: var(--text-muted);">
-                        <div style="font-size: 32px; margin-bottom: 8px;">😕</div>
-                        <p>找不到符合「${query}」的學員</p>
-                    </div>
-                `;
-                addHint.style.display = 'block';
-            } else {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/search-student`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        member_no: memberNo,
+                        name: name
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success || !result.data) {
+                    resultsContainer.innerHTML = `
+                        <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                            <div style="font-size: 32px; margin-bottom: 8px;">😕</div>
+                            <p>找不到此學員</p>
+                        </div>
+                    `;
+                    addHint.style.display = 'block';
+                    return;
+                }
+                
+                const s = result.data;
                 addHint.style.display = 'none';
-                resultsContainer.innerHTML = results.map(s => `
+                resultsContainer.innerHTML = `
                     <div class="search-result-item" onclick="selectStudentForInvite('${s.id}')">
                         <div class="result-info">
-                            <div class="result-avatar">${s.avatar || s.name.charAt(0)}</div>
+                            <div class="result-avatar">${s.name.charAt(0)}</div>
                             <div>
-                                <div class="result-name">${s.name}${s.code ? ` <span style="color: var(--text-muted); font-size: 12px;">(${s.code})</span>` : ''}</div>
-                                <div class="result-detail">${s.phone || '未填電話'}</div>
+                                <div class="result-name">${s.name} <span style="color: var(--text-muted); font-size: 12px;">(${s.member_no || s.code || ''})</span></div>
+                                <div class="result-detail">${s.line_display_name || '未綁定LINE'}</div>
                             </div>
                         </div>
                         <button class="result-action invite">📱 邀請</button>
                     </div>
-                `).join('');
+                `;
+                
+            } catch (error) {
+                console.error('Search student error:', error);
+                resultsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                        <div style="font-size: 32px; margin-bottom: 8px;">❌</div>
+                        <p>搜尋失敗，請重試</p>
+                    </div>
+                `;
             }
+        }
+        
+        function searchStudentForInvite() {
+            // 保留舊函數避免錯誤，但不再使用
         }
         
         async function selectStudentForInvite(studentId) {
@@ -3983,65 +4062,261 @@
         }
 
         // ============ End Chat ============
-        function openEndChat() {
+        async function openEndChat() {
             if (!currentRequest) return;
             
-            // 解析課程結束時間
-            const courseDate = currentRequest.course_date;
-            const courseTime = currentRequest.course_time; // 格式如 "09:00-10:00"
-            
-            let courseEndTime = null;
-            if (courseDate && courseTime && courseTime.includes('-')) {
-                const endTimeStr = courseTime.split('-')[1]; // "10:00"
-                const [hours, minutes] = endTimeStr.split(':').map(Number);
-                courseEndTime = new Date(courseDate);
-                courseEndTime.setHours(hours, minutes, 0, 0);
-            }
-            
-            const now = new Date();
-            const isCourseCompleted = courseEndTime ? now >= courseEndTime : true;
-            
-            // 顯示對應內容
-            const notReadyDiv = document.getElementById('endChatNotReady');
-            const readyDiv = document.getElementById('endChatReady');
-            
-            if (isCourseCompleted) {
-                notReadyDiv.style.display = 'none';
-                readyDiv.style.display = 'block';
-            } else {
-                readyDiv.style.display = 'none';
-                notReadyDiv.style.display = 'block';
-                
-                // 顯示剩餘時間
-                const diffMs = courseEndTime - now;
-                const diffMins = Math.ceil(diffMs / 60000);
-                const hours = Math.floor(diffMins / 60);
-                const mins = diffMins % 60;
-                
-                let waitMsg = '請等待課程結束後再關閉聊天室';
-                if (hours > 0) {
-                    waitMsg = `課程將於 ${hours} 小時 ${mins} 分鐘後結束`;
-                } else if (mins > 0) {
-                    waitMsg = `課程將於 ${mins} 分鐘後結束`;
-                }
-                document.getElementById('endChatWaitMsg').textContent = waitMsg;
-            }
-            
-            openModal('endChatModal');
-        }
-
-        async function endChat() {
-            if (!currentRequest) return;
-
+            // 先檢查是否為最後一位教練
             try {
-                await updateRequestStatus(currentRequest.id, 'resolved');
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        action: 'list',
+                        request_id: currentRequest.id
+                    })
+                });
+                
+                const result = await response.json();
+                const activeCoaches = (result.data || []).filter(m => m.member_type === 'coach' && m.is_active);
+                
+                // 如果只剩一位教練（自己），需要確認結束聊天室
+                if (activeCoaches.length <= 1) {
+                    // 解析課程結束時間
+                    const courseDate = currentRequest.course_date;
+                    const courseTime = currentRequest.course_time;
+                    
+                    let courseEndTime = null;
+                    if (courseDate && courseTime && courseTime.includes('-')) {
+                        const endTimeStr = courseTime.split('-')[1];
+                        const [hours, minutes] = endTimeStr.split(':').map(Number);
+                        courseEndTime = new Date(courseDate);
+                        courseEndTime.setHours(hours, minutes, 0, 0);
+                    }
+                    
+                    const now = new Date();
+                    const isCourseCompleted = courseEndTime ? now >= courseEndTime : true;
+                    
+                    const notReadyDiv = document.getElementById('endChatNotReady');
+                    const readyDiv = document.getElementById('endChatReady');
+                    
+                    if (isCourseCompleted) {
+                        notReadyDiv.style.display = 'none';
+                        readyDiv.style.display = 'block';
+                        document.getElementById('endChatReadyMsg').textContent = '您是最後一位教練，確定要結束聊天室嗎？';
+                    } else {
+                        readyDiv.style.display = 'none';
+                        notReadyDiv.style.display = 'block';
+                        
+                        const diffMs = courseEndTime - now;
+                        const diffMins = Math.ceil(diffMs / 60000);
+                        const hours = Math.floor(diffMins / 60);
+                        const mins = diffMins % 60;
+                        
+                        let waitMsg = '請等待課程結束後再關閉聊天室';
+                        if (hours > 0) {
+                            waitMsg = `課程將於 ${hours} 小時 ${mins} 分鐘後結束`;
+                        } else if (mins > 0) {
+                            waitMsg = `課程將於 ${mins} 分鐘後結束`;
+                        }
+                        document.getElementById('endChatWaitMsg').textContent = waitMsg;
+                    }
+                    
+                    openModal('endChatModal');
+                } else {
+                    // 不是最後一位教練，直接離開
+                    await leaveChat();
+                }
+            } catch (error) {
+                console.error('Check coaches error:', error);
+                openModal('endChatModal');
+            }
+        }
+        
+        async function leaveChat() {
+            if (!currentRequest) return;
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        action: 'leave',
+                        request_id: currentRequest.id,
+                        member_id: currentUser.id
+                    })
+                });
+                
+                const result = await response.json();
                 
                 await supabaseClient
                     .from('messages')
                     .insert({
                         request_id: currentRequest.id,
                         message_type: 'system',
-                        content: `✅ ${currentUser.name} 已結束討論`,
+                        content: `👋 ${currentUser.name} 已離開聊天室`
+                    });
+                
+                closeChat();
+                showToast('已離開聊天室');
+                
+            } catch (error) {
+                console.error('Leave chat error:', error);
+                showToast('操作失敗，請重試');
+            }
+        }
+        
+        // ============ 新增教練到聊天室 ============
+        function openAddCoachModal() {
+            document.getElementById('addCoachSearchInput').value = '';
+            renderAddCoachList();
+            openModal('addCoachToChatModal');
+        }
+        
+        function searchCoachToAdd() {
+            renderAddCoachList();
+        }
+        
+        async function renderAddCoachList() {
+            const query = document.getElementById('addCoachSearchInput').value.toLowerCase().trim();
+            const container = document.getElementById('addCoachList');
+            
+            // 取得目前聊天室的教練成員
+            let currentMembers = [];
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        action: 'list',
+                        request_id: currentRequest.id
+                    })
+                });
+                const result = await response.json();
+                currentMembers = (result.data || [])
+                    .filter(m => m.member_type === 'coach' && m.is_active)
+                    .map(m => m.member_id);
+            } catch (e) {
+                console.error('Get members error:', e);
+            }
+            
+            // 過濾教練（排除自己和已在聊天室的）
+            let filtered = allCoaches.filter(c => 
+                c.id !== currentUser.id && 
+                !currentMembers.includes(c.id) &&
+                c.is_active !== false
+            );
+            
+            if (query) {
+                filtered = filtered.filter(c => 
+                    c.name.toLowerCase().includes(query)
+                );
+            }
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                        <p>沒有可新增的教練</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filtered.map(c => `
+                <div class="student-select-item" onclick="addCoachToChat('${c.id}', '${c.name}')">
+                    <div class="student-select-avatar">${c.avatar || c.name.charAt(0)}</div>
+                    <div class="student-select-info">
+                        <div class="student-select-name">${c.name}</div>
+                        <div class="student-select-detail">${(c.specialties || []).join('、') || '教練'}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function addCoachToChat(coachId, coachName) {
+            try {
+                showToast('新增教練中...');
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        action: 'add',
+                        request_id: currentRequest.id,
+                        member_type: 'coach',
+                        member_id: coachId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showToast(result.error || '新增失敗');
+                    return;
+                }
+                
+                // 發送系統訊息
+                await supabaseClient
+                    .from('messages')
+                    .insert({
+                        request_id: currentRequest.id,
+                        message_type: 'system',
+                        content: `👋 ${coachName} 已加入聊天室`
+                    });
+                
+                closeModal('addCoachToChatModal');
+                showToast(`✅ ${coachName} 已加入聊天室`);
+                
+            } catch (error) {
+                console.error('Add coach error:', error);
+                showToast('新增失敗，請重試');
+            }
+        }
+
+        async function endChat() {
+            if (!currentRequest) return;
+
+            try {
+                // 先離開聊天室
+                await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        action: 'leave',
+                        request_id: currentRequest.id,
+                        member_id: currentUser.id
+                    })
+                });
+                
+                // 更新狀態為結束
+                await supabaseClient
+                    .from('substitute_requests')
+                    .update({ 
+                        status: 'resolved',
+                        closed_at: new Date().toISOString()
+                    })
+                    .eq('id', currentRequest.id);
+                
+                await supabaseClient
+                    .from('messages')
+                    .insert({
+                        request_id: currentRequest.id,
+                        message_type: 'system',
+                        content: `✅ ${currentUser.name} 已結束聊天室`,
                         system_subtype: 'chat_ended'
                     });
 
@@ -4051,7 +4326,8 @@
                 document.getElementById('endChatBtn').classList.remove('show');
                 document.getElementById('participantsBar').classList.remove('with-student');
                 
-                showToast('✅ 對話已結束');
+                showToast('✅ 聊天室已結束');
+                closeChat();
                 
             } catch (error) {
                 console.error('End chat error:', error);
@@ -4283,7 +4559,7 @@
                         <div class="result-avatar" style="background: var(--green);">${s.avatar || s.name.charAt(0)}</div>
                         <div>
                             <div class="result-name">${s.name}${s.code ? ` <span style="color: var(--text-muted); font-size: 12px;">(${s.code})</span>` : ''}</div>
-                            <div class="result-detail">${s.course} · ${s.phone || '未填電話'}</div>
+                            <div class="result-detail">${s.code ? s.code + ' · ' : ''}${s.line_display_name || '未綁定LINE'}</div>
                         </div>
                     </div>
                     <span style="color: var(--green); font-size: 20px;">${selectedStudent?.id === s.id ? '✓' : ''}</span>
