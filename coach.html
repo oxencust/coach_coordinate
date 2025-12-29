@@ -3795,48 +3795,32 @@
         }
         
         async function showInviteModal() {
-            const studentName = currentRequest.student?.name || '學員';
-            document.getElementById('inviteStudentName').textContent = studentName;
-            
-            const inviteLink = `https://liff.line.me/${STUDENT_LIFF_ID}?room=${currentRequest.id}`;
-            document.getElementById('inviteLinkBox').textContent = inviteLink;
-            
-            const studentId = currentRequest.student?.id || currentRequest.student_id;
-            
-            // 透過 Edge Function 查詢學員 line_uid
-            let hasLineUid = false;
-            try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/search-student`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({ search: studentId })
-                });
-                const result = await response.json();
-                if (result.success && result.data && result.data.length > 0) {
-                    const student = result.data.find(s => s.id === studentId);
-                    hasLineUid = student && student.line_uid;
-                }
-            } catch (e) {
-                console.error('Check student line_uid error:', e);
-            }
-            
-            const hintEl = document.getElementById('inviteHint');
-            const lineBtnEl = document.getElementById('lineInviteBtn');
-            
-            if (hasLineUid) {
-                hintEl.style.display = 'none';
-                lineBtnEl.style.display = 'block';
-                lineBtnEl.disabled = false;
-            } else {
-                hintEl.style.display = 'block';
-                lineBtnEl.style.display = 'none';
-            }
-            
-            openModal('inviteStudentModal');
-        }
+    const studentName = currentRequest.student?.name || '學員';
+    document.getElementById('inviteStudentName').textContent = studentName;
+    
+    const inviteLink = `https://liff.line.me/${STUDENT_LIFF_ID}?room=${currentRequest.id}`;
+    document.getElementById('inviteLinkBox').textContent = inviteLink;
+    
+    const studentId = currentRequest.student?.id || currentRequest.student_id;
+    
+    // 從已載入的 allStudents 查詢學員 line_uid
+    const student = allStudents.find(s => s.id === studentId);
+    const hasLineUid = student && student.line_uid && student.line_uid.trim() !== '';
+    
+    const hintEl = document.getElementById('inviteHint');
+    const lineBtnEl = document.getElementById('lineInviteBtn');
+    
+    if (hasLineUid) {
+        hintEl.style.display = 'none';
+        lineBtnEl.style.display = 'block';
+        lineBtnEl.disabled = false;
+    } else {
+        hintEl.style.display = 'block';
+        lineBtnEl.style.display = 'none';
+    }
+    
+    openModal('inviteStudentModal');
+}
 
         function copyInviteLink() {
             const link = document.getElementById('inviteLinkBox').textContent;
@@ -4481,7 +4465,7 @@
                 closeModal('createModal');
                 resetForm();
                 switchTab('pending');
-                showToast('已發起代課給 ' + coachName);
+                showToast('已開啟代課聊天室');
                 
             } catch (error) {
                 console.error('Create request error:', error);
