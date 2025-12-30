@@ -2664,11 +2664,14 @@
                         table: 'messages'
                     },
                     async (payload) => {
-                        console.log('New message (global):', payload);
-                        const newMessage = payload.new;
-                        
-                        const targetRequest = requests.find(r => r.id === newMessage.request_id);
-                        if (!targetRequest) return;
+    console.log('New message (global):', payload);
+    const newMessage = payload.new;
+    
+    const targetRequest = requests.find(r => r.id === newMessage.request_id);
+    if (!targetRequest) return;
+    
+    // 新增：確認聊天還存在才處理
+    if (!currentRequest) return;
                         
                         if (newMessage.sender_coach_id === currentUser.id) return;
                         
