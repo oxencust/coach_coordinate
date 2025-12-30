@@ -5476,14 +5476,13 @@
             }
         }
         
-        // 備份聊天室到 Google Sheet（使用 Google Apps Script）
-        // ⚠️ 請將下方 URL 改為你的 Apps Script 網址
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOGRzAKYnSzOc-c8m0Xdy1MPwK3u8z9cRJYUXEfyoB-ZG908nycOk8moGiip_08Rh6cA/exec';
-        
-        // 備份聊天室到 Google Sheet
+        // 備份聊天室到 Google Sheet + Supabase
+// ⚠️ 請將下方 URL 改為你的 Apps Script 網址
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOGRzAKYnSzOc-c8m0Xdy1MPwK3u8z9cRJYUXEfyoB-ZG908nycOk8moGiip_08Rh6cA/exec';
+
 async function backupChatToSheet(requestId) {
     try {
-        // 1. 使用 View 查詢聊天室資訊（包含學員名稱）
+        // 1. 查詢聊天室資訊
         const { data: request, error: reqError } = await supabaseClient
             .from('substitute_requests_full')
             .select('*')
@@ -5495,7 +5494,34 @@ async function backupChatToSheet(requestId) {
             return;
         }
         
-        // 2. 查詢訊息
+        // 2. 查詢學員資訊（從 request_participants）
+        let studentName = request.student_name || '';
+        let studentNo = request.student_no || '';
+        
+        if (!studentName) {
+            const { data: studentMember } = await supabaseClient
+                .from('request_participants')
+                .select('member_id, member_name')
+                .eq('request_id', requestId)
+                .eq('member_type', 'student')
+                .limit(1)
+                .single();
+            
+            if (studentMember) {
+                studentName = studentMember.member_name || '';
+                
+                if (studentMember.member_id) {
+                    const { data: studentData } = await supabaseClient
+                        .from('students')
+                        .select('member_no')
+                        .eq('id', studentMember.member_id)
+                        .single();
+                    studentNo = studentData?.member_no || '';
+                }
+            }
+        }
+        
+        // 3. 查詢訊息
         const { data: messages, error: msgError } = await supabaseClient
             .from('messages')
             .select('*')
@@ -5507,7 +5533,16 @@ async function backupChatToSheet(requestId) {
             return;
         }
         
-        // 3. 格式化對話內容（時間只顯示 時:分）
+        // 4. 格式化對話內容（時間只顯示 時:分）
+        const statusNamesBackup = {
+            'pending': '等待中',
+            'discussing': '討論中',
+            'with-student': '學員已加入',
+            'resolved': '已解決',
+            'cancel_pending': '待取消確認',
+            'cancelled': '已取消'
+        };
+        
         const conversationLines = (messages || []).map(msg => {
             const time = new Date(msg.created_at).toLocaleString('zh-TW', {
                 hour: '2-digit',
@@ -5518,14 +5553,57 @@ async function backupChatToSheet(requestId) {
             return `【${sender} ${time}】${content}`;
         });
         
-        const statusNamesBackup = {
-            'pending': '等待中',
-            'discussing': '討論中',
-            'with-student': '學員已加入',
-            'resolved': '已解決',
-            'cancel_pending': '待取消確認',
-            'cancelled': '已取消'
-        };
+        const courseDate = request.course_date || new Date(request.created_at).toISOString().split('T')[0];
+        const courseType = courseTypeNames[request.course_type] || request.course_type || '-';
+        const status = statusNamesBackup[request.status] || request.status || '-';
+        const conversation = conversationLines.join('\n');
+        const messageCount = messages?.length || 0;
+        
+        // 5. 備份到 Supabase（保留半年）
+        const { error: backupError } = await supabaseClient
+            .from('chat_backups')
+            .insert({
+                request_id: requestId,
+                course_date: courseDate,
+                student_name: studentName,
+                student_no: studentNo,
+                course_type: courseType,
+                status: status,
+                conversation: conversation,
+                message_count: messageCount
+            });
+        
+        if (backupError) {
+            console.error('Supabase 備份失敗:', backupError);
+        } else {
+            console.log('已備份到 Supabase（保留半年）');
+        }
+        
+        // 6. 同時備份到 Google Sheet
+        if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('YOUR_SCRIPT_ID')) {
+            const backupData = {
+                date: courseDate,
+                student: `${studentName || '-'}(${studentNo || '-'})`,
+                course_type: courseType,
+                status: status,
+                conversation: conversation,
+                message_count: messageCount,
+                backup_time: new Date().toLocaleString('zh-TW')
+            };
+            
+            await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(backupData)
+            });
+            console.log('已備份到 Google Sheet');
+        }
+        
+    } catch (error) {
+        console.error('Backup error:', error);
+    }
+}
         
         // 4. 組合備份資料（對應 Google Sheet 欄位）
         const backupData = {
