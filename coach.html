@@ -3223,41 +3223,56 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
         }
 
         async function forceNotify() {
-            if (!currentRequest) return;
-            
-            if (!confirm('確定要通知對方嗎？\n\n對方將收到 LINE 推播通知，提醒他們查看聊天室。')) {
-                return;
-            }
-            
-            showToast('正在通知對方...');
-            
-            try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-coaches`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        request_id: currentRequest.id,
-                        sender_id: currentUser.id,
-                        sender_name: currentUser.name,
-                        message_content: '📢 請查看聊天室',
-                        force_notify: true
-                    })
-                });
-                
-                const result = await response.json();
-                if (result.notified > 0) {
-                    showToast(`已通知 ${result.notified} 人 ✓`);
-                } else {
-                    showToast('沒有需要通知的人');
-                }
-            } catch (err) {
-                console.error('Force notify error:', err);
-                showToast('通知失敗');
-            }
+    if (!currentRequest) return;
+    
+    // 確認彈窗
+    if (!confirm('📢是否呼叫學員返回聊天室？')) {
+        return;
+    }
+    
+    showToast('正在通知學員...');
+    
+    try {
+        // 取得課程資訊
+        const courseTypeNames = {
+            'pilates': '皮拉提斯',
+            'weight': '重量訓練',
+            'stretch': '伸展課程',
+            'ai': 'AI 體態分析'
+        };
+        const courseTypeName = courseTypeNames[currentRequest.course_type] || currentRequest.course_type;
+        const courseDate = formatDate(currentRequest.course_date);
+        const courseTime = currentRequest.course_time;
+        
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-coaches`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                request_id: currentRequest.id,
+                sender_id: currentUser.id,
+                sender_name: currentUser.name,
+                sender_type: 'coach',
+                course_type: courseTypeName,
+                course_date: courseDate,
+                course_time: courseTime,
+                force_notify: true
+            })
+        });
+        
+        const result = await response.json();
+        if (result.notified > 0) {
+            showToast(`已通知學員 ✓`);
+        } else {
+            showToast('沒有需要通知的人');
         }
+    } catch (err) {
+        console.error('Force notify error:', err);
+        showToast('通知失敗');
+    }
+}
 
         // ============ 在線狀態追蹤 ============
         let presenceInterval = null;
