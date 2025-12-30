@@ -2612,13 +2612,13 @@
             }
             
             return data.map(p => {
-                return {
-                    id: p.participant_id,
-                    name: p.participant_name || '未知',
-                    avatar: p.participant_name ? p.participant_name.charAt(0) : '?',
-                    role: p.participant_type === 'student' ? 'student' : 'teacher'
-                };
-            });
+    return {
+        id: p.member_id,
+        name: p.member_name || '未知',
+        avatar: p.member_name ? p.member_name.charAt(0) : '?',
+        role: p.member_type === 'student' ? 'student' : 'teacher'
+    };
+});
         }
 
         function mapStatus(dbStatus) {
@@ -4470,29 +4470,29 @@
                 });
             
             await supabaseClient
-                .from('request_participants')
-                .insert({
-                    request_id: request.id,
-                    participant_type: 'coach',
-                    participant_id: currentUser.id,
-                    participant_name: currentUser.name,
-                    is_active: true
-                });
-            
-            if (data.substitute_coach_id) {
-                const substituteCoach = allCoaches.find(c => c.id === data.substitute_coach_id);
-                if (substituteCoach) {
-                    await supabaseClient
-                        .from('request_participants')
-                        .insert({
-                            request_id: request.id,
-                            participant_type: 'coach',
-                            participant_id: data.substitute_coach_id,
-                            participant_name: substituteCoach.name,
-                            is_active: true
-                        });
-                }
-            }
+    .from('request_participants')
+    .insert({
+        request_id: request.id,
+        member_type: 'coach',
+        member_id: currentUser.id,
+        member_name: currentUser.name,
+        is_active: true
+    });
+
+if (data.substitute_coach_id) {
+    const substituteCoach = allCoaches.find(c => c.id === data.substitute_coach_id);
+    if (substituteCoach) {
+        await supabaseClient
+            .from('request_participants')
+            .insert({
+                request_id: request.id,
+                member_type: 'coach',
+                member_id: data.substitute_coach_id,
+                member_name: substituteCoach.name,
+                is_active: true
+            });
+    }
+}
             
             await loadRequests();
             return request;
