@@ -2677,14 +2677,16 @@
                     
                     showToast(`💬 ${targetRequest.student.name} 的討論有新訊息`);
                 } else {
-                    // 在這個聊天室 → 刷新訊息
-                    const messages = await loadMessages(newMessage.request_id);
-                    // 異步完成後再次確認 currentRequest 還存在
-                    if (currentRequest && currentRequest.id === newMessage.request_id) {
-                        currentRequest.messages = messages;
-                        renderMessages();
-                         }
-        }
+                    } else {
+    // 在這個聊天室 → 刷新訊息
+    const messages = await loadMessages(newMessage.request_id);
+    // 異步完成後再次確認 currentRequest 還存在
+    if (currentRequest && currentRequest.id === newMessage.request_id) {
+        currentRequest.messages = messages;
+        renderMessages();
+        scrollToBottom();
+    }
+}
     }
                 )
                 .subscribe();
@@ -3571,9 +3573,6 @@
             }
         }
         
-        function searchStudentForInvite() {
-            // 保留舊函數避免錯誤，但不再使用
-        }
         
         async function selectStudentForInvite(studentId) {
             const student = allStudents.find(s => s.id === studentId);
