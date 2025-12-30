@@ -2079,10 +2079,13 @@
             </div>
             <!-- 管理員操作列 -->
             <div class="admin-chat-actions" id="adminChatActions">
-                <div class="chat-status-info">
-                    <span class="status-label">狀態：</span>
-                    <span class="status-value" id="chatStatusValue">-</span>
-                </div>
+                <div class="chat-status-info" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+    <div>
+        <span class="status-label">狀態：</span>
+        <span class="status-value" id="chatStatusValue">-</span>
+    </div>
+    <div id="onlineUsersDisplay" style="font-size: 12px;"></div>
+</div>
                 <div class="chat-action-btns">
                     <button class="admin-action-btn" id="adminManageMembersBtn" onclick="openManageMembersFromChat()" style="background: #e3f2fd; color: #1565c0;">
                         👥 管理成員
@@ -5048,6 +5051,7 @@
             
             await loadChatMessages(requestId);
             subscribeToChatMessages(requestId);
+            subscribeToAdminPresence(requestId);
         }
         
         function closeChatModal() {
@@ -5070,6 +5074,7 @@
             if (indicator) {
                 indicator.classList.remove('show');
             }
+            stopAdminPresence();
         }
         
         async function loadChatMessages(requestId) {
@@ -6752,6 +6757,92 @@ async function backupChatToSheet(requestId) {
                 showToast('匯出失敗');
             }
         }
+        // ============ Presence 在線狀態 ============
+let adminPresenceChannel = null;
+
+function subscribeToAdminPresence(requestId) {
+    // 清除舊的訂閱
+    if (adminPresenceChannel) {
+        adminPresenceChannel.untrack();
+        adminPresenceChannel.unsubscribe();
+    }
+    
+    adminPresenceChannel = supabaseClient
+        .channel(`room-presence-${requestId}`)
+        .on('presence', { event: 'sync' }, () => {
+            updateOnlineUsersDisplay();
+        })
+        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+            console.log('User joined:', newPresences);
+            updateOnlineUsersDisplay();
+        })
+        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+            console.log('User left:', leftPresences);
+            updateOnlineUsersDisplay();
+        })
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log('Admin joined presence channel');
+                // 管理員也加入 Presence
+                await adminPresenceChannel.track({
+                    user_type: 'admin',
+                    user_id: currentAdmin?.id || 'admin',
+                    user_name: currentAdmin?.name || '管理員',
+                    online_at: new Date().toISOString()
+                });
+            }
+        });
+}
+
+function updateOnlineUsersDisplay() {
+    const displayEl = document.getElementById('onlineUsersDisplay');
+    if (!displayEl || !adminPresenceChannel) return;
+    
+    const presenceState = adminPresenceChannel.presenceState();
+    const onlineUsers = [];
+    
+    // 解析所有在線用戶
+    Object.values(presenceState).forEach(presences => {
+        presences.forEach(presence => {
+            const userType = presence.user_type;
+            const userName = presence.user_name || '未知';
+            
+            // 排除自己（管理員）
+            if (userType === 'admin') return;
+            
+            let typeLabel = '';
+            let icon = '';
+            if (userType === 'coach') {
+                typeLabel = '教練';
+                icon = '👨‍🏫';
+            } else if (userType === 'student') {
+                typeLabel = '學員';
+                icon = '👤';
+            }
+            
+            onlineUsers.push(`${icon}${userName}`);
+        });
+    });
+    
+    if (onlineUsers.length > 0) {
+        displayEl.innerHTML = `<span style="color: #2e7d32;">🟢 在線：${onlineUsers.join('、')}</span>`;
+    } else {
+        displayEl.innerHTML = `<span style="color: #999;">⚪ 目前無人在線</span>`;
+    }
+}
+
+function stopAdminPresence() {
+    if (adminPresenceChannel) {
+        adminPresenceChannel.untrack();
+        adminPresenceChannel.unsubscribe();
+        adminPresenceChannel = null;
+    }
+    
+    const displayEl = document.getElementById('onlineUsersDisplay');
+    if (displayEl) {
+        displayEl.innerHTML = '';
+    }
+}
     </script>
 </body>
 </html>
