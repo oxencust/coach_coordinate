@@ -2314,9 +2314,15 @@
             <div class="modal-body">
                 <input type="hidden" id="coachId">
                 <div class="form-group">
-                    <label>姓名 *</label>
-                    <input type="text" id="coachName" placeholder="例：王教練">
-                </div>
+    <label>本名 *</label>
+    <input type="text" id="coachRealName" placeholder="例：王小明">
+    <small>管理用，不會顯示給學員</small>
+</div>
+<div class="form-group">
+    <label>顯示名稱 *</label>
+    <input type="text" id="coachName" placeholder="例：王教練">
+    <small>學員看到的名稱</small>
+</div>
                 <div class="form-group">
                     <label>顯示頭像</label>
                     <input type="text" id="coachAvatar" placeholder="例：王（通常是姓氏）" maxlength="2">
@@ -4186,14 +4192,15 @@
 
             // 表格版（電腦）
             tbody.innerHTML = coaches.map(c => {
-                const safeName = escapeHtml(c.name || '-');
+                const safeRealName = escapeHtml(c.real_name || '-');
+const safeName = escapeHtml(c.name || '-');
                 const safeId = escapeHtml(c.id);
                 return `
                 <tr>
                     <td>
                         <div class="avatar-cell">
                             <div class="avatar">${escapeHtml(c.avatar || c.name?.charAt(0) || '?')}</div>
-                            <span>${safeName}</span>
+<span>${safeRealName} <span style="color: #999; font-size: 12px;">(${safeName})</span></span>
                         </div>
                     </td>
                     <td>${escapeHtml(c.phone || '-')}</td>
@@ -4229,18 +4236,19 @@
                     const mainSpecialty = (c.specialties || [])[0] || 'pilates';
                     const avatarColor = specialtyColors[mainSpecialty] || '';
                     const specialtiesText = (c.specialties || []).map(s => `${specialtyIcons[s] || ''} ${courseTypeNames[s] || s}`).join(' • ') || '未設定';
-                    const safeName = escapeHtml(c.name || '-');
-                    const safeId = escapeHtml(c.id);
-                    
-                    return `
-                        <div class="data-card">
-                            <div class="card-header">
-                                <div class="card-avatar ${avatarColor}">${escapeHtml(c.avatar || c.name?.charAt(0) || '?')}</div>
-                                <div class="card-info">
-                                    <div class="card-name">
-                                        ${safeName}
-                                        <span class="card-badge ${c.is_active ? '' : 'danger'}">${c.is_active ? '啟用' : '停用'}</span>
-                                    </div>
+                    const safeRealName = escapeHtml(c.real_name || '-');
+const safeName = escapeHtml(c.name || '-');
+const safeId = escapeHtml(c.id);
+
+return `
+    <div class="data-card">
+        <div class="card-header">
+            <div class="card-avatar ${avatarColor}">${escapeHtml(c.avatar || c.name?.charAt(0) || '?')}</div>
+            <div class="card-info">
+                <div class="card-name">
+                    ${safeRealName} <span style="color: #999; font-size: 12px;">(${safeName})</span>
+                    <span class="card-badge ${c.is_active ? '' : 'danger'}">${c.is_active ? '啟用' : '停用'}</span>
+                </div>
                                     <div class="card-meta">${specialtiesText}</div>
                                 </div>
                             </div>
@@ -4843,7 +4851,8 @@
         function openCoachModal(coach = null) {
             document.getElementById('coachModalTitle').textContent = coach ? '編輯教練' : '新增教練';
             document.getElementById('coachId').value = coach?.id || '';
-            document.getElementById('coachName').value = coach?.name || '';
+            document.getElementById('coachRealName').value = coach?.real_name || '';
+document.getElementById('coachName').value = coach?.name || '';
             document.getElementById('coachAvatar').value = coach?.avatar || '';
             document.getElementById('coachPhone').value = coach?.phone || '';
             document.getElementById('coachLineUid').value = coach?.line_uid || '';
@@ -4865,8 +4874,9 @@
 
         async function saveCoach() {
             const id = document.getElementById('coachId').value;
-            const name = document.getElementById('coachName').value.trim();
-            const avatar = document.getElementById('coachAvatar').value.trim() || name.charAt(0);
+            const real_name = document.getElementById('coachRealName').value.trim();
+const name = document.getElementById('coachName').value.trim();
+const avatar = document.getElementById('coachAvatar').value.trim() || name.charAt(0);
             const phone = document.getElementById('coachPhone').value.trim();
             const line_uid = document.getElementById('coachLineUid').value.trim();
             const line_group_id = document.getElementById('coachLineGroupId').value.trim();
@@ -4878,16 +4888,20 @@
             if (document.getElementById('specialtyStretch').checked) specialties.push('stretch');
             if (document.getElementById('specialtyAi').checked) specialties.push('ai');
 
-            if (!name) {
-                showToast('請輸入姓名');
-                return;
-            }
+            if (!real_name) {
+    showToast('請輸入本名');
+    return;
+}
+if (!name) {
+    showToast('請輸入顯示名稱');
+    return;
+}
 
             try {
                 if (id) {
                     const { error } = await supabaseClient
                         .from('coaches')
-                        .update({ name, avatar, phone, line_uid, line_group_id, specialties, is_active })
+                        .update({ real_name, name, avatar, phone, line_uid, line_group_id, specialties, is_active })
                         .eq('id', id);
                     if (error) throw error;
                     await logAction('編輯教練', '教練', id, name, `課程類型: ${specialties.join(', ')}`);
@@ -4895,7 +4909,7 @@
                 } else {
                     const { data, error } = await supabaseClient
                         .from('coaches')
-                        .insert({ name, avatar, phone, line_uid, line_group_id, specialties, is_active })
+                        .insert({ real_name, name, avatar, phone, line_uid, line_group_id, specialties, is_active })
                         .select()
                         .single();
                     if (error) throw error;
