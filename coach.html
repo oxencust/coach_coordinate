@@ -2789,33 +2789,27 @@
         }
 
         function updateStudentStatusUI(isOnline) {
-    const statusBar = document.getElementById('studentStatusBar');
-    const statusText = document.getElementById('studentStatusText');
-    
-    // 修正：同時檢查 studentJoined 和 status
-    const hasStudent = currentRequest && (
-        currentRequest.studentJoined || 
-        currentRequest.status === 'with-student' ||
-        currentRequest.status === 'with_student'
-    );
-    
-    if (!hasStudent) {
-        statusBar.classList.remove('show');
-        return;
-    }
-    
-    statusBar.classList.add('show');
-    
-    if (isOnline) {
-        statusBar.classList.remove('offline');
-        statusBar.classList.add('online');
-        statusText.textContent = '🟢 學生正在聊天室中';
-    } else {
-        statusBar.classList.remove('online');
-        statusBar.classList.add('offline');
-        statusText.textContent = '⚪ 學生已離開聊天室';
-    }
-}
+            const statusBar = document.getElementById('studentStatusBar');
+            const statusText = document.getElementById('studentStatusText');
+            
+            if (!currentRequest) {
+                statusBar.classList.remove('show');
+                return;
+            }
+            
+            // 即時顯示學員狀態
+            statusBar.classList.add('show');
+            
+            if (isOnline) {
+                statusBar.classList.remove('offline');
+                statusBar.classList.add('online');
+                statusText.textContent = '🟢 學員正在聊天室中';
+            } else {
+                statusBar.classList.remove('online');
+                statusBar.classList.add('offline');
+                statusText.textContent = '⚪ 學員已離開聊天室';
+            }
+        }
 
         // ============ Update Request Status ============
         async function updateRequestStatus(requestId, status, extraFields = {}) {
@@ -3014,7 +3008,6 @@
             } else if (currentRequest.studentJoined || currentRequest.status === 'with-student') {
                 participantsBar.classList.add('with-student');
                 inputArea.style.display = 'flex';
-                subscribeToStudentPresence(requestId);
                 closedNotice.style.display = 'none';
                 if (isOriginalCoach || isSubstituteCoach) {
                     endBtn.classList.add('show');
@@ -3077,8 +3070,11 @@
             subscribeToTyping(requestId);
             
             startPresenceTracking();
-        }
-
+            
+            // 無論狀態，都訂閱學員在線狀態（即時偵測）
+            if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled') {
+                subscribeToStudentPresence(requestId);
+            }
         function closeChat() {
             document.getElementById('chatOverlay').classList.remove('active');
             document.body.style.overflow = '';
