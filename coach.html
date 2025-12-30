@@ -2664,28 +2664,30 @@
                         table: 'messages'
                     },
                     async (payload) => {
-    console.log('New message (global):', payload);
-    const newMessage = payload.new;
-    
-    const targetRequest = requests.find(r => r.id === newMessage.request_id);
-    if (!targetRequest) return;
-    
-    // 新增：確認聊天還存在才處理
-    if (!currentRequest) return;
-                        
-                        if (newMessage.sender_coach_id === currentUser.id) return;
-                        
-                        if (!currentRequest || currentRequest.id !== newMessage.request_id) {
-                            targetRequest.unread = (targetRequest.unread || 0) + 1;
-                            renderRequests();
-                            
-                            showToast(`💬 ${targetRequest.student.name} 的討論有新訊息`);
-                        } else {
-                            const messages = await loadMessages(newMessage.request_id);
-                            currentRequest.messages = messages;
-                            renderMessages();
-                        }
-                    }
+                console.log('New message (global):', payload);
+                const newMessage = payload.new;
+                
+                const targetRequest = requests.find(r => r.id === newMessage.request_id);
+                if (!targetRequest) return;
+                
+                if (newMessage.sender_coach_id === currentUser.id) return;
+                
+                if (!currentRequest || currentRequest.id !== newMessage.request_id) {
+                    // 不在這個聊天室 → 顯示未讀通知
+                    targetRequest.unread = (targetRequest.unread || 0) + 1;
+                    renderRequests();
+                    
+                    showToast(`💬 ${targetRequest.student.name} 的討論有新訊息`);
+                } else {
+                    // 在這個聊天室 → 刷新訊息
+                    const messages = await loadMessages(newMessage.request_id);
+                    // 異步完成後再次確認 currentRequest 還存在
+                    if (currentRequest && currentRequest.id === newMessage.request_id) {
+                        currentRequest.messages = messages;
+                        renderMessages();
+                         }
+        }
+    }
                 )
                 .subscribe();
         }
@@ -2728,35 +2730,24 @@
                     const state = studentPresenceChannel.presenceState();
                     console.log('Presence sync:', state);
                     
-                    let studentOnline = false;
+                    const onlineStudents = [];
                     for (const key in state) {
                         const users = state[key];
-                        if (users.some(u => u.user_type === 'student')) {
-                            studentOnline = true;
-                            break;
-                        }
+                        users.forEach(u => {
+                            if (u.user_type === 'student') {
+                                onlineStudents.push(u.user_name || '學員');
+                            }
+                        });
                     }
-                    updateStudentStatusUI(studentOnline);
+                    updateStudentStatusUI(onlineStudents);
                 })
                 .on('presence', { event: 'join' }, ({ key, newPresences }) => {
                     console.log('Student joined:', newPresences);
-                    if (newPresences.some(u => u.user_type === 'student')) {
-                        updateStudentStatusUI(true);
-                    }
+                    // sync 會自動觸發，這裡不需要額外處理
                 })
                 .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
                     console.log('Student left:', leftPresences);
-                    if (leftPresences.some(u => u.user_type === 'student')) {
-                        const state = studentPresenceChannel.presenceState();
-                        let studentOnline = false;
-                        for (const k in state) {
-                            if (state[k].some(u => u.user_type === 'student')) {
-                                studentOnline = true;
-                                break;
-                            }
-                        }
-                        updateStudentStatusUI(studentOnline);
-                    }
+                    // sync 會自動觸發，這裡不需要額外處理
                 })
                 .subscribe(async (status) => {
                     if (status === 'SUBSCRIBED') {
@@ -2770,14 +2761,16 @@
                         
                         setTimeout(() => {
                             const state = studentPresenceChannel.presenceState();
-                            let studentOnline = false;
+                            const onlineStudents = [];
                             for (const key in state) {
-                                if (state[key].some(u => u.user_type === 'student')) {
-                                    studentOnline = true;
-                                    break;
-                                }
+                                const users = state[key];
+                                users.forEach(u => {
+                                    if (u.user_type === 'student') {
+                                        onlineStudents.push(u.user_name || '學員');
+                                    }
+                                });
                             }
-                            updateStudentStatusUI(studentOnline);
+                            updateStudentStatusUI(onlineStudents);
                         }, 500);
                     }
                 });
@@ -2791,7 +2784,7 @@
             }
         }
 
-        function updateStudentStatusUI(isOnline) {
+        function updateStudentStatusUI(onlineStudents) {
             const statusBar = document.getElementById('studentStatusBar');
             const statusText = document.getElementById('studentStatusText');
             
@@ -2803,10 +2796,15 @@
             // 即時顯示學員狀態
             statusBar.classList.add('show');
             
-            if (isOnline) {
+            if (onlineStudents.length > 0) {
                 statusBar.classList.remove('offline');
                 statusBar.classList.add('online');
-                statusText.textContent = '🟢 學員正在聊天室中';
+                if (onlineStudents.length === 1) {
+                    statusText.textContent = '🟢 學員在線';
+                } else {
+                    const names = onlineStudents.join('、');
+                    statusText.textContent = `🟢 ${onlineStudents.length} 位學員在線（${names}）`;
+                }
             } else {
                 statusBar.classList.remove('online');
                 statusBar.classList.add('offline');
