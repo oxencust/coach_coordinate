@@ -2677,17 +2677,15 @@
                     
                     showToast(`💬 ${targetRequest.student.name} 的討論有新訊息`);
                 } else {
-                    } else {
-    // 在這個聊天室 → 刷新訊息
-    const messages = await loadMessages(newMessage.request_id);
-    // 異步完成後再次確認 currentRequest 還存在
-    if (currentRequest && currentRequest.id === newMessage.request_id) {
-        currentRequest.messages = messages;
-        renderMessages();
-        scrollToBottom();
-    }
-}
-    }
+                    // 在這個聊天室 → 刷新訊息
+                    const messages = await loadMessages(newMessage.request_id);
+                    // 異步完成後再次確認 currentRequest 還存在
+                    if (currentRequest && currentRequest.id === newMessage.request_id) {
+                        currentRequest.messages = messages;
+                        renderMessages();
+                        scrollToBottom();
+                    }
+                }
                 )
                 .subscribe();
         }
@@ -2785,32 +2783,42 @@
         }
 
         function updateStudentStatusUI(onlineStudents) {
-            const statusBar = document.getElementById('studentStatusBar');
-            const statusText = document.getElementById('studentStatusText');
-            
-            if (!currentRequest) {
-                statusBar.classList.remove('show');
-                return;
-            }
-            
-            // 即時顯示學員狀態
-            statusBar.classList.add('show');
-            
-            if (onlineStudents.length > 0) {
-                statusBar.classList.remove('offline');
-                statusBar.classList.add('online');
-                if (onlineStudents.length === 1) {
-                    statusText.textContent = '🟢 學員在線';
-                } else {
-                    const names = onlineStudents.join('、');
-                    statusText.textContent = `🟢 ${onlineStudents.length} 位學員在線（${names}）`;
-                }
-            } else {
-                statusBar.classList.remove('online');
-                statusBar.classList.add('offline');
-                statusText.textContent = '⚪ 學員已離開聊天室';
-            }
+    const statusBar = document.getElementById('studentStatusBar');
+    const statusText = document.getElementById('studentStatusText');
+    
+    if (!currentRequest) {
+        statusBar.classList.remove('show');
+        return;
+    }
+    
+    // 即時顯示學員狀態
+    statusBar.classList.add('show');
+    
+    // 檢查學員是否已加入聊天室
+    const studentJoined = currentRequest.studentJoined || currentRequest.status === 'with-student';
+    
+    if (!studentJoined) {
+        // 學員尚未加入
+        statusBar.classList.remove('online');
+        statusBar.classList.add('offline');
+        statusText.textContent = '⏳ 學員尚未加入聊天室';
+    } else if (onlineStudents.length > 0) {
+        // 學員在線
+        statusBar.classList.remove('offline');
+        statusBar.classList.add('online');
+        if (onlineStudents.length === 1) {
+            statusText.textContent = '🟢 學員在線';
+        } else {
+            const names = onlineStudents.join('、');
+            statusText.textContent = `🟢 ${onlineStudents.length} 位學員在線（${names}）`;
         }
+    } else {
+        // 學員已加入但離線
+        statusBar.classList.remove('online');
+        statusBar.classList.add('offline');
+        statusText.textContent = '⚪ 學員已離開聊天室';
+    }
+}
 
         // ============ Update Request Status ============
         async function updateRequestStatus(requestId, status, extraFields = {}) {
@@ -3073,9 +3081,12 @@
             startPresenceTracking();
             
             // 無論狀態，都訂閱學員在線狀態（即時偵測）
-            if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled') {
-                subscribeToStudentPresence(requestId);
-            }
+if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled') {
+    // 先顯示初始狀態
+    updateStudentStatusUI([]);
+    // 再訂閱即時狀態
+    subscribeToStudentPresence(requestId);
+}
         }
         function closeChat() {
             document.getElementById('chatOverlay').classList.remove('active');
