@@ -5480,90 +5480,83 @@
         // ⚠️ 請將下方 URL 改為你的 Apps Script 網址
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOGRzAKYnSzOc-c8m0Xdy1MPwK3u8z9cRJYUXEfyoB-ZG908nycOk8moGiip_08Rh6cA/exec';
         
-        async function backupChatToSheet(requestId) {
-            try {
-                // 1. 查詢聊天室資訊
-                const { data: request, error: reqError } = await supabaseClient
-                    .from('substitute_requests')
-                    .select('*')
-                    .eq('id', requestId)
-                    .single();
-                
-                if (reqError || !request) {
-                    console.error('找不到聊天室:', reqError);
-                    return;
-                }
-                
-                // 2. 查詢訊息
-                const { data: messages, error: msgError } = await supabaseClient
-                    .from('messages')
-                    .select('*')
-                    .eq('request_id', requestId)
-                    .order('created_at', { ascending: true });
-                
-                if (msgError) {
-                    console.error('查詢訊息失敗:', msgError);
-                    return;
-                }
-                
-                // 3. 格式化對話內容
-                const courseTypeNames = {
-                    'pilates': '皮拉提斯',
-                    'weight': '重量訓練',
-                    'stretch': '伸展課程',
-                    'ai': 'AI 體態分析'
-                };
-                
-                const statusNamesBackup = {
-                    'pending': '等待中',
-                    'discussing': '討論中',
-                    'with-student': '學員已加入',
-                    'resolved': '已解決',
-                    'cancel_pending': '待取消確認',
-                    'cancelled': '已取消'
-                };
-                
-                const conversationLines = (messages || []).map(msg => {
-                    const time = new Date(msg.created_at).toLocaleString('zh-TW', {
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    const sender = msg.sender_name || msg.sender_type || '系統';
-                    const content = (msg.content || '').replace(/\n/g, ' ');
-                    return `【${sender} ${time}】${content}`;
-                });
-                
-                const backupData = {
-                    date: new Date(request.created_at).toISOString().split('T')[0],
-                    student_info: `${request.student_name || '-'}(${request.student_no || '-'})`,
-                    course_type: courseTypeNames[request.course_type] || request.course_type || '-',
-                    status: statusNamesBackup[request.status] || request.status || '-',
-                    conversation: conversationLines.join('\n'),
-                    message_count: messages?.length || 0
-                };
-                
-                // 4. 傳送到 Google Apps Script
-                if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('YOUR_SCRIPT_ID')) {
-                    await fetch(APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors', // Apps Script 需要 no-cors
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(backupData)
-                    });
-                    console.log('Chat backed up to Google Sheet');
-                } else {
-                    console.log('Apps Script URL 未設定，跳過備份');
-                }
-                
-            } catch (error) {
-                console.error('Backup to sheet error:', error);
-                // 備份失敗不阻止刪除
-            }
+        // 備份聊天室到 Google Sheet
+async function backupChatToSheet(requestId) {
+    try {
+        // 1. 使用 View 查詢聊天室資訊（包含學員名稱）
+        const { data: request, error: reqError } = await supabaseClient
+            .from('substitute_requests_full')
+            .select('*')
+            .eq('id', requestId)
+            .single();
+        
+        if (reqError || !request) {
+            console.error('找不到聊天室:', reqError);
+            return;
         }
+        
+        // 2. 查詢訊息
+        const { data: messages, error: msgError } = await supabaseClient
+            .from('messages')
+            .select('*')
+            .eq('request_id', requestId)
+            .order('created_at', { ascending: true });
+        
+        if (msgError) {
+            console.error('查詢訊息失敗:', msgError);
+            return;
+        }
+        
+        // 3. 格式化對話內容（時間只顯示 時:分）
+        const conversationLines = (messages || []).map(msg => {
+            const time = new Date(msg.created_at).toLocaleString('zh-TW', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const sender = msg.sender_name || msg.sender_type || '系統';
+            const content = (msg.content || '').replace(/\n/g, ' ');
+            return `【${sender} ${time}】${content}`;
+        });
+        
+        const statusNamesBackup = {
+            'pending': '等待中',
+            'discussing': '討論中',
+            'with-student': '學員已加入',
+            'resolved': '已解決',
+            'cancel_pending': '待取消確認',
+            'cancelled': '已取消'
+        };
+        
+        // 4. 組合備份資料（對應 Google Sheet 欄位）
+        const backupData = {
+            date: request.course_date || new Date(request.created_at).toISOString().split('T')[0],
+            student: `${request.student_name || '-'}(${request.student_no || '-'})`,
+            course_type: courseTypeNames[request.course_type] || request.course_type || '-',
+            status: statusNamesBackup[request.status] || request.status || '-',
+            conversation: conversationLines.join('\n'),
+            message_count: messages?.length || 0,
+            backup_time: new Date().toLocaleString('zh-TW')
+        };
+        
+        // 5. 傳送到 Google Apps Script
+        if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('YOUR_SCRIPT_ID')) {
+            await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(backupData)
+            });
+            console.log('Chat backed up to Google Sheet');
+        } else {
+            console.log('Apps Script URL 未設定，跳過備份');
+        }
+        
+    } catch (error) {
+        console.error('Backup to sheet error:', error);
+    }
+}
 
         // ============ Admin CRUD ============
         async function loadAdmins() {
