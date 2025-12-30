@@ -2789,26 +2789,33 @@
         }
 
         function updateStudentStatusUI(isOnline) {
-            const statusBar = document.getElementById('studentStatusBar');
-            const statusText = document.getElementById('studentStatusText');
-            
-            if (!currentRequest || !currentRequest.studentJoined) {
-                statusBar.classList.remove('show');
-                return;
-            }
-            
-            statusBar.classList.add('show');
-            
-            if (isOnline) {
-                statusBar.classList.remove('offline');
-                statusBar.classList.add('online');
-                statusText.textContent = '🟢 學生正在聊天室中';
-            } else {
-                statusBar.classList.remove('online');
-                statusBar.classList.add('offline');
-                statusText.textContent = '⚪ 學生已離開聊天室';
-            }
-        }
+    const statusBar = document.getElementById('studentStatusBar');
+    const statusText = document.getElementById('studentStatusText');
+    
+    // 修正：同時檢查 studentJoined 和 status
+    const hasStudent = currentRequest && (
+        currentRequest.studentJoined || 
+        currentRequest.status === 'with-student' ||
+        currentRequest.status === 'with_student'
+    );
+    
+    if (!hasStudent) {
+        statusBar.classList.remove('show');
+        return;
+    }
+    
+    statusBar.classList.add('show');
+    
+    if (isOnline) {
+        statusBar.classList.remove('offline');
+        statusBar.classList.add('online');
+        statusText.textContent = '🟢 學生正在聊天室中';
+    } else {
+        statusBar.classList.remove('online');
+        statusBar.classList.add('offline');
+        statusText.textContent = '⚪ 學生已離開聊天室';
+    }
+}
 
         // ============ Update Request Status ============
         async function updateRequestStatus(requestId, status, extraFields = {}) {
