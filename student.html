@@ -1643,7 +1643,7 @@ async function forceNotify() {
     }
     
     // 確認彈窗
-    if (!confirm('確定要通知教練嗎？\n\n教練將收到 LINE 推播通知，提醒他們查看聊天室。')) {
+    if (!confirm('📢是否通知教練查看聊天室呢?')) {
         return;
     }
     
@@ -1653,6 +1653,17 @@ async function forceNotify() {
     showToast('正在通知教練...');
     
     try {
+        // 取得課程資訊
+        const courseTypeNames = {
+            'pilates': '皮拉提斯',
+            'weight': '重量訓練',
+            'stretch': '伸展課程',
+            'ai': 'AI 體態分析'
+        };
+        const courseTypeName = courseTypeNames[currentRequest.course_type] || currentRequest.course_type;
+        const courseDate = formatDate(currentRequest.course_date);
+        const courseTime = currentRequest.course_time;
+        
         const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-coaches`, {
             method: 'POST',
             headers: {
@@ -1663,7 +1674,10 @@ async function forceNotify() {
                 request_id: requestId,
                 sender_id: currentStudent.id,
                 sender_name: currentStudent.name,
-                message_content: '📢 請查看聊天室',
+                sender_type: 'student',
+                course_type: courseTypeName,
+                course_date: courseDate,
+                course_time: courseTime,
                 force_notify: true
             })
         });
