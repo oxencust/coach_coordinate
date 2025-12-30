@@ -3075,6 +3075,7 @@
             if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled') {
                 subscribeToStudentPresence(requestId);
             }
+        }
         function closeChat() {
             document.getElementById('chatOverlay').classList.remove('active');
             document.body.style.overflow = '';
@@ -3801,7 +3802,7 @@
             if (!currentRequest) return;
             
             const studentName = currentRequest.student?.name || currentRequest.student_name || '學員';
-            if (!confirm(`\n確定要邀請「${studentName}」加入討論嗎？\n`：) {
+            if (!confirm(`\n確定要邀請「${studentName}」加入討論嗎？\n`)) {
                 return;
             }
             
