@@ -5605,37 +5605,6 @@ async function backupChatToSheet(requestId) {
     }
 }
         
-        // 4. 組合備份資料（對應 Google Sheet 欄位）
-        const backupData = {
-            date: request.course_date || new Date(request.created_at).toISOString().split('T')[0],
-            student: `${request.student_name || '-'}(${request.student_no || '-'})`,
-            course_type: courseTypeNames[request.course_type] || request.course_type || '-',
-            status: statusNamesBackup[request.status] || request.status || '-',
-            conversation: conversationLines.join('\n'),
-            message_count: messages?.length || 0,
-            backup_time: new Date().toLocaleString('zh-TW')
-        };
-        
-        // 5. 傳送到 Google Apps Script
-        if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('YOUR_SCRIPT_ID')) {
-            await fetch(APPS_SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(backupData)
-            });
-            console.log('Chat backed up to Google Sheet');
-        } else {
-            console.log('Apps Script URL 未設定，跳過備份');
-        }
-        
-    } catch (error) {
-        console.error('Backup to sheet error:', error);
-    }
-}
-
         // ============ Admin CRUD ============
         async function loadAdmins() {
             console.log('Loading admins...');
