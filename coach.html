@@ -2611,14 +2611,28 @@
                 return [];
             }
             
-            return data.map(p => {
-    return {
-        id: p.member_id,
-        name: p.member_name || '未知',
-        avatar: p.member_name ? p.member_name.charAt(0) : '?',
-        role: p.member_type === 'student' ? 'student' : 'teacher'
-    };
-});
+            const participants = [];
+            data.forEach(p => {
+                // 教練
+                if (p.coach_id) {
+                    participants.push({
+                        id: p.coach_id,
+                        name: p.coach_name || '未知',
+                        avatar: p.coach_name ? p.coach_name.charAt(0) : '?',
+                        role: 'teacher'
+                    });
+                }
+                // 學員
+                if (p.student_id) {
+                    participants.push({
+                        id: p.student_id,
+                        name: p.student_name || '未知',
+                        avatar: p.student_name ? p.student_name.charAt(0) : '?',
+                        role: 'student'
+                    });
+                }
+            });
+            return participants;
         }
 
         function mapStatus(dbStatus) {
@@ -4259,7 +4273,7 @@
 
                 closeModal('createModal');
                 resetForm();
-                switchTab('pending');
+                switchTab('discussing');
                 showToast('已開啟代課聊天室');
                 
             } catch (error) {
@@ -4458,7 +4472,7 @@
                     course_type: data.course_type,
                     course_date: data.course_date,
                     course_time: data.course_time,
-                    status: 'pending'
+                    status: 'discussing'
                 })
                 .select()
                 .single();
@@ -4474,30 +4488,30 @@
                     content: data.message
                 });
             
+            // 新增原教練為參與者
             await supabaseClient
-    .from('request_participants')
-    .insert({
-        request_id: request.id,
-        member_type: 'coach',
-        member_id: currentUser.id,
-        member_name: currentUser.name,
-        is_active: true
-    });
+                .from('request_participants')
+                .insert({
+                    request_id: request.id,
+                    coach_id: currentUser.id,
+                    coach_name: currentUser.name,
+                    is_active: true
+                });
 
-if (data.substitute_coach_id) {
-    const substituteCoach = allCoaches.find(c => c.id === data.substitute_coach_id);
-    if (substituteCoach) {
-        await supabaseClient
-            .from('request_participants')
-            .insert({
-                request_id: request.id,
-                member_type: 'coach',
-                member_id: data.substitute_coach_id,
-                member_name: substituteCoach.name,
-                is_active: true
-            });
-    }
-}
+            // 新增代課教練為參與者
+            if (data.substitute_coach_id) {
+                const substituteCoach = allCoaches.find(c => c.id === data.substitute_coach_id);
+                if (substituteCoach) {
+                    await supabaseClient
+                        .from('request_participants')
+                        .insert({
+                            request_id: request.id,
+                            coach_id: data.substitute_coach_id,
+                            coach_name: substituteCoach.name,
+                            is_active: true
+                        });
+                }
+            }
             
             await loadRequests();
             return request;
