@@ -2611,28 +2611,12 @@
                 return [];
             }
             
-            const participants = [];
-            data.forEach(p => {
-                // 教練
-                if (p.coach_id) {
-                    participants.push({
-                        id: p.coach_id,
-                        name: p.coach_name || '未知',
-                        avatar: p.coach_name ? p.coach_name.charAt(0) : '?',
-                        role: 'teacher'
-                    });
-                }
-                // 學員
-                if (p.student_id) {
-                    participants.push({
-                        id: p.student_id,
-                        name: p.student_name || '未知',
-                        avatar: p.student_name ? p.student_name.charAt(0) : '?',
-                        role: 'student'
-                    });
-                }
-            });
-            return participants;
+            return data.map(p => ({
+                id: p.coach_id || p.student_id,
+                name: p.participant_name || '未知',
+                avatar: p.participant_name ? p.participant_name.charAt(0) : '?',
+                role: p.participant_type === 'student' ? 'student' : 'teacher'
+            }));
         }
 
         function mapStatus(dbStatus) {
@@ -4494,8 +4478,8 @@
                 .insert({
                     request_id: request.id,
                     coach_id: currentUser.id,
-                    coach_name: currentUser.name,
-                    is_active: true
+                    participant_name: currentUser.name,
+                    participant_type: 'coach'
                 });
 
             // 新增代課教練為參與者
@@ -4507,8 +4491,8 @@
                         .insert({
                             request_id: request.id,
                             coach_id: data.substitute_coach_id,
-                            coach_name: substituteCoach.name,
-                            is_active: true
+                            participant_name: substituteCoach.name,
+                            participant_type: 'coach'
                         });
                 }
             }
