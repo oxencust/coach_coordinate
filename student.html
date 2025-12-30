@@ -1188,16 +1188,19 @@ let cooldownTimer = null;
                     };
                 }
                 
-                // 如果聊天室已結束，顯示提示並跳出
-                if (currentRequest.status === 'resolved') {
-                    alert('課程完成，聊天室已關閉');
-                    if (liff.isInClient()) {
-                        liff.closeWindow();
-                    } else {
-                        window.history.back();
-                    }
-                    return;
-                }
+                // 如果聊天室已結束或取消，顯示提示並跳出
+if (currentRequest.status === 'resolved' || currentRequest.status === 'cancelled') {
+    const msg = currentRequest.status === 'resolved' 
+        ? '課程完成，聊天室已關閉' 
+        : '此代課請求已取消';
+    alert(msg);
+    if (liff.isInClient()) {
+        liff.closeWindow();
+    } else {
+        window.history.back();
+    }
+    return;
+}
                 
                 // 如果狀態還不是 with-student，表示學員第一次加入
                 if (currentRequest.status !== 'with-student' && currentRequest.status !== 'resolved') {
@@ -1241,11 +1244,17 @@ let cooldownTimer = null;
                 // 加入即時 Presence 頻道（讓教練即時看到學員狀態）
 joinPresenceChannel();
                 
-                // 頁面離開時停止追蹤
-               window.addEventListener('beforeunload', () => {
+                // 頁面離開時停止追蹤並清理所有訂閱
+window.addEventListener('beforeunload', () => {
     stopPresenceTracking();
     if (cooldownTimer) {
         clearInterval(cooldownTimer);
+    }
+    if (messagesSubscription) {
+        messagesSubscription.unsubscribe();
+    }
+    if (typingChannel) {
+        typingChannel.unsubscribe();
     }
 });
                 
