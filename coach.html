@@ -2671,24 +2671,25 @@
                 if (newMessage.sender_coach_id === currentUser.id) return;
                 
                 if (!currentRequest || currentRequest.id !== newMessage.request_id) {
-                    // 不在這個聊天室 → 顯示未讀通知
-                    targetRequest.unread = (targetRequest.unread || 0) + 1;
-                    renderRequests();
-                    
-                    showToast(`💬 ${targetRequest.student.name} 的討論有新訊息`);
-                } else {
-                    // 在這個聊天室 → 刷新訊息
-                    const messages = await loadMessages(newMessage.request_id);
-                    // 異步完成後再次確認 currentRequest 還存在
-                    if (currentRequest && currentRequest.id === newMessage.request_id) {
-                        currentRequest.messages = messages;
-                        renderMessages();
-                        scrollToBottom();
-                    }
-                }
-                )
-                .subscribe();
+            // 不在這個聊天室 → 顯示未讀通知
+            targetRequest.unread = (targetRequest.unread || 0) + 1;
+            renderRequests();
+            
+            showToast(`💬 ${targetRequest.student.name} 的討論有新訊息`);
+        } else {
+            // 在這個聊天室 → 刷新訊息
+            const messages = await loadMessages(newMessage.request_id);
+            // 異步完成後再次確認 currentRequest 還存在
+            if (currentRequest && currentRequest.id === newMessage.request_id) {
+                currentRequest.messages = messages;
+                renderMessages();
+                scrollToBottom();
+            }
         }
+    }
+)
+.subscribe();
+}
 
         function subscribeToMessages(requestId) {
             if (messagesSubscription) {
