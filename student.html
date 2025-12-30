@@ -1742,6 +1742,16 @@ async function joinPresenceChannel() {
     
     presenceChannel = supabaseClient
         .channel(`room-presence-${requestId}`)
+        .on('presence', { event: 'sync' }, () => {
+            // 學員端不需要顯示其他人狀態，但需要註冊這個事件讓 Presence 正常運作
+            console.log('Presence sync:', presenceChannel.presenceState());
+        })
+        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+            console.log('User joined:', newPresences);
+        })
+        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+            console.log('User left:', leftPresences);
+        })
         .subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
                 console.log('Student joined presence channel');
