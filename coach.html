@@ -2464,8 +2464,8 @@
         async function loadStudents() {
             try {
                 const { data, error } = await supabaseClient
-                    .from('students')
-                    .select('id, name, phone, member_no, line_id, line_display_name, fitness_goal')
+                    .from('students_cache')
+                    .select('id, name, phone, id, line_id, nickname, goals')
                     .order('name', { ascending: true });
                 
                 if (error) {
@@ -2477,12 +2477,12 @@
                 allStudents = (data || []).map(s => ({
                     id: s.id,
                     name: s.name,
-                    code: s.member_no || '',
+                    code: s.id || '',
                     phone: s.phone || '',
                     avatar: s.name?.charAt(0) || '?',
                     line_id: s.line_id,
-                    line_display_name: s.line_display_name || '',
-                    notes: s.fitness_goal || ''
+                    nickname: s.nickname || '',
+                    notes: s.goals || ''
                 }));
                 console.log('Loaded students:', allStudents.length, 'records');
             } catch (error) {
@@ -3141,7 +3141,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                             <div class="student-info-grid">
                                 <div class="student-info-item">
                                     <div class="student-info-label">LINE</div>
-                                    <div class="student-info-value">${msg.student.line_display_name || '未綁定'}</div>
+                                    <div class="student-info-value">${msg.student.nickname || '未綁定'}</div>
                                 </div>
                                 <div class="student-info-item">
                                     <div class="student-info-label">備註</div>
@@ -3474,7 +3474,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                         <div class="result-avatar">${student.avatar || student.name.charAt(0)}</div>
                         <div>
                             <div class="result-name">${student.name}${student.code ? ` <span style="color: var(--text-muted); font-size: 12px;">(${student.code})</span>` : ''}</div>
-                            <div class="result-detail">${student.line_display_name || '未綁定LINE'}</div>
+                            <div class="result-detail">${student.nickname || '未綁定LINE'}</div>
                         </div>
                     </div>
                 </div>
@@ -3556,7 +3556,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
                     },
                     body: JSON.stringify({
-                        member_no: memberNo,
+                        id: memberNo,
                         name: name
                     })
                 });
@@ -3581,8 +3581,8 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                         <div class="result-info">
                             <div class="result-avatar">${s.name.charAt(0)}</div>
                             <div>
-                                <div class="result-name">${s.name} <span style="color: var(--text-muted); font-size: 12px;">(${s.member_no || s.code || ''})</span></div>
-                                <div class="result-detail">${s.line_display_name || '未綁定LINE'}</div>
+                                <div class="result-name">${s.name} <span style="color: var(--text-muted); font-size: 12px;">(${s.id || s.code || ''})</span></div>
+                                <div class="result-detail">${s.nickname || '未綁定LINE'}</div>
                             </div>
                         </div>
                         <button class="result-action invite">📱 邀請</button>
@@ -4355,7 +4355,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                         <div class="result-avatar" style="background: var(--green);">${s.avatar || s.name.charAt(0)}</div>
                         <div>
                             <div class="result-name">${s.name}${s.code ? ` <span style="color: var(--text-muted); font-size: 12px;">(${s.code})</span>` : ''}</div>
-                            <div class="result-detail">${s.code ? s.code + ' · ' : ''}${s.line_display_name || '未綁定LINE'}</div>
+                            <div class="result-detail">${s.code ? s.code + ' · ' : ''}${s.nickname || '未綁定LINE'}</div>
                         </div>
                     </div>
                     <span style="color: var(--green); font-size: 20px;">${selectedStudent?.id === s.id ? '✓' : ''}</span>
