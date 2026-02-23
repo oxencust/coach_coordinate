@@ -3007,7 +3007,7 @@
                 const { data, error } = await supabaseClient
                     .from('admin_logs')
                     .select('*')
-                    .order('synced_at', { ascending: false });
+                    .order('synced_at', { ascending: false })
                     .limit(100);
                 
                 if (error) throw error;
