@@ -1149,7 +1149,7 @@ let cooldownTimer = null;
                 
                 // 取得這個代課請求的學員資料
                 const { data: student, error: studentError } = await supabaseClient
-                    .from('students')
+                    .from('students_cache')
                     .select('*')
                     .eq('id', request.student_id)
                     .single();
@@ -1162,18 +1162,18 @@ let cooldownTimer = null;
                 } else {
                     // 找到學員
                     // 如果學員沒有 LINE UID，自動綁定
-                    if (!student.line_uid) {
+                    if (!student.line_id) {
                         console.log('自動綁定學員 LINE UID');
                         await supabaseClient
-                            .from('students')
+                            .from('students_cache')
                             .update({ 
-                                line_uid: profile.userId,
-                                line_display_name: profile.displayName
+                                line_id: profile.userId,
+                                nickname: profile.displayName
                             })
                             .eq('id', student.id);
                         
                         showToast('已綁定您的 LINE 帳號 ✓');
-                    } else if (student.line_uid !== profile.userId) {
+                    } else if (student.line_id !== profile.userId) {
                         // LINE UID 不符，可能是別人點了連結
                         console.error('LINE UID 不符');
                         alert('此連結已綁定其他帳號，請聯繫教練或行政人員');
@@ -1203,11 +1203,11 @@ if (currentRequest.status === 'resolved' || currentRequest.status === 'cancelled
 }
                 
                 // 如果狀態還不是 with-student，表示學員第一次加入
-                if (currentRequest.status !== 'with-student' && currentRequest.status !== 'resolved') {
+                if (currentRequest.status !== 'with_student' && currentRequest.status !== 'resolved') {
                     // 更新狀態為 with-student
                     await supabaseClient
                         .from('substitute_requests')
-                        .update({ status: 'with-student' })
+                        .update({ status: 'with_student' })
                         .eq('id', requestId);
                     
                     // 新增學員加入的系統訊息
