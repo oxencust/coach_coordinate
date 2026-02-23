@@ -3007,7 +3007,7 @@
                 const { data, error } = await supabaseClient
                     .from('admin_logs')
                     .select('*')
-                    .order('created_at', { ascending: false })
+                    .order('synced_at', { ascending: false });
                     .limit(100);
                 
                 if (error) throw error;
@@ -3695,11 +3695,11 @@
             .select('*', { count: 'exact' });
         
         if (studentsSearchTerm) {
-            query = query.or(`name.ilike.%${studentsSearchTerm}%,member_no.ilike.%${studentsSearchTerm}%,phone.ilike.%${studentsSearchTerm}%`);
+            query = query.or(`name.ilike.%${studentsSearchTerm}%,phone.ilike.%${studentsSearchTerm}%,nickname.ilike.%${studentsSearchTerm}%`);
         }
         
         query = query.range(offset, offset + studentsLimit - 1)
-                     .order('member_no', { ascending: false });
+                     .order('synced_at', { ascending: false })
         
         const { data, count, error } = await query;
         
