@@ -3670,73 +3670,61 @@
         }
 
         async function loadPendingCoaches() {
-            const { data, error } = await supabaseClient
-                .from('coaches_cache')
-                .select('*')
-                .eq('status', 'pending')
-                .order('created_at', { ascending: false });
-            
-            if (error) throw error;
-            pendingCoaches = data || [];
-            renderPendingCoaches();
-            
-            // 更新待審核數量
-            const countEl = document.getElementById('pendingCount');
-            if (pendingCoaches.length > 0) {
-                countEl.textContent = pendingCoaches.length;
-                countEl.style.display = 'inline';
-            } else {
-                countEl.style.display = 'none';
-            }
-        }
-
+    const { data, error } = await supabaseClient
+        .from('coaches_cache')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    pendingCoaches = data || [];
+    renderPendingCoaches();
+    updateNavBadges();
+}
+        
         async function loadStudents(page = 1) {
-            if (studentsLoading) return;
-            studentsLoading = true;
-            
-            try {
-                studentsCurrentPage = page;
-                const offset = (page - 1) * studentsLimit;
-                
-                // 使用 Edge Function 查詢
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-students`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        search: studentsSearchTerm || undefined,
-                        limit: studentsLimit,
-                        offset: offset
-                    })
-                });
-                
-                const result = await response.json();
-                console.log('get-students response:', result);
-                
-                if (!result.success) throw new Error(result.error || '載入失敗');
-                
-                students = result.data || [];
-                studentsTotal = result.total || 0;
-                studentsTotalPages = Math.ceil(studentsTotal / studentsLimit) || 1;
-                
-                renderStudents();
-                updateStudentsCount();
-                updateStudentsPagination();
-                
-            } catch (error) {
-                console.error('Load students error:', error);
-                students = [];
-                studentsTotal = 0;
-                studentsTotalPages = 1;
-                renderStudents();
-                updateStudentsCount();
-                updateStudentsPagination();
-            } finally {
-                studentsLoading = false;
-            }
+    if (studentsLoading) return;
+    studentsLoading = true;
+    
+    try {
+        studentsCurrentPage = page;
+        const offset = (page - 1) * studentsLimit;
+        
+        let query = supabaseClient
+            .from('students_cache')
+            .select('*', { count: 'exact' });
+        
+        if (studentsSearchTerm) {
+            query = query.or(`name.ilike.%${studentsSearchTerm}%,member_no.ilike.%${studentsSearchTerm}%,phone.ilike.%${studentsSearchTerm}%`);
         }
+        
+        query = query.range(offset, offset + studentsLimit - 1)
+                     .order('member_no', { ascending: false });
+        
+        const { data, count, error } = await query;
+        
+        if (error) throw error;
+        
+        students = data || [];
+        studentsTotal = count || 0;
+        studentsTotalPages = Math.ceil(studentsTotal / studentsLimit) || 1;
+        
+        renderStudents();
+        updateStudentsCount();
+        updateStudentsPagination();
+        
+    } catch (error) {
+        console.error('Load students error:', error);
+        students = [];
+        studentsTotal = 0;
+        studentsTotalPages = 1;
+        renderStudents();
+        updateStudentsCount();
+        updateStudentsPagination();
+    } finally {
+        studentsLoading = false;
+    }
+}
         
         // 上一頁
         function studentsGoPrev() {
@@ -3805,7 +3793,7 @@
                 .from('coaches_cache')
                 .select('*')
                 .eq('is_active', true)
-                .order('created_at', { ascending: false });
+                .order('id', { ascending: false });
             
             if (error) throw error;
             coaches = data || [];
@@ -3853,7 +3841,7 @@
 
             // 表格版（電腦）
             tbody.innerHTML = pendingCoaches.map(c => {
-                const displayName = c.line_display_name || c.name || '-';
+                const displayName = c.line_display_name || c.coach_name || '-';
                 const safeDisplayName = escapeHtml(displayName);
                 const safeId = escapeHtml(c.id);
                 const safeAttrName = escapeAttr(displayName);
@@ -3894,7 +3882,7 @@
             // 卡片版（手機）
             if (cardList) {
                 cardList.innerHTML = pendingCoaches.map(c => {
-                    const displayName = c.line_display_name || c.name || '-';
+                    const displayName = c.line_display_name || c.coach_name || '-';
                     const safeDisplayName = escapeHtml(displayName);
                     const safeId = escapeHtml(c.id);
                     const safeAttrName = escapeAttr(displayName);
@@ -4192,13 +4180,13 @@
             // 表格版（電腦）
             tbody.innerHTML = coaches.map(c => {
                 const safeRealName = escapeHtml(c.real_name || '-');
-const safeName = escapeHtml(c.name || '-');
+const safeName = escapeHtml(c.coach_name || '-');
                 const safeId = escapeHtml(c.id);
                 return `
                 <tr>
                     <td>
                         <div class="avatar-cell">
-                            <div class="avatar">${escapeHtml(c.avatar || c.name?.charAt(0) || '?')}</div>
+                            <div class="avatar">${escapeHtml(c.avatar || c.coach_name?.charAt(0) || '?')}</div>
 <span>${safeRealName} <span style="color: #999; font-size: 12px;">(${safeName})</span></span>
                         </div>
                     </td>
@@ -4207,7 +4195,7 @@ const safeName = escapeHtml(c.name || '-');
                     <td>
                         ${c.line_id ? `
                             <button class="edit-btn" style="font-size: 11px; padding: 4px 8px;" 
-                                onclick="copyCoachLink('${escapeAttr(c.line_id)}', '${escapeAttr(c.name)}')">
+                                onclick="copyCoachLink('${escapeAttr(c.line_id)}', '${escapeAttr(c.coach_name)}')">
                                 📋 複製連結
                             </button>
                         ` : '<span style="color: var(--text-muted);">未設定</span>'}
@@ -4220,7 +4208,7 @@ const safeName = escapeHtml(c.name || '-');
                     <td>
                         <div class="action-btns">
                             <button class="edit-btn" onclick="editCoach('${safeId}')">編輯</button>
-                            ${canDelete ? `<button class="delete-btn" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>` : ''}
+                            ${canDelete ? `<button class="delete-btn" onclick="deleteCoach('${safeId}', '${escapeAttr(c.coach_name)}')">刪除</button>` : ''}
                         </div>
                     </td>
                 </tr>
@@ -4236,13 +4224,13 @@ const safeName = escapeHtml(c.name || '-');
                     const avatarColor = specialtyColors[mainSpecialty] || '';
                     const specialtiesText = (c.specialties || []).map(s => `${specialtyIcons[s] || ''} ${courseTypeNames[s] || s}`).join(' • ') || '未設定';
                     const safeRealName = escapeHtml(c.real_name || '-');
-const safeName = escapeHtml(c.name || '-');
+const safeName = escapeHtml(c.coach_name || '-');
 const safeId = escapeHtml(c.id);
 
 return `
     <div class="data-card">
         <div class="card-header">
-            <div class="card-avatar ${avatarColor}">${escapeHtml(c.avatar || c.name?.charAt(0) || '?')}</div>
+            <div class="card-avatar ${avatarColor}">${escapeHtml(c.avatar || c.coach_name?.charAt(0) || '?')}</div>
             <div class="card-info">
                 <div class="card-name">
                     ${safeRealName} <span style="color: #999; font-size: 12px;">(${safeName})</span>
@@ -4254,8 +4242,8 @@ return `
                             ${c.phone ? `<div class="card-row"><span class="card-label">電話</span><span class="card-value">${escapeHtml(c.phone)}</span></div>` : ''}
                             <div class="card-actions">
                                 <button class="card-btn secondary" onclick="editCoach('${safeId}')">編輯</button>
-                                ${c.line_id ? `<button class="card-btn warning" onclick="copyCoachLink('${escapeAttr(c.line_id)}', '${escapeAttr(c.name)}')">📋 複製連結</button>` : ''}
-                                ${canDelete ? `<button class="card-btn danger" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>` : ''}
+                                ${c.line_id ? `<button class="card-btn warning" onclick="copyCoachLink('${escapeAttr(c.line_id)}', '${escapeAttr(c.coach_name)}')">📋 複製連結</button>` : ''}
+                                ${canDelete ? `<button class="card-btn danger" onclick="deleteCoach('${safeId}', '${escapeAttr(c.coach_name)}')">刪除</button>` : ''}
                             </div>
                         </div>
                     `;
@@ -4532,7 +4520,7 @@ return `
         function filterCoaches() {
             const search = document.getElementById('coachSearch').value.toLowerCase();
             const filtered = coaches.filter(c => 
-                (c.name || '').toLowerCase().includes(search) ||
+                (c.coach_name || '').toLowerCase().includes(search) ||
                 (c.phone || '').includes(search)
             );
             
@@ -4552,13 +4540,13 @@ return `
             
             // 表格版
             tbody.innerHTML = filtered.map(c => {
-                const safeName = escapeHtml(c.name || '-');
+                const safeName = escapeHtml(c.coach_name || '-');
                 const safeId = escapeHtml(c.id);
                 return `
                 <tr>
                     <td>
                         <div class="avatar-cell">
-                            <div class="avatar">${escapeHtml(c.avatar || c.name?.charAt(0) || '?')}</div>
+                            <div class="avatar">${escapeHtml(c.avatar || c.coach_name?.charAt(0) || '?')}</div>
                             <span>${safeName}</span>
                         </div>
                     </td>
@@ -4573,7 +4561,7 @@ return `
                     <td>
                         <div class="action-btns">
                             <button class="edit-btn" onclick="editCoach('${safeId}')">編輯</button>
-                            <button class="delete-btn" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>
+                            <button class="delete-btn" onclick="deleteCoach('${safeId}', '${escapeAttr(c.coach_name)}')">刪除</button>
                         </div>
                     </td>
                 </tr>
@@ -4588,13 +4576,13 @@ return `
                     const mainSpecialty = (c.specialties || [])[0] || 'pilates';
                     const avatarColor = specialtyColors[mainSpecialty] || '';
                     const specialtiesText = (c.specialties || []).map(s => `${specialtyIcons[s] || ''} ${courseTypeNames[s] || s}`).join(' • ') || '未設定';
-                    const safeName = escapeHtml(c.name || '-');
+                    const safeName = escapeHtml(c.coach_name || '-');
                     const safeId = escapeHtml(c.id);
                     
                     return `
                         <div class="data-card">
                             <div class="card-header">
-                                <div class="card-avatar ${avatarColor}">${escapeHtml(c.avatar || c.name?.charAt(0) || '?')}</div>
+                                <div class="card-avatar ${avatarColor}">${escapeHtml(c.avatar || c.coach_name?.charAt(0) || '?')}</div>
                                 <div class="card-info">
                                     <div class="card-name">
                                         ${safeName}
@@ -4606,8 +4594,8 @@ return `
                             ${c.phone ? `<div class="card-row"><span class="card-label">電話</span><span class="card-value">${escapeHtml(c.phone)}</span></div>` : ''}
                             <div class="card-actions">
                                 <button class="card-btn secondary" onclick="editCoach('${safeId}')">編輯</button>
-                                ${c.line_uid ? `<button class="card-btn warning" onclick="copyCoachLink('${escapeAttr(c.line_id)}', '${escapeAttr(c.name)}')">📋 複製連結</button>` : ''}
-                                <button class="card-btn danger" onclick="deleteCoach('${safeId}', '${escapeAttr(c.name)}')">刪除</button>
+                                ${c.line_id ? `<button class="card-btn warning" onclick="copyCoachLink('${escapeAttr(c.line_id)}', '${escapeAttr(c.coach_name)}')">📋 複製連結</button>` : ''}
+                                <button class="card-btn danger" onclick="deleteCoach('${safeId}', '${escapeAttr(c.coach_name)}')">刪除</button>
                             </div>
                         </div>
                     `;
@@ -4851,10 +4839,10 @@ return `
             document.getElementById('coachModalTitle').textContent = coach ? '編輯教練' : '新增教練';
             document.getElementById('coachId').value = coach?.id || '';
             document.getElementById('coachRealName').value = coach?.real_name || '';
-document.getElementById('coachName').value = coach?.name || '';
+document.getElementById('coachName').value = coach?.coach_name || '';
             document.getElementById('coachAvatar').value = coach?.avatar || '';
             document.getElementById('coachPhone').value = coach?.phone || '';
-            document.getElementById('coachLineUid').value = coach?.line_uid || '';
+            document.getElementById('coachLineUid').value = coach?.line_id || '';
             document.getElementById('coachLineGroupId').value = coach?.line_group_id || '';
             document.getElementById('coachActive').value = coach?.is_active !== false ? 'true' : 'false';
             
@@ -6279,7 +6267,7 @@ async function backupChatToSheet(requestId) {
                 const existingCoachIds = coachMembers.map(m => m.member_id);
                 document.getElementById('addCoachSelect').innerHTML = '<option value="">選擇教練...</option>' +
                     coaches.filter(c => c.is_active !== false && !existingCoachIds.includes(c.id))
-                        .map(c => `<option value="${c.id}" data-name="${escapeAttr(c.name)}">${escapeHtml(c.name)}</option>`).join('');
+                        .map(c => `<option value="${c.id}" data-name="${escapeAttr(c.coach_name)}">${escapeHtml(c.coach_name)}</option>`).join('');
                 
                 // 清空搜尋輸入
                 document.getElementById('searchStudentInput').value = '';
@@ -6336,43 +6324,34 @@ async function backupChatToSheet(requestId) {
             }
             
             memberStudentSearchTimeout = setTimeout(async () => {
-                try {
-                    const response = await fetch(`${SUPABASE_URL}/functions/v1/get-students`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                        },
-                        body: JSON.stringify({
-                            search: searchTerm,
-                            limit: 10,
-                            offset: 0
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success && result.data && result.data.length > 0) {
-                        resultsDiv.innerHTML = result.data.map(s => `
-                            <div onclick="selectStudentForMember('${escapeAttr(s.id)}', '${escapeAttr(s.member_no || '')}', '${escapeAttr(s.name || '')}', '${escapeAttr(s.nickname || '')}')" 
-                                 style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.2s;"
-                                 onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
-                                <div style="font-weight: 500;">${escapeHtml(s.name || '-')}</div>
-                                <div style="font-size: 12px; color: #666;">
-                                    編號: ${escapeHtml(s.member_no || '-')} | LINE: ${escapeHtml(s.nickname || '-')}
-                                </div>
-                            </div>
-                        `).join('');
-                        resultsDiv.style.display = 'block';
-                    } else {
-                        resultsDiv.innerHTML = '<div style="padding: 12px; color: #999; text-align: center;">找不到符合的學員</div>';
-                        resultsDiv.style.display = 'block';
-                    }
-                } catch (error) {
-                    console.error('Search student error:', error);
-                    resultsDiv.style.display = 'none';
-                }
-            }, 300);
+    try {
+        const { data, error } = await supabaseClient
+            .from('students_cache')
+            .select('id, member_no, name, nickname')
+            .or(`name.ilike.%${searchTerm}%,member_no.ilike.%${searchTerm}%,nickname.ilike.%${searchTerm}%`)
+            .limit(10);
+        
+        if (!error && data && data.length > 0) {
+            resultsDiv.innerHTML = data.map(s => `
+                <div onclick="selectStudentForMember('${escapeAttr(s.id)}', '${escapeAttr(s.member_no || '')}', '${escapeAttr(s.name || '')}', '${escapeAttr(s.nickname || '')}')" 
+                     style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.2s;"
+                     onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+                    <div style="font-weight: 500;">${escapeHtml(s.name || '-')}</div>
+                    <div style="font-size: 12px; color: #666;">
+                        編號: ${escapeHtml(s.member_no || '-')} | LINE: ${escapeHtml(s.nickname || '-')}
+                    </div>
+                </div>
+            `).join('');
+            resultsDiv.style.display = 'block';
+        } else {
+            resultsDiv.innerHTML = '<div style="padding: 12px; color: #999; text-align: center;">找不到符合的學員</div>';
+            resultsDiv.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Search student error:', error);
+        resultsDiv.style.display = 'none';
+    }
+}, 300);
         }
         
         // 選擇學員加入待加入列表
@@ -6414,7 +6393,7 @@ async function backupChatToSheet(requestId) {
             
             coachesList.innerHTML = pendingMemberCoaches.map((c, index) => `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: white; border-radius: 6px; margin-bottom: 4px;">
-                    <span>👨‍🏫 ${escapeHtml(c.name)}</span>
+                    <span>👨‍🏫 ${escapeHtml(c.coach_name)}</span>
                     <button onclick="removePendingMember('coach', ${index})" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 16px;">✕</button>
                 </div>
             `).join('');
@@ -6451,7 +6430,7 @@ async function backupChatToSheet(requestId) {
             let confirmMsg = '確定要加入以下成員嗎？\n\n';
             if (pendingMemberCoaches.length > 0) {
                 confirmMsg += '教練（將推播 LINE 訊息到群組）：\n';
-                confirmMsg += pendingMemberCoaches.map(c => `  • ${c.name}`).join('\n') + '\n\n';
+                confirmMsg += pendingMemberCoaches.map(c => `  • ${c.coach_name}`).join('\n') + '\n\n';
             }
             if (pendingMemberStudents.length > 0) {
                 confirmMsg += '學員（將透過官方 LINE 傳送連結）：\n';
