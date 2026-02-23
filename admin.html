@@ -4070,7 +4070,7 @@
                 const lineDisplayName = escapeHtml(s.nickname || '-');
                 return `
                 <tr>
-                    <td>${escapeHtml(s.member_no || '-')}</td>
+                    <td>${escapeHtml(s.id || '-')}</td>
                     <td>
                         <div class="avatar-cell">
                             <div class="avatar">${escapeHtml(s.name?.charAt(0) || '?')}</div>
@@ -4106,7 +4106,7 @@
                             <div class="card-avatar">${escapeHtml(s.name?.charAt(0) || '?')}</div>
                             <div class="card-info">
                                 <div class="card-name">${safeName}</div>
-                                <div class="card-meta">${escapeHtml(s.member_no || '無編號')} • ${escapeHtml(s.phone || '無電話')}</div>
+                                <div class="card-meta">${escapeHtml(s.id || '無編號')} • ${escapeHtml(s.phone || '無電話')}</div>
                             </div>
                         </div>
                         <div class="card-row">
