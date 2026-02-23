@@ -2798,12 +2798,17 @@
     // 檢查學員是否已加入聊天室
     const studentJoined = currentRequest.studentJoined || currentRequest.status === 'with-student';
     
-    if (!studentJoined) {
-        // 學員尚未加入
-        statusBar.classList.remove('online');
-        statusBar.classList.add('offline');
-        statusText.textContent = '⏳ 學員尚未加入聊天室';
-    } else if (onlineStudents.length > 0) {
+    if (onlineStudents.length > 0) {
+    // 學員在線（不管 studentJoined 狀態，Presence 偵測到就是在線）
+    statusBar.classList.remove('offline');
+    statusBar.classList.add('online');
+    statusText.textContent = onlineStudents.length === 1 
+        ? '🟢 學員在線' 
+        : `🟢 ${onlineStudents.length} 位學員在線（${onlineStudents.join('、')}）`;
+} else if (!studentJoined) {
+    statusBar.classList.remove('online');
+    statusBar.classList.add('offline');
+    statusText.textContent = '⏳ 學員尚未加入聊天室';
         // 學員在線
         statusBar.classList.remove('offline');
         statusBar.classList.add('online');
