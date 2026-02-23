@@ -3231,7 +3231,7 @@
                     .from('admins')
                     .select('*')
                     .eq('is_active', true)
-                    .order('created_at', { ascending: true });
+                    .order('synced_at', { ascending: false });
                 
                 if (adminsError) {
                     console.error('Load admins error:', adminsError);
