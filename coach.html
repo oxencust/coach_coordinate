@@ -2252,7 +2252,7 @@
                     const { data: newCoach, error: insertError } = await supabaseClient
                         .from('coaches_cache')
                         .insert({
-                            name: displayName,
+                            coach_name: displayName,
                             avatar: avatar,
                             line_id: lineUid,
                             status: 'pending',
@@ -2310,7 +2310,7 @@
         
         async function setupCoachUser(coach) {
             currentUser.id = coach.id;
-            currentUser.coach_name= coach.name;
+            currentUser.name = coach.coach_name;
             currentUser.avatar = coach.avatar;
             currentUser.lineUid = coach.line_id;
             currentUser.specialties = coach.specialties || [];
@@ -2329,7 +2329,7 @@
             
             subscribeToRequests();
             
-            showToast('歡迎，' + currentUser.coach_name+ ' ✓');
+            showToast('歡迎，' + currentUser.name + ' ✓');
         }
         
         function showApplySuccessScreen(displayName) {
@@ -2457,7 +2457,7 @@
                 .eq('is_active', true);
             
             if (error) throw error;
-            allCoaches = data;
+            allCoaches = (data || []).map(c => ({...c, name: c.coach_name}));
             console.log('Loaded coaches:', allCoaches);
         }
 
@@ -3556,7 +3556,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
                     },
                     body: JSON.stringify({
-                        id: memberNo,
+                        member_no: memberNo,
                         name: name
                     })
                 });
@@ -3631,7 +3631,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
         }
         
         async function showInviteModal() {
-            const studentName = currentRequest.student?.coach_name|| '學員';
+            const studentName = currentRequest.student?.name|| '學員';
             document.getElementById('inviteStudentName').textContent = studentName;
             
             const inviteLink = `https://liff.line.me/${STUDENT_LIFF_ID}?room=${currentRequest.id}`;
@@ -3789,7 +3789,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                 showToast('正在通知學員...');
                 
                 const response = await fetch(
-                    'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/notify-student',
+                    'https://iceybpkdddmolfyogmls.supabase.co/functions/v1/notify-student',
                     {
                         method: 'POST',
                         headers: {
@@ -3826,7 +3826,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
         async function sendLineInvite() {
             if (!currentRequest) return;
             
-            const studentName = currentRequest.student?.coach_name|| currentRequest.student_name || '學員';
+            const studentName = currentRequest.student?.name|| currentRequest.student_name || '學員';
             if (!confirm(`\n確定要邀請「${studentName}」加入討論嗎？\n`)) {
                 return;
             }
@@ -3835,7 +3835,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                 showToast('正在發送邀請...');
                 
                 const response = await fetch(
-                    'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/invite-student',
+                    'https://iceybpkdddmolfyogmls.supabase.co/functions/v1/invite-student',
                     {
                         method: 'POST',
                         headers: {
@@ -3856,7 +3856,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                     
                     document.getElementById('inviteLinkBox').textContent = data.invite_link;
                     
-                    const studentName = currentRequest.student?.coach_name|| currentRequest.student_name;
+                    const studentName = currentRequest.student?.name|| currentRequest.student_name;
                     if (data.line_sent) {
                         showToast('✅ 已發送 LINE 邀請給 ' + studentName);
                     } else {
