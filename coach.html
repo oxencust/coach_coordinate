@@ -2231,7 +2231,7 @@
                 const { data: coach, error: queryError } = await supabaseClient
                     .from('coaches_cache')
                     .select('*')
-                    .eq('line_uid', lineUid)
+                    .eq('line_id', lineUid)
                     .single();
                 
                 console.log('Query result:', coach, 'Error:', queryError);
@@ -2254,7 +2254,7 @@
                         .insert({
                             name: displayName,
                             avatar: avatar,
-                            line_uid: lineUid,
+                            line_id: lineUid,
                             status: 'pending',
                             is_active: true,
                             specialties: []
@@ -2312,7 +2312,7 @@
             currentUser.id = coach.id;
             currentUser.name = coach.name;
             currentUser.avatar = coach.avatar;
-            currentUser.lineUid = coach.line_uid;
+            currentUser.lineUid = coach.line_id;
             currentUser.specialties = coach.specialties || [];
             
             document.getElementById('userAvatarSmall').textContent = currentUser.avatar;
@@ -2465,7 +2465,7 @@
             try {
                 const { data, error } = await supabaseClient
                     .from('students')
-                    .select('id, name, phone, member_no, line_uid, line_display_name, fitness_goal')
+                    .select('id, name, phone, member_no, line_id, line_display_name, fitness_goal')
                     .order('name', { ascending: true });
                 
                 if (error) {
@@ -2480,7 +2480,7 @@
                     code: s.member_no || '',
                     phone: s.phone || '',
                     avatar: s.name?.charAt(0) || '?',
-                    line_uid: s.line_uid,
+                    line_id: s.line_id,
                     line_display_name: s.line_display_name || '',
                     notes: s.fitness_goal || ''
                 }));
@@ -3640,7 +3640,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
             const studentId = currentRequest.student?.id || currentRequest.student_id;
             
             const student = allStudents.find(s => s.id === studentId);
-            const hasLineUid = student && student.line_uid && student.line_uid.trim() !== '';
+            const hasLineUid = student && student.line_id && student.line_id.trim() !== '';
             
             const hintEl = document.getElementById('inviteHint');
             const lineBtnEl = document.getElementById('lineInviteBtn');
