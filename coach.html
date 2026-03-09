@@ -2164,7 +2164,6 @@
         // ============ Supabase Config ============
         const SUPABASE_URL = 'https://mnjilhpztnowaplggvkk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uamlsaHB6dG5vd2FwbGdndmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDA0ODYsImV4cCI6MjA4MTI3NjQ4Nn0.X3e9DF3iT2KUR9ma3_Ins01vG607R155v0xia8hO_Qg';
-const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/etg0al1y92kr2pvc7nxgj7l7p1maslli';
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -2229,43 +2228,41 @@ const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/etg0al1y92kr2pvc7nxgj7l7p1ma
                 showToast('載入中...');
                 
                 console.log('Step 4: Query coach with LINE UID:', lineUid);
-               // 改用 Make.com webhook 從 MySQL 驗證教練
-let coach = null;
+               let coach = null;
 let queryError = null;
 try {
-    const verifyResponse = await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getCoachByLineId', lineId: lineUid })
-    });
-    const verifyResult = await verifyResponse.json();
-    if (verifyResult.success && verifyResult.coach) {
+    const { data, error } = await supabaseClient
+        .from('coaches')
+        .select('*')
+        .eq('line_uid', lineUid)
+        .single();
+    
+    if (!error && data) {
         coach = {
-            ...verifyResult.coach,
-            id: String(verifyResult.coach.id),
-            coach_name: verifyResult.coach.name || verifyResult.coach.coach_name,
-            is_active: true,
-            status: 'approved',
+            ...data,
+            coach_name: data.name || '',
+            line_id: data.line_uid || '',
+            is_active: data.is_active === true,
+            status: data.status || 'approved',
             specialties: (() => {
-    const raw = verifyResult.coach.specialties;
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw === 'string') {
-        if (raw.startsWith('[')) {
-            try { return JSON.parse(raw); } catch(e) { return []; }
-        }
-        return [raw]; // 純字串如 "pilates" → ["pilates"]
-    }
-    return [];
-})()
+                const raw = data.specialties;
+                if (!raw) return [];
+                if (Array.isArray(raw)) return raw;
+                if (typeof raw === 'string') {
+                    if (raw.startsWith('[')) {
+                        try { return JSON.parse(raw); } catch(e) { return []; }
+                    }
+                    return [raw];
+                }
+                return [];
+            })()
         };
     }
+    queryError = error;
 } catch (e) {
     queryError = e;
     console.error('Coach verify error:', e);
 }
-                
-                console.log('Query result:', coach, 'Error:', queryError);
                 
                 if (coach) {
                     console.log('Coach found, status:', coach.status, 'is_active:', coach.is_active);
@@ -2283,9 +2280,9 @@ try {
                     const { data: newCoach, error: insertError } = await supabaseClient
                         .from('coaches')
                         .insert({
-                            coach_name: displayName,
+                            name: displayName,
                             avatar: avatar,
-                            line_id: lineUid,
+                            line_uid: lineUid,
                             status: 'pending',
                             is_active: true,
                             specialties: []
@@ -2481,32 +2478,31 @@ await loadStudents();
         // ============ Load Data from Supabase ============
         async function loadCoaches() {
     try {
-        const response = await fetch(MAKE_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'getCoachesList' })
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error(result.error || '載入失敗');
+        const { data, error } = await supabaseClient
+            .from('coaches')
+            .select('*')
+            .order('name');
         
-        allCoaches = (result.coaches || []).map(c => ({
+        if (error) throw error;
+        
+        allCoaches = (data || []).map(c => ({
             ...c,
-            id: String(c.id),
-            name: c.name || c.coach_name,
-            coach_name: c.name || c.coach_name,
-            is_active: c.is_active == 1 || c.is_active === true,
+            name: c.name || '',
+            coach_name: c.name || '',
+            line_id: c.line_uid || '',
+            is_active: c.is_active === true,
             specialties: (() => {
-    const raw = c.specialties;
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw === 'string') {
-        if (raw.startsWith('[')) {
-            try { return JSON.parse(raw); } catch(e) { return []; }
-        }
-        return [raw];
-    }
-    return [];
-})()
+                const raw = c.specialties;
+                if (!raw) return [];
+                if (Array.isArray(raw)) return raw;
+                if (typeof raw === 'string') {
+                    if (raw.startsWith('[')) {
+                        try { return JSON.parse(raw); } catch(e) { return []; }
+                    }
+                    return [raw];
+                }
+                return [];
+            })()
         }));
         console.log('Loaded coaches:', allCoaches);
     } catch (error) {
@@ -2517,28 +2513,22 @@ await loadStudents();
 
         async function loadStudents() {
     try {
-        const response = await fetch(MAKE_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'getStudentsPaged',
-                page: 1,
-                pageSize: 999,
-                search: ''
-            })
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error(result.error || '載入失敗');
+        const { data, error } = await supabaseClient
+            .from('students')
+            .select('*')
+            .order('name');
         
-        allStudents = (result.students || []).map(s => ({
+        if (error) throw error;
+        
+        allStudents = (data || []).map(s => ({
             id: s.id,
-            name: s.name,
+            name: s.name || '',
             code: s.id || '',
             phone: s.phone || '',
             avatar: s.name?.charAt(0) || '?',
-            line_id: s.line_id || '',
-            nickname: s.nickname || '',
-            notes: s.goals || ''
+            line_id: s.line_uid || '',
+            nickname: s.line_display_name || '',
+            notes: s.fitness_goal || ''
         }));
         console.log('Loaded students:', allStudents.length, 'records');
     } catch (error) {
@@ -3610,19 +3600,14 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
             addHint.style.display = 'none';
             
             try {
-                const response = await fetch(MAKE_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        action: 'searchStudent',
-        studentId: memberNo,
-        studentName: name
-    })
-});
+               const { data: studentData, error: searchError } = await supabaseClient
+    .from('students')
+    .select('*')
+    .eq('id', memberNo)
+    .eq('name', name)
+    .single();
 
-const result = await response.json();
-
-if (!result.success || !result.student) {
+if (searchError || !studentData) {
                     resultsContainer.innerHTML = `
                         <div style="text-align: center; padding: 30px; color: var(--text-muted);">
                             <div style="font-size: 32px; margin-bottom: 8px;">😕</div>
@@ -3633,7 +3618,11 @@ if (!result.success || !result.student) {
                     return;
                 }
                 
-                const s = result.data;
+                const s = {
+                    ...studentData,
+                    code: studentData.id,
+                    nickname: studentData.line_display_name || ''
+                };
                 addHint.style.display = 'none';
                 resultsContainer.innerHTML = `
                     <div class="search-result-item" onclick="selectStudentForInvite('${s.id}')">
