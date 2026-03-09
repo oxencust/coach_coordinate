@@ -1019,7 +1019,6 @@
         // ============ Supabase Config ============
         const SUPABASE_URL = 'https://mnjilhpztnowaplggvkk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uamlsaHB6dG5vd2FwbGdndmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDA0ODYsImV4cCI6MjA4MTI3NjQ4Nn0.X3e9DF3iT2KUR9ma3_Ins01vG607R155v0xia8hO_Qg';
-const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/etg0al1y92kr2pvc7nxgj7l7p1maslli';
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
@@ -1149,20 +1148,23 @@ let cooldownTimer = null;
                 currentRequest = request;
                 
                 // 取得這個代課請求的學員資料
-               // 改用 Make.com 從 MySQL 取得學員資料
+              // 從 Supabase 取得學員資料
 let student = null;
 try {
-    const studentResponse = await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: 'getStudentById',
-            studentId: request.student_id
-        })
-    });
-    const studentResult = await studentResponse.json();
-    if (studentResult.success && studentResult.student) {
-        student = studentResult.student;
+    const { data, error } = await supabaseClient
+        .from('students')
+        .select('*')
+        .eq('id', request.student_id)
+        .single();
+    
+    if (!error && data) {
+        student = {
+            id: data.id,
+            name: data.name || '',
+            line_id: data.line_uid || '',
+            nickname: data.line_display_name || '',
+            phone: data.phone || ''
+        };
     }
 } catch (e) {
     console.error('Get student error:', e);
@@ -1174,25 +1176,35 @@ if (!student) {
     return;
 }
 
-// 如果學員沒有 LINE UID，透過 Make.com 綁定（MySQL WHERE 保護）
+// 如果學員沒有 LINE UID，寫入 Supabase + 呼叫 GAS 回寫 Google Sheet
 if (!student.line_id) {
     console.log('自動綁定學員 LINE UID');
     try {
-        const bindResponse = await fetch(MAKE_WEBHOOK_URL, {
+        // 1. 先寫 Supabase（即時生效）
+        await supabaseClient
+            .from('students')
+            .update({ 
+                line_uid: profile.userId,
+                line_display_name: profile.displayName,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', student.id);
+        
+        // 2. 回寫 Google Sheet 總表（GAS Web App，非阻塞）
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbw57MpW9wbIZEl3kG7WbQjmkdTC_uTeW-s03yN1bvL_AMVMVwzPAR2Q__AZ3Zi4JsPlWg/exec';
+        fetch(GAS_URL, {
             method: 'POST',
+            mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 action: 'bindStudentLine',
                 studentId: student.id,
-                lineId: profile.userId
+                lineId: profile.userId,
+                lineDisplayName: profile.displayName
             })
-        });
-        const bindResult = await bindResponse.json();
-        if (bindResult.success) {
-            showToast('已綁定您的 LINE 帳號 ✓');
-        } else {
-            console.warn('綁定失敗:', bindResult.error);
-        }
+        }).catch(e => console.log('Sheet 回寫 (non-blocking):', e));
+        
+        showToast('已綁定您的 LINE 帳號 ✓');
     } catch (e) {
         console.error('Bind LINE error:', e);
     }
