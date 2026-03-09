@@ -2162,8 +2162,9 @@
     <div class="toast" id="toast"></div>
 <script>
         // ============ Supabase Config ============
-        const SUPABASE_URL = 'https://iceybpkdddmolfyogmls.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImljZXlicGtkZGRtb2xmeW9nbWxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4MTg3OTUsImV4cCI6MjA4NzM5NDc5NX0.cWHoAoUkpp_8mqvywvxIoowNMfajE5reogXVp0W5c8Q';
+        const SUPABASE_URL = 'https://mnjilhpztnowaplggvkk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uamlsaHB6dG5vd2FwbGdndmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDA0ODYsImV4cCI6MjA4MTI3NjQ4Nn0.X3e9DF3iT2KUR9ma3_Ins01vG607R155v0xia8hO_Qg';
+const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/etg0al1y92kr2pvc7nxgj7l7p1maslli';
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -2228,11 +2229,32 @@
                 showToast('載入中...');
                 
                 console.log('Step 4: Query coach with LINE UID:', lineUid);
-                const { data: coach, error: queryError } = await supabaseClient
-                    .from('coaches_cache')
-                    .select('*')
-                    .eq('line_id', lineUid)
-                    .single();
+               // 改用 Make.com webhook 從 MySQL 驗證教練
+let coach = null;
+let queryError = null;
+try {
+    const verifyResponse = await fetch(MAKE_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getCoachByLineId', lineId: lineUid })
+    });
+    const verifyResult = await verifyResponse.json();
+    if (verifyResult.success && verifyResult.coach) {
+        coach = {
+            ...verifyResult.coach,
+            id: String(verifyResult.coach.id),
+            coach_name: verifyResult.coach.name || verifyResult.coach.coach_name,
+            is_active: true,
+            status: 'approved',
+            specialties: typeof verifyResult.coach.specialties === 'string' 
+                ? JSON.parse(verifyResult.coach.specialties || '[]') 
+                : (verifyResult.coach.specialties || [])
+        };
+    }
+} catch (e) {
+    queryError = e;
+    console.error('Coach verify error:', e);
+}
                 
                 console.log('Query result:', coach, 'Error:', queryError);
                 
@@ -2451,45 +2473,61 @@
 
         // ============ Load Data from Supabase ============
         async function loadCoaches() {
-            const { data, error } = await supabaseClient
-                .from('coaches_cache')
-                .select('*')
-                .eq('is_active', true);
-            
-            if (error) throw error;
-            allCoaches = (data || []).map(c => ({...c, name: c.coach_name}));
-            console.log('Loaded coaches:', allCoaches);
-        }
+    try {
+        const response = await fetch(MAKE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'getCoachesList' })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || '載入失敗');
+        
+        allCoaches = (result.coaches || []).map(c => ({
+            ...c,
+            id: String(c.id),
+            name: c.name || c.coach_name,
+            coach_name: c.name || c.coach_name,
+            is_active: c.is_active == 1 || c.is_active === true,
+            specialties: typeof c.specialties === 'string' ? JSON.parse(c.specialties || '[]') : (c.specialties || [])
+        }));
+        console.log('Loaded coaches:', allCoaches);
+    } catch (error) {
+        console.error('Load coaches error:', error);
+        allCoaches = [];
+    }
+}
 
         async function loadStudents() {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('students_cache')
-                    .select('id, name, phone, id, line_id, nickname, goals')
-                    .order('name', { ascending: true });
-                
-                if (error) {
-                    console.error('Load students error:', error);
-                    allStudents = [];
-                    return;
-                }
-                
-                allStudents = (data || []).map(s => ({
-                    id: s.id,
-                    name: s.name,
-                    code: s.id || '',
-                    phone: s.phone || '',
-                    avatar: s.name?.charAt(0) || '?',
-                    line_id: s.line_id,
-                    nickname: s.nickname || '',
-                    notes: s.goals || ''
-                }));
-                console.log('Loaded students:', allStudents.length, 'records');
-            } catch (error) {
-                console.error('Load students error:', error);
-                allStudents = [];
-            }
-        }
+    try {
+        const response = await fetch(MAKE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'getStudentsPaged',
+                page: 1,
+                pageSize: 999,
+                search: ''
+            })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || '載入失敗');
+        
+        allStudents = (result.students || []).map(s => ({
+            id: s.id,
+            name: s.name,
+            code: s.id || '',
+            phone: s.phone || '',
+            avatar: s.name?.charAt(0) || '?',
+            line_id: s.line_id || '',
+            nickname: s.nickname || '',
+            notes: s.goals || ''
+        }));
+        console.log('Loaded students:', allStudents.length, 'records');
+    } catch (error) {
+        console.error('Load students error:', error);
+        allStudents = [];
+    }
+}
 
         async function loadRequests() {
             const { data, error } = await supabaseClient
@@ -3554,21 +3592,19 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
             addHint.style.display = 'none';
             
             try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/search-student`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        member_no: memberNo,
-                        name: name
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (!result.success || !result.data) {
+                const response = await fetch(MAKE_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        action: 'searchStudent',
+        studentId: memberNo,
+        studentName: name
+    })
+});
+
+const result = await response.json();
+
+if (!result.success || !result.student) {
                     resultsContainer.innerHTML = `
                         <div style="text-align: center; padding: 30px; color: var(--text-muted);">
                             <div style="font-size: 32px; margin-bottom: 8px;">😕</div>
@@ -3794,7 +3830,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                 showToast('正在通知學員...');
                 
                 const response = await fetch(
-                    'https://iceybpkdddmolfyogmls.supabase.co/functions/v1/notify-student',
+                    `${SUPABASE_URL}/functions/v1/notify-student`,
                     {
                         method: 'POST',
                         headers: {
@@ -3840,7 +3876,7 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                 showToast('正在發送邀請...');
                 
                 const response = await fetch(
-                    'https://iceybpkdddmolfyogmls.supabase.co/functions/v1/invite-student',
+                    `${SUPABASE_URL}/functions/v1/invite-student`,
                     {
                         method: 'POST',
                         headers: {
