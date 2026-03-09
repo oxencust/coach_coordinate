@@ -2351,10 +2351,8 @@ try {
             
             displaySpecialties(currentUser.specialties);
             
-            await Promise.all([
-                loadCoaches(),
-                loadStudents()
-            ]);
+            await loadCoaches();
+await loadStudents();
             
             await loadRequests();
             
