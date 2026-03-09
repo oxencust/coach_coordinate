@@ -2281,7 +2281,7 @@ try {
                     const avatar = displayName ? displayName.charAt(0) : '👤';
                     
                     const { data: newCoach, error: insertError } = await supabaseClient
-                        .from('coaches_cache')
+                        .from('coaches')
                         .insert({
                             coach_name: displayName,
                             avatar: avatar,
