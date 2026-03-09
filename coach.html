@@ -2246,9 +2246,18 @@ try {
             coach_name: verifyResult.coach.name || verifyResult.coach.coach_name,
             is_active: true,
             status: 'approved',
-            specialties: typeof verifyResult.coach.specialties === 'string' 
-                ? JSON.parse(verifyResult.coach.specialties || '[]') 
-                : (verifyResult.coach.specialties || [])
+            specialties: (() => {
+    const raw = verifyResult.coach.specialties;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+        if (raw.startsWith('[')) {
+            try { return JSON.parse(raw); } catch(e) { return []; }
+        }
+        return [raw]; // 純字串如 "pilates" → ["pilates"]
+    }
+    return [];
+})()
         };
     }
 } catch (e) {
@@ -2488,7 +2497,18 @@ try {
             name: c.name || c.coach_name,
             coach_name: c.name || c.coach_name,
             is_active: c.is_active == 1 || c.is_active === true,
-            specialties: typeof c.specialties === 'string' ? JSON.parse(c.specialties || '[]') : (c.specialties || [])
+            specialties: (() => {
+    const raw = c.specialties;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+        if (raw.startsWith('[')) {
+            try { return JSON.parse(raw); } catch(e) { return []; }
+        }
+        return [raw];
+    }
+    return [];
+})()
         }));
         console.log('Loaded coaches:', allCoaches);
     } catch (error) {
