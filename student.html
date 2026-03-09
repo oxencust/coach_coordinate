@@ -1017,8 +1017,9 @@
 
     <script>
         // ============ Supabase Config ============
-        const SUPABASE_URL = 'https://iceybpkdddmolfyogmls.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImljZXlicGtkZGRtb2xmeW9nbWxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4MTg3OTUsImV4cCI6MjA4NzM5NDc5NX0.cWHoAoUkpp_8mqvywvxIoowNMfajE5reogXVp0W5c8Q';
+        const SUPABASE_URL = 'https://mnjilhpztnowaplggvkk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uamlsaHB6dG5vd2FwbGdndmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDA0ODYsImV4cCI6MjA4MTI3NjQ4Nn0.X3e9DF3iT2KUR9ma3_Ins01vG607R155v0xia8hO_Qg';
+const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/etg0al1y92kr2pvc7nxgj7l7p1maslli';
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
@@ -1148,45 +1149,65 @@ let cooldownTimer = null;
                 currentRequest = request;
                 
                 // 取得這個代課請求的學員資料
-                const { data: student, error: studentError } = await supabaseClient
-                    .from('students_cache')
-                    .select('*')
-                    .eq('id', request.student_id)
-                    .single();
-                
-                if (studentError || !student) {
-                    // 找不到學員，顯示錯誤
-                    console.error('找不到學員資料');
-                    alert('無法存取：找不到學員資料，請聯繫行政人員');
-                    return;
-                } else {
-                    // 找到學員
-                    // 如果學員沒有 LINE UID，自動綁定
-                    if (!student.line_id) {
-                        console.log('自動綁定學員 LINE UID');
-                        await supabaseClient
-                            .from('students_cache')
-                            .update({ 
-                                line_id: profile.userId,
-                                nickname: profile.displayName
-                            })
-                            .eq('id', student.id);
-                        
-                        showToast('已綁定您的 LINE 帳號 ✓');
-                    } else if (student.line_id !== profile.userId) {
-                        // LINE UID 不符，可能是別人點了連結
-                        console.error('LINE UID 不符');
-                        alert('此連結已綁定其他帳號，請聯繫教練或行政人員');
-                        return;
-                    }
-                    
-                    currentStudent = {
-                        id: student.id,
-                        name: student.name,
-                        avatar: student.avatar || student.name?.charAt(0) || '?',
-                        lineUid: profile.userId
-                    };
-                }
+               // 改用 Make.com 從 MySQL 取得學員資料
+let student = null;
+try {
+    const studentResponse = await fetch(MAKE_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'getStudentById',
+            studentId: request.student_id
+        })
+    });
+    const studentResult = await studentResponse.json();
+    if (studentResult.success && studentResult.student) {
+        student = studentResult.student;
+    }
+} catch (e) {
+    console.error('Get student error:', e);
+}
+
+if (!student) {
+    console.error('找不到學員資料');
+    alert('無法存取：找不到學員資料，請聯繫行政人員');
+    return;
+}
+
+// 如果學員沒有 LINE UID，透過 Make.com 綁定（MySQL WHERE 保護）
+if (!student.line_id) {
+    console.log('自動綁定學員 LINE UID');
+    try {
+        const bindResponse = await fetch(MAKE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'bindStudentLine',
+                studentId: student.id,
+                lineId: profile.userId
+            })
+        });
+        const bindResult = await bindResponse.json();
+        if (bindResult.success) {
+            showToast('已綁定您的 LINE 帳號 ✓');
+        } else {
+            console.warn('綁定失敗:', bindResult.error);
+        }
+    } catch (e) {
+        console.error('Bind LINE error:', e);
+    }
+} else if (student.line_id !== profile.userId) {
+    console.error('LINE UID 不符');
+    alert('此連結已綁定其他帳號，請聯繫教練或行政人員');
+    return;
+}
+
+currentStudent = {
+    id: student.id,
+    name: student.name,
+    avatar: student.name?.charAt(0) || '?',
+    lineUid: profile.userId
+};
                 
                 // 如果聊天室已結束或取消，顯示提示並跳出
 if (currentRequest.status === 'resolved' || currentRequest.status === 'cancelled') {
