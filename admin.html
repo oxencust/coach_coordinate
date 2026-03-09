@@ -3689,29 +3689,29 @@
     try {
         studentsCurrentPage = page;
         
-        const response = await fetch(MAKE_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'getStudentsPaged',
-                page: page,
-                pageSize: studentsLimit,
-                search: studentsSearchTerm || ''
-            })
-        });
+        let query = supabaseClient
+            .from('students')
+            .select('*', { count: 'exact' });
         
-        const result = await response.json();
+        if (studentsSearchTerm) {
+            query = query.or(`name.ilike.%${studentsSearchTerm}%,id.ilike.%${studentsSearchTerm}%,phone.ilike.%${studentsSearchTerm}%`);
+        }
         
-        if (!result.success) throw new Error(result.error || '載入失敗');
+        const from = (page - 1) * studentsLimit;
+        const { data, error, count } = await query
+            .order('created_at', { ascending: false })
+            .range(from, from + studentsLimit - 1);
         
-        // MySQL 回傳的資料，gender 是中文（男/女/其他）
-        students = (result.students || []).map(s => ({
+        if (error) throw error;
+        
+        // Supabase 欄位對照：line_display_name→nickname, fitness_goal→goals
+        students = (data || []).map(s => ({
             ...s,
-            // gender 保持 MySQL 原始中文值，但加上英文對照供 Supabase VIEW 使用
-            gender_display: s.gender, // 中文：男/女/其他
-            gender: genderMySQLToDisplay(s.gender) // 轉成 male/female/other 給既有 render 用
+            nickname: s.line_display_name || '',
+            goals: s.fitness_goal || '',
+            gender: genderMySQLToDisplay(s.gender)
         }));
-        studentsTotal = parseInt(result.total) || 0;
+        studentsTotal = count || 0;
         studentsTotalPages = Math.ceil(studentsTotal / studentsLimit) || 1;
         
         renderStudents();
@@ -3731,7 +3731,7 @@
     }
 }
 
-// MySQL gender 中文轉英文（給 render 用）
+// gender 中英文轉換（給 render 用）
 function genderMySQLToDisplay(mysqlGender) {
     const map = { '男': 'male', '女': 'female', '其他': 'other' };
     return map[mysqlGender] || mysqlGender || '';
@@ -3801,23 +3801,31 @@ function genderMySQLToDisplay(mysqlGender) {
 
         async function loadCoaches() {
     try {
-        const response = await fetch(MAKE_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'getCoachesList' })
-        });
+        const { data, error } = await supabaseClient
+            .from('coaches')
+            .select('*')
+            .order('name');
         
-        const result = await response.json();
+        if (error) throw error;
         
-        if (!result.success) throw new Error(result.error || '載入失敗');
-        
-        // MySQL 回傳的資料需要轉換格式
-        coaches = (result.coaches || []).map(c => ({
+        // Supabase 欄位對照：name→coach_name, line_uid→line_id
+        coaches = (data || []).map(c => ({
             ...c,
-            id: String(c.id), // MySQL INT → string
-            coach_name: c.name || c.coach_name,
-            is_active: c.is_active == 1 || c.is_active === true,
-            specialties: typeof c.specialties === 'string' ? JSON.parse(c.specialties || '[]') : (c.specialties || [])
+            coach_name: c.name || '',
+            line_id: c.line_uid || '',
+            is_active: c.is_active === true,
+            specialties: (() => {
+                const raw = c.specialties;
+                if (!raw) return [];
+                if (Array.isArray(raw)) return raw;
+                if (typeof raw === 'string') {
+                    if (raw.startsWith('[')) {
+                        try { return JSON.parse(raw); } catch(e) { return []; }
+                    }
+                    return [raw];
+                }
+                return [];
+            })()
         }));
         
         renderCoaches();
@@ -6140,24 +6148,17 @@ async function backupChatToSheet(requestId) {
     }
     
     try {
-        const response = await fetch(MAKE_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'searchStudent',
-                studentId: memberNo,
-                studentName: name
-            })
-        });
+        const { data: student, error } = await supabaseClient
+            .from('students')
+            .select('*')
+            .eq('id', memberNo)
+            .eq('name', name)
+            .single();
         
-        const result = await response.json();
-        
-        if (!result.success || !result.student) {
+        if (error || !student) {
             showToast('找不到此學員');
             return;
         }
-        
-        const student = result.student;
         
         if (selectedChatRoomStudents.find(s => s.id === student.id)) {
             showToast('此學員已加入');
@@ -6172,7 +6173,7 @@ async function backupChatToSheet(requestId) {
         selectedChatRoomStudents.push({
             id: student.id,
             name: student.name,
-            member_no: student.id // MySQL 的 id 就是編號
+            member_no: student.id
         });
         renderChatRoomStudents();
         
@@ -6358,20 +6359,17 @@ async function searchStudentForMember() {
     
     memberStudentSearchTimeout = setTimeout(async () => {
         try {
-            const response = await fetch(MAKE_WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'searchStudentByName',
-                    query: searchTerm
-                })
-            });
+            const { data, error } = await supabaseClient
+                .from('students')
+                .select('*')
+                .or(`name.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%`)
+                .limit(20);
             
-            const result = await response.json();
+            if (error) throw error;
             
-            if (result.success && result.students && result.students.length > 0) {
-                resultsDiv.innerHTML = result.students.map(s => `
-                    <div onclick="selectStudentForMember('${escapeAttr(s.id)}', '${escapeAttr(s.id)}', '${escapeAttr(s.name || '')}', '${escapeAttr(s.nickname || '')}')" 
+            if (data && data.length > 0) {
+                resultsDiv.innerHTML = data.map(s => `
+                    <div onclick="selectStudentForMember('${escapeAttr(s.id)}', '${escapeAttr(s.id)}', '${escapeAttr(s.name || '')}', '${escapeAttr(s.line_display_name || '')}')" 
                          style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.2s;"
                          onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
                         <div style="font-weight: 500;">${escapeHtml(s.name || '-')}</div>
