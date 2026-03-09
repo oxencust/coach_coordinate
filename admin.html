@@ -2606,7 +2606,6 @@
         
         const SUPABASE_URL = 'https://mnjilhpztnowaplggvkk.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uamlsaHB6dG5vd2FwbGdndmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDA0ODYsImV4cCI6MjA4MTI3NjQ4Nn0.X3e9DF3iT2KUR9ma3_Ins01vG607R155v0xia8hO_Qg';
-        const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/etg0al1y92kr2pvc7nxgj7l7p1maslli'; // ← 填入你的 Make.com webhook URL
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -3672,7 +3671,7 @@
 
         async function loadPendingCoaches() {
     const { data, error } = await supabaseClient
-        .from('coaches_cache')
+        .from('coaches')
         .select('*')
         .eq('status', 'pending')
         .order('synced_at', { ascending: false });
@@ -3987,7 +3986,7 @@ function genderMySQLToDisplay(mysqlGender) {
             
             try {
                 const { error } = await supabaseClient
-                    .from('coaches_cache')
+                    .from('coaches')
                     .update({
                         status: 'approved',
                         is_active: true,
@@ -4012,7 +4011,7 @@ function genderMySQLToDisplay(mysqlGender) {
             
             try {
                 const { error } = await supabaseClient
-                    .from('coaches_cache')
+                    .from('coaches')
                     .update({ status: 'rejected' })
                     .eq('id', id);
                 
@@ -4916,16 +4915,16 @@ if (!name) {
             try {
                 if (id) {
                     const { error } = await supabaseClient
-                        .from('coaches_cache')
-                        .update({ real_name, coach_name: name, avatar, phone, line_id: line_uid, line_group_id, specialties, is_active })
+                        .from('coaches')
+                        .update({ real_name, name: name, avatar, phone, line_uid: line_uid, line_group_id, specialties, is_active })
                         .eq('id', id);
                     if (error) throw error;
                     await logAction('編輯教練', '教練', id, name, `課程類型: ${specialties.join(', ')}`);
                     showToast('教練已更新 ✓');
                 } else {
                     const { data, error } = await supabaseClient
-                        .from('coaches_cache')
-                        .insert({ real_name, coach_name: name, avatar, phone, line_id: line_uid, line_group_id, specialties, is_active })
+                        .from('coaches')
+                        .insert({ real_name, name: name, avatar, phone, line_uid: line_uid, line_group_id, specialties, is_active })
                         .select()
                         .single();
                     if (error) throw error;
@@ -4981,7 +4980,7 @@ if (!name) {
                     targetTypeText = '教練';
                     
                     const { error } = await supabaseClient
-                        .from('coaches_cache')
+                        .from('coaches')
                         .update({ is_active: false })
                         .eq('id', deleteTarget.id);
                     
