@@ -2606,6 +2606,7 @@
         
         const SUPABASE_URL = 'https://mnjilhpztnowaplggvkk.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uamlsaHB6dG5vd2FwbGdndmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDA0ODYsImV4cCI6MjA4MTI3NjQ4Nn0.X3e9DF3iT2KUR9ma3_Ins01vG607R155v0xia8hO_Qg';
+        const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/etg0al1y92kr2pvc7nxgj7l7p1maslli'; // ← 填入你的 Make.com webhook URL
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -3688,25 +3689,30 @@
     
     try {
         studentsCurrentPage = page;
-        const offset = (page - 1) * studentsLimit;
         
-        let query = supabaseClient
-            .from('students_cache')
-            .select('*', { count: 'exact' });
+        const response = await fetch(MAKE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'getStudentsPaged',
+                page: page,
+                pageSize: studentsLimit,
+                search: studentsSearchTerm || ''
+            })
+        });
         
-        if (studentsSearchTerm) {
-            query = query.or(`name.ilike.%${studentsSearchTerm}%,phone.ilike.%${studentsSearchTerm}%,nickname.ilike.%${studentsSearchTerm}%`);
-        }
+        const result = await response.json();
         
-        query = query.range(offset, offset + studentsLimit - 1)
-                     .order('synced_at', { ascending: false })
+        if (!result.success) throw new Error(result.error || '載入失敗');
         
-        const { data, count, error } = await query;
-        
-        if (error) throw error;
-        
-        students = data || [];
-        studentsTotal = count || 0;
+        // MySQL 回傳的資料，gender 是中文（男/女/其他）
+        students = (result.students || []).map(s => ({
+            ...s,
+            // gender 保持 MySQL 原始中文值，但加上英文對照供 Supabase VIEW 使用
+            gender_display: s.gender, // 中文：男/女/其他
+            gender: genderMySQLToDisplay(s.gender) // 轉成 male/female/other 給既有 render 用
+        }));
+        studentsTotal = parseInt(result.total) || 0;
         studentsTotalPages = Math.ceil(studentsTotal / studentsLimit) || 1;
         
         renderStudents();
@@ -3724,6 +3730,12 @@
     } finally {
         studentsLoading = false;
     }
+}
+
+// MySQL gender 中文轉英文（給 render 用）
+function genderMySQLToDisplay(mysqlGender) {
+    const map = { '男': 'male', '女': 'female', '其他': 'other' };
+    return map[mysqlGender] || mysqlGender || '';
 }
         
         // 上一頁
@@ -3789,16 +3801,33 @@
         }
 
         async function loadCoaches() {
-            const { data, error } = await supabaseClient
-                .from('coaches_cache')
-                .select('*')
-                .eq('is_active', true)
-                .order('id', { ascending: false });
-            
-            if (error) throw error;
-            coaches = data || [];
-            renderCoaches();
-        }
+    try {
+        const response = await fetch(MAKE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'getCoachesList' })
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) throw new Error(result.error || '載入失敗');
+        
+        // MySQL 回傳的資料需要轉換格式
+        coaches = (result.coaches || []).map(c => ({
+            ...c,
+            id: String(c.id), // MySQL INT → string
+            coach_name: c.name || c.coach_name,
+            is_active: c.is_active == 1 || c.is_active === true,
+            specialties: typeof c.specialties === 'string' ? JSON.parse(c.specialties || '[]') : (c.specialties || [])
+        }));
+        
+        renderCoaches();
+    } catch (error) {
+        console.error('Load coaches error:', error);
+        coaches = [];
+        renderCoaches();
+    }
+}
 
         async function loadRequests() {
             const { data, error } = await supabaseClient
@@ -6103,54 +6132,59 @@ async function backupChatToSheet(requestId) {
         }
         
         async function searchStudentForChatRoom() {
-            const memberNo = document.getElementById('chatRoomStudentNo').value.trim();
-            const name = document.getElementById('chatRoomStudentName').value.trim();
-            
-            if (!memberNo || !name) {
-                showToast('請輸入編號和姓名');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/search-student`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({ member_no: memberNo, name: name })
-                });
-                
-                const result = await response.json();
-                
-                if (!result.success || !result.data) {
-                    showToast('找不到此學員');
-                    return;
-                }
-                
-                const student = result.data;
-                
-                if (selectedChatRoomStudents.find(s => s.id === student.id)) {
-                    showToast('此學員已加入');
-                    return;
-                }
-                
-                if (selectedChatRoomStudents.length >= 3) {
-                    showToast('最多只能選擇 3 位學員');
-                    return;
-                }
-                
-                selectedChatRoomStudents.push(student);
-                renderChatRoomStudents();
-                
-                document.getElementById('chatRoomStudentNo').value = '';
-                document.getElementById('chatRoomStudentName').value = '';
-                
-            } catch (error) {
-                console.error('Search student error:', error);
-                showToast('搜尋失敗');
-            }
+    const memberNo = document.getElementById('chatRoomStudentNo').value.trim();
+    const name = document.getElementById('chatRoomStudentName').value.trim();
+    
+    if (!memberNo || !name) {
+        showToast('請輸入編號和姓名');
+        return;
+    }
+    
+    try {
+        const response = await fetch(MAKE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'searchStudent',
+                studentId: memberNo,
+                studentName: name
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success || !result.student) {
+            showToast('找不到此學員');
+            return;
         }
+        
+        const student = result.student;
+        
+        if (selectedChatRoomStudents.find(s => s.id === student.id)) {
+            showToast('此學員已加入');
+            return;
+        }
+        
+        if (selectedChatRoomStudents.length >= 3) {
+            showToast('最多只能選擇 3 位學員');
+            return;
+        }
+        
+        selectedChatRoomStudents.push({
+            id: student.id,
+            name: student.name,
+            member_no: student.id // MySQL 的 id 就是編號
+        });
+        renderChatRoomStudents();
+        
+        document.getElementById('chatRoomStudentNo').value = '';
+        document.getElementById('chatRoomStudentName').value = '';
+        
+    } catch (error) {
+        console.error('Search student error:', error);
+        showToast('搜尋失敗');
+    }
+}
         
         function renderChatRoomStudents() {
             const container = document.getElementById('chatRoomStudentList');
@@ -6308,51 +6342,56 @@ async function backupChatToSheet(requestId) {
         }
         
         // 搜尋學員（管理成員用）
-        let memberStudentSearchTimeout = null;
-        async function searchStudentForMember() {
-            const input = document.getElementById('searchStudentInput');
-            const resultsDiv = document.getElementById('studentSearchResults');
-            const searchTerm = input?.value?.trim() || '';
-            
-            if (memberStudentSearchTimeout) {
-                clearTimeout(memberStudentSearchTimeout);
-            }
-            
-            if (searchTerm.length < 1) {
-                resultsDiv.style.display = 'none';
-                return;
-            }
-            
-            memberStudentSearchTimeout = setTimeout(async () => {
-    try {
-        const { data, error } = await supabaseClient
-            .from('students_cache')
-            .select('id, member_no, name, nickname')
-            .or(`name.ilike.%${searchTerm}%,member_no.ilike.%${searchTerm}%,nickname.ilike.%${searchTerm}%`)
-            .limit(10);
-        
-        if (!error && data && data.length > 0) {
-            resultsDiv.innerHTML = data.map(s => `
-                <div onclick="selectStudentForMember('${escapeAttr(s.id)}', '${escapeAttr(s.member_no || '')}', '${escapeAttr(s.name || '')}', '${escapeAttr(s.nickname || '')}')" 
-                     style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.2s;"
-                     onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
-                    <div style="font-weight: 500;">${escapeHtml(s.name || '-')}</div>
-                    <div style="font-size: 12px; color: #666;">
-                        編號: ${escapeHtml(s.member_no || '-')} | LINE: ${escapeHtml(s.nickname || '-')}
-                    </div>
-                </div>
-            `).join('');
-            resultsDiv.style.display = 'block';
-        } else {
-            resultsDiv.innerHTML = '<div style="padding: 12px; color: #999; text-align: center;">找不到符合的學員</div>';
-            resultsDiv.style.display = 'block';
-        }
-    } catch (error) {
-        console.error('Search student error:', error);
-        resultsDiv.style.display = 'none';
+       let memberStudentSearchTimeout = null;
+async function searchStudentForMember() {
+    const input = document.getElementById('searchStudentInput');
+    const resultsDiv = document.getElementById('studentSearchResults');
+    const searchTerm = input?.value?.trim() || '';
+    
+    if (memberStudentSearchTimeout) {
+        clearTimeout(memberStudentSearchTimeout);
     }
-}, 300);
+    
+    if (searchTerm.length < 1) {
+        resultsDiv.style.display = 'none';
+        return;
+    }
+    
+    memberStudentSearchTimeout = setTimeout(async () => {
+        try {
+            const response = await fetch(MAKE_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'searchStudentByName',
+                    query: searchTerm
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success && result.students && result.students.length > 0) {
+                resultsDiv.innerHTML = result.students.map(s => `
+                    <div onclick="selectStudentForMember('${escapeAttr(s.id)}', '${escapeAttr(s.id)}', '${escapeAttr(s.name || '')}', '${escapeAttr(s.nickname || '')}')" 
+                         style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.2s;"
+                         onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+                        <div style="font-weight: 500;">${escapeHtml(s.name || '-')}</div>
+                        <div style="font-size: 12px; color: #666;">
+                            編號: ${escapeHtml(s.id || '-')} | 電話: ${escapeHtml(s.phone || '-')}
+                        </div>
+                    </div>
+                `).join('');
+                resultsDiv.style.display = 'block';
+            } else {
+                resultsDiv.innerHTML = '<div style="padding: 12px; color: #999; text-align: center;">找不到符合的學員</div>';
+                resultsDiv.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Search student error:', error);
+            resultsDiv.style.display = 'none';
         }
+    }, 300);
+}
         
         // 選擇學員加入待加入列表
         function selectStudentForMember(studentId, memberNo, name, lineDisplayName) {
