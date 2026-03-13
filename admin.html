@@ -402,6 +402,31 @@
 
         button, .tab, .nav-item, .data-card, .card-btn { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
         .tabs, .bottom-nav, .header { user-select: none; -webkit-user-select: none; }
+
+        .admin-notify-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+}
+.admin-notify-btn:active { transform: scale(0.95); }
+.admin-notify-btn.coach {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+.admin-notify-btn.student {
+    background: #fce4ec;
+    color: #c2185b;
+}
+.admin-notify-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
     </style>
 </head>
 <body>
@@ -511,6 +536,8 @@
                 </div>
                 <div class="chat-action-btns">
                     <button class="admin-action-btn" id="adminManageMembersBtn" onclick="openManageMembersFromChat()" style="background: #e3f2fd; color: #1565c0;">👥 管理成員</button>
+                    <button class="admin-notify-btn coach" id="adminNotifyCoachBtn" onclick="adminNotify('coach')">📢 通知教練</button>
+                    <button class="admin-notify-btn student" id="adminNotifyStudentBtn" onclick="adminNotify('student')">📢 通知學員</button>
                     <button class="admin-action-btn confirm-cancel-btn" id="adminConfirmCancelBtn" onclick="confirmCancelFromChat()" style="display: none;">✓ 確認取消</button>
                     <button class="admin-action-btn delete-chat-btn" id="adminDeleteChatBtn" onclick="deleteFromChat()">🗑️ 刪除聊天室</button>
                 </div>
@@ -1614,6 +1641,52 @@
             });
         });
         observer.observe(document.body, { childList: true, subtree: true });
+
+        // ============ 管理員通知教練/學員 ============
+async function adminNotify(targetType) {
+    if (!currentChatRoomId || !currentAdmin) return;
+    
+    const targetName = targetType === 'coach' ? '教練' : '學員';
+    if (!confirm(`📢 確定要通知${targetName}返回聊天室嗎？`)) return;
+    
+    const btn = document.getElementById(targetType === 'coach' ? 'adminNotifyCoachBtn' : 'adminNotifyStudentBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '發送中...'; }
+    
+    try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/send-chat-notify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                request_id: currentChatRoomId,
+                sender_type: 'admin',
+                sender_id: currentAdmin.id,
+                sender_name: currentAdmin.name || '管理員',
+                target_type: targetType,
+                action: 'notify'
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(`✅ 已通知${targetName}（${result.notified} 人）`);
+        } else {
+            showToast(`❌ ${result.error || '通知失敗'}`);
+        }
+    } catch (error) {
+        console.error('Admin notify error:', error);
+        showToast('通知失敗');
+    } finally {
+        if (btn) {
+            const icon = targetType === 'coach' ? '📢 通知教練' : '📢 通知學員';
+            btn.disabled = false;
+            btn.textContent = icon;
+        }
+    }
+}
     </script>
 </body>
 </html>
