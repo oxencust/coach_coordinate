@@ -906,8 +906,9 @@
         <!-- Messages - 更大的區域 -->
         <div class="messages-area" id="messagesArea">
             <div class="typing-indicator" id="typingIndicator">
-                <div class="typing-dots"><span></span><span></span><span></span></div>
-            </div>
+    <div class="typing-dots"><span></span><span></span><span></span></div>
+    <span id="typingText">正在輸入...</span>
+</div>
         </div>
 
         <!-- 表情選擇面板 -->
@@ -1516,9 +1517,11 @@ window.addEventListener('beforeunload', () => {
                     const indicator = document.getElementById('typingIndicator');
                     
                     if (data.is_typing) {
+                        const typingText = document.getElementById('typingText');
+                        const senderLabel = data.user_id === 'admin' ? '小編' : (data.user_name || '對方');
+                        if (typingText) typingText.textContent = `${senderLabel} 正在輸入...`;
                         indicator.classList.add('show');
                         
-                        // 滾動到底部
                         const container = document.getElementById('messagesArea');
                         container.scrollTop = container.scrollHeight;
                     } else {
