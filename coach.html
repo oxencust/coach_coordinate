@@ -4271,15 +4271,31 @@ if (searchError || !studentData) {
                 return;
             }
             
-            container.innerHTML = filtered.map(c => `
-                <div class="student-select-item" onclick="addCoachToChat('${c.id}', '${c.name}')">
-                    <div class="student-select-avatar">${c.avatar || c.name.charAt(0)}</div>
-                    <div class="student-select-info">
-                        <div class="student-select-name">${c.name}</div>
-                        <div class="student-select-detail">${(c.specialties || []).join('、') || '教練'}</div>
-                    </div>
+            const specialtyConfig = {
+    'pilates': { name: '皮拉提斯', icon: '🧘' },
+    'weight': { name: '重訓', icon: '💪' },
+    'stretch': { name: '伸展', icon: '🤸' },
+    'ai': { name: 'AI體態', icon: '🤖' }
+};
+
+container.innerHTML = filtered.map(c => {
+    const specialtiesText = (c.specialties || []).map(s => {
+        const cfg = specialtyConfig[s] || { name: s, icon: '📋' };
+        return cfg.icon + cfg.name;
+    }).join(' ');
+
+    return `
+        <div class="student-select-item" onclick="addCoachToChat('${c.id}', '${c.name}')">
+            <div class="result-info">
+                <div class="result-avatar" style="background: var(--green);">${c.avatar || c.name.charAt(0)}</div>
+                <div>
+                    <div class="result-name">${c.name}</div>
+                    <div class="result-detail">${specialtiesText || '教練'}</div>
                 </div>
-            `).join('');
+            </div>
+        </div>
+    `;
+}).join('');
         }
         
         async function addCoachToChat(coachId, coachName) {
