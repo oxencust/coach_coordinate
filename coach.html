@@ -1717,6 +1717,38 @@
             .container, .chat-messages, .modal-content, .search-results { -webkit-overflow-scrolling: touch; }
             html, body { position: fixed; overflow: hidden; }
         }
+        /* 通知按鈕冷卻狀態 */
+.notify-btn.cooldown {
+    background: #e0e0e0;
+    cursor: not-allowed;
+    position: relative;
+}
+.notify-btn.cooldown::after {
+    content: attr(data-cooldown);
+    position: absolute;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.notify-status {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: #f5f5f5;
+    border-radius: 0 0 12px 12px;
+    margin-top: -1px;
+    flex-shrink: 0;
+}
+.notify-status.show { display: flex; }
+.notify-status .remaining { color: var(--green-dark); font-weight: 600; }
+.notify-status .limit-reached { color: var(--danger); }
     </style>
 </head>
 <body>
@@ -1820,7 +1852,8 @@
 
             <div class="typing-indicator" id="typingIndicator">
                 <div class="typing-dots"><span></span><span></span><span></span></div>
-            </div>
+                <span id="typingText">正在輸入...</span>
+          </div>
 
             <div class="action-bar" id="actionBar">
                 <button class="action-btn pink" onclick="openSearchStudent()">🔍 查詢學員</button>
@@ -1926,6 +1959,9 @@
                     </svg>
                 </button>
             </div>
+            <div class="notify-status" id="notifyStatus">
+    📢 今日剩餘 <span class="remaining" id="notifyRemaining">10</span> 次通知
+</div>
             <div class="chat-closed-notice" id="chatClosedNotice">
                 ✅ 課程完成，聊天室已關閉
             </div>
@@ -3138,6 +3174,8 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
     updateStudentStatusUI([]);
     // 再訂閱即時狀態
     subscribeToStudentPresence(requestId);
+    // 檢查通知按鈕狀態
+    checkNotifyStatus();
 }
         }
         function closeChat() {
@@ -3273,29 +3311,14 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
             }).catch(err => console.log('Notify error:', err));
         }
 
-        async function forceNotify() {
+        // ============ 通知系統（防濫用） ============
+let notifyCooldownTimer = null;
+let notifyCooldownEnd = 0;
+ 
+async function checkNotifyStatus() {
     if (!currentRequest) return;
-    
-    // 確認彈窗
-    if (!confirm('📢是否呼叫學員返回聊天室？')) {
-        return;
-    }
-    
-    showToast('正在通知學員...');
-    
     try {
-        // 取得課程資訊
-        const courseTypeNames = {
-            'pilates': '皮拉提斯',
-            'weight': '重量訓練',
-            'stretch': '伸展課程',
-            'ai': 'AI 體態分析'
-        };
-        const courseTypeName = courseTypeNames[currentRequest.course_type] || currentRequest.course_type;
-        const courseDate = formatDate(currentRequest.course_date);
-        const courseTime = currentRequest.course_time;
-        
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-coaches`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/send-chat-notify`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -3303,25 +3326,137 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
             },
             body: JSON.stringify({
                 request_id: currentRequest.id,
+                sender_type: 'coach',
                 sender_id: currentUser.id,
                 sender_name: currentUser.name,
-                sender_type: 'coach',
-                course_type: courseTypeName,
-                course_date: courseDate,
-                course_time: courseTime,
-                force_notify: true
+                target_type: 'student',
+                action: 'check'
             })
         });
-        
         const result = await response.json();
-        if (result.notified > 0) {
-            showToast(`已通知學員 ✓`);
-        } else {
-            showToast('沒有需要通知的人');
-        }
+        updateNotifyUI(result);
     } catch (err) {
-        console.error('Force notify error:', err);
+        console.log('Check notify status error:', err);
+    }
+}
+ 
+function updateNotifyUI(data) {
+    const btn = document.querySelector('.notify-btn');
+    const statusEl = document.getElementById('notifyStatus');
+    const remainingEl = document.getElementById('notifyRemaining');
+    if (!btn || !statusEl) return;
+ 
+    const remaining = data.remaining_today ?? 10;
+    const cooldown = data.cooldown_seconds_left ?? 0;
+ 
+    // 顯示狀態列
+    statusEl.classList.add('show');
+    
+    if (remaining <= 0) {
+        remainingEl.innerHTML = '<span class="limit-reached">已達上限</span>';
+        btn.classList.add('cooldown');
+        btn.disabled = true;
+        btn.removeAttribute('data-cooldown');
+        return;
+    }
+ 
+    remainingEl.textContent = remaining;
+ 
+    if (cooldown > 0) {
+        btn.classList.add('cooldown');
+        btn.disabled = true;
+        startCooldownTimer(cooldown);
+    } else {
+        btn.classList.remove('cooldown');
+        btn.disabled = false;
+        btn.removeAttribute('data-cooldown');
+        clearCooldownTimer();
+    }
+}
+ 
+function startCooldownTimer(seconds) {
+    clearCooldownTimer();
+    const btn = document.querySelector('.notify-btn');
+    notifyCooldownEnd = Date.now() + (seconds * 1000);
+ 
+    function tick() {
+        const left = Math.max(0, Math.ceil((notifyCooldownEnd - Date.now()) / 1000));
+        if (left <= 0) {
+            if (btn) {
+                btn.classList.remove('cooldown');
+                btn.disabled = false;
+                btn.removeAttribute('data-cooldown');
+            }
+            clearCooldownTimer();
+            return;
+        }
+        const min = Math.floor(left / 60);
+        const sec = left % 60;
+        const timeStr = min > 0 ? `${min}:${String(sec).padStart(2,'0')}` : `${sec}s`;
+        if (btn) btn.setAttribute('data-cooldown', timeStr);
+        notifyCooldownTimer = setTimeout(tick, 1000);
+    }
+    tick();
+}
+ 
+function clearCooldownTimer() {
+    if (notifyCooldownTimer) {
+        clearTimeout(notifyCooldownTimer);
+        notifyCooldownTimer = null;
+    }
+}
+ 
+async function forceNotify() {
+    if (!currentRequest) return;
+ 
+    const btn = document.querySelector('.notify-btn');
+    if (btn && btn.disabled) {
+        showToast('請等待冷卻時間結束');
+        return;
+    }
+ 
+    // 判斷通知對象
+    const hasStudent = currentRequest.studentJoined || currentRequest.status === 'with-student';
+    const targetType = hasStudent ? 'student' : 'coach';
+    const targetName = hasStudent ? '學員' : '其他教練';
+ 
+    if (!confirm(`📢 確定要通知${targetName}返回聊天室嗎？`)) return;
+ 
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+ 
+    try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/send-chat-notify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                request_id: currentRequest.id,
+                sender_type: 'coach',
+                sender_id: currentUser.id,
+                sender_name: currentUser.name,
+                target_type: targetType,
+                action: 'notify'
+            })
+        });
+ 
+        const result = await response.json();
+ 
+        if (result.success) {
+            showToast(`✅ 已通知${targetName}（${result.notified} 人）`);
+            updateNotifyUI(result);
+        } else {
+            showToast(`❌ ${result.error || '通知失敗'}`);
+            if (result.cooldown_seconds_left || result.remaining_today !== undefined) {
+                updateNotifyUI(result);
+            }
+        }
+    } catch (error) {
+        console.error('Force notify error:', error);
         showToast('通知失敗');
+    } finally {
+        if (btn) btn.textContent = '📢';
     }
 }
 
@@ -3481,6 +3616,9 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
                     const indicator = document.getElementById('typingIndicator');
                     
                     if (data.is_typing) {
+                        const typingText = document.getElementById('typingText');
+                        const senderLabel = data.user_id === 'admin' ? '小編' : (data.user_name || '對方');
+                        if (typingText) typingText.textContent = `${senderLabel} 正在輸入...`;
                         indicator.classList.add('show');
                         
                         const messagesContainer = document.getElementById('chatMessages');
