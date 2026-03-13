@@ -1191,7 +1191,7 @@ if (!student.line_id) {
             .eq('id', student.id);
         
         // 2. 回寫 Google Sheet 總表（GAS Web App，非阻塞）
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbymRAixs3NHqxy2E8QyEQKPG2ePU1ZxGvvki-NEAUFy51By18QcjgabOEx1w4PECItXNQ/exec';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycby9rNKHC77EWaeg9uP90ZGQuF3gdnS8ALy0nBrzDxSXbZvOcxQMEis2ulSvHjVcpkfuGg/exec';
         fetch(GAS_URL, {
             method: 'POST',
             mode: 'no-cors',
