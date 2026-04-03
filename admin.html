@@ -641,16 +641,17 @@
                 <div class="form-group"><label>說明</label><input type="text" id="chatRoomReason" placeholder="選填"></div>
                 <div class="form-group">
                     <label>選擇教練（至少 1 位，最多 3 位）</label>
-                    <div id="chatRoomCoachList" style="max-height: 150px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 8px;"></div>
+                    <div id="chatRoomSelectedCoachTags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:0;"></div>
+                    <input type="text" id="chatRoomCoachSearch" placeholder="🔍 搜尋教練姓名..." style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:8px;box-sizing:border-box;" oninput="filterChatRoomCoaches()">
+                    <div id="chatRoomCoachList" style="max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:4px;"></div>
                 </div>
                 <div class="form-group">
                     <label>選擇學員（最多 3 位，選填）</label>
-                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                        <input type="text" id="chatRoomStudentNo" placeholder="編號" style="flex: 1;">
-                        <input type="text" id="chatRoomStudentName" placeholder="姓名" style="flex: 1;">
-                        <button onclick="searchStudentForChatRoom()" style="padding: 8px 16px; background: var(--blue); color: white; border: none; border-radius: 6px; cursor: pointer;">搜尋</button>
+                    <div id="chatRoomSelectedStudentTags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:0;"></div>
+                    <div style="position:relative;">
+                        <input type="text" id="chatRoomStudentSearch" placeholder="🔍 輸入編號或姓名搜尋學員..." style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;" oninput="debounceStudentSearch()" autocomplete="off">
+                        <div id="chatRoomStudentDropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ddd;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.15);margin-top:4px;"></div>
                     </div>
-                    <div id="chatRoomStudentList" style="max-height: 100px; overflow-y: auto;"></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1332,43 +1333,101 @@
             document.getElementById('chatRoomCourseTime').value = '';
             document.getElementById('chatRoomReason').value = '';
             selectedChatRoomCoaches = []; selectedChatRoomStudents = [];
-            document.getElementById('chatRoomCoachList').innerHTML = coaches.filter(c => c.is_active !== false).map(c => `
-                <label style="display: flex; align-items: center; padding: 8px; cursor: pointer; border-radius: 6px; margin-bottom: 4px; background: #f5f5f5;">
-                    <input type="checkbox" value="${c.id}" onchange="toggleChatRoomCoach('${c.id}')" style="margin-right: 8px;">
-                    <span>${escapeHtml(c.name)}</span>
-                </label>`).join('');
-            document.getElementById('chatRoomStudentList').innerHTML = '';
+            document.getElementById('chatRoomCoachSearch').value = '';
+            renderChatRoomCoachList();
+            renderChatRoomCoachTags();
+            document.getElementById('chatRoomStudentSearch').value = '';
+            document.getElementById('chatRoomStudentDropdown').style.display = 'none';
+            renderChatRoomStudentTags();
             openModal('createChatRoomModal');
+        }
+        function renderChatRoomCoachList(filter) {
+            const keyword = (filter || '').toLowerCase();
+            const activeCoaches = coaches.filter(c => c.is_active !== false);
+            const filtered = keyword ? activeCoaches.filter(c => (c.name || c.coach_name || '').toLowerCase().includes(keyword)) : activeCoaches;
+            document.getElementById('chatRoomCoachList').innerHTML = filtered.length === 0
+                ? '<div style="text-align:center;padding:12px;color:#999;font-size:13px;">找不到符合的教練</div>'
+                : filtered.map(c => {
+                    const cName = escapeHtml(c.name || c.coach_name || '');
+                    const isSelected = selectedChatRoomCoaches.includes(c.id);
+                    const initial = (c.name || c.coach_name || '?')[0];
+                    return `<div onclick="toggleChatRoomCoach('${c.id}')" style="display:flex;align-items:center;padding:10px 12px;cursor:pointer;border-radius:8px;margin-bottom:4px;background:${isSelected ? '#e3f2fd' : '#f8f9fa'};border:2px solid ${isSelected ? '#1976d2' : 'transparent'};transition:all .2s;">
+                        <div style="width:32px;height:32px;border-radius:50%;background:${isSelected ? '#1976d2' : '#90a4ae'};color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;margin-right:10px;flex-shrink:0;">${initial}</div>
+                        <span style="flex:1;font-size:14px;font-weight:${isSelected ? '600' : '400'};color:${isSelected ? '#1976d2' : '#333'};">${cName}</span>
+                        <span style="font-size:18px;">${isSelected ? '✅' : ''}</span>
+                    </div>`;
+                }).join('');
+        }
+        function renderChatRoomCoachTags() {
+            const container = document.getElementById('chatRoomSelectedCoachTags');
+            if (selectedChatRoomCoaches.length === 0) { container.innerHTML = ''; return; }
+            container.innerHTML = selectedChatRoomCoaches.map(cid => {
+                const c = coaches.find(x => x.id === cid);
+                const cName = escapeHtml(c ? (c.name || c.coach_name) : cid);
+                return `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#1976d2;color:white;border-radius:16px;font-size:13px;font-weight:500;">${cName}<span onclick="event.stopPropagation();toggleChatRoomCoach('${cid}')" style="cursor:pointer;margin-left:2px;font-size:16px;line-height:1;">&times;</span></span>`;
+            }).join('');
+        }
+        function filterChatRoomCoaches() {
+            const keyword = document.getElementById('chatRoomCoachSearch').value.trim();
+            renderChatRoomCoachList(keyword);
         }
         function toggleChatRoomCoach(coachId) {
             const i = selectedChatRoomCoaches.indexOf(coachId);
-            if (i > -1) selectedChatRoomCoaches.splice(i, 1);
+            if (i > -1) { selectedChatRoomCoaches.splice(i, 1); }
             else { if (selectedChatRoomCoaches.length >= 3) { showToast('最多 3 位教練'); return; } selectedChatRoomCoaches.push(coachId); }
+            const keyword = document.getElementById('chatRoomCoachSearch')?.value?.trim() || '';
+            renderChatRoomCoachList(keyword);
+            renderChatRoomCoachTags();
         }
-        async function searchStudentForChatRoom() {
-            const memberNo = document.getElementById('chatRoomStudentNo').value.trim();
-            const name = document.getElementById('chatRoomStudentName').value.trim();
-            if (!memberNo || !name) { showToast('請輸入編號和姓名'); return; }
+        let studentSearchTimer = null;
+        function debounceStudentSearch() {
+            clearTimeout(studentSearchTimer);
+            const keyword = document.getElementById('chatRoomStudentSearch').value.trim();
+            if (keyword.length < 1) { document.getElementById('chatRoomStudentDropdown').style.display = 'none'; return; }
+            studentSearchTimer = setTimeout(() => searchStudentForChatRoom(keyword), 300);
+        }
+        async function searchStudentForChatRoom(keyword) {
             try {
-                const result = await callEdge('findStudent', { member_no: memberNo, name });
-                const student = result.data;
-                if (!student) { showToast('找不到此學員'); return; }
-                if (selectedChatRoomStudents.find(s => s.id === student.id)) { showToast('此學員已加入'); return; }
-                if (selectedChatRoomStudents.length >= 3) { showToast('最多 3 位學員'); return; }
-                selectedChatRoomStudents.push({ id: student.id, name: student.name, member_no: student.id });
-                renderChatRoomStudents();
-                document.getElementById('chatRoomStudentNo').value = '';
-                document.getElementById('chatRoomStudentName').value = '';
+                const result = await callEdge('searchStudents', { keyword });
+                const students = result.data || [];
+                const dropdown = document.getElementById('chatRoomStudentDropdown');
+                const existingIds = selectedChatRoomStudents.map(s => s.id);
+                const available = students.filter(s => !existingIds.includes(s.id));
+                if (available.length === 0) {
+                    dropdown.innerHTML = '<div style="padding:12px;text-align:center;color:#999;font-size:13px;">找不到符合的學員</div>';
+                } else {
+                    dropdown.innerHTML = available.map(s => {
+                        const initial = (s.name || '?')[0];
+                        return `<div onclick="selectStudentForChatRoom('${escapeAttr(s.id)}','${escapeAttr(s.name)}')" style="display:flex;align-items:center;padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;transition:background .15s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#42a5f5;color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;margin-right:10px;flex-shrink:0;">${initial}</div>
+                            <div style="flex:1;"><div style="font-size:14px;font-weight:500;color:#333;">${escapeHtml(s.name)}</div><div style="font-size:12px;color:#999;">${escapeHtml(s.id)}${s.phone ? ' · ' + escapeHtml(s.phone) : ''}</div></div>
+                        </div>`;
+                    }).join('');
+                }
+                dropdown.style.display = 'block';
             } catch (error) { showToast('搜尋失敗'); }
         }
-        function renderChatRoomStudents() {
-            document.getElementById('chatRoomStudentList').innerHTML = selectedChatRoomStudents.map(s => `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f5f5f5; border-radius: 6px; margin-bottom: 4px;">
-                    <span>${escapeHtml(s.name)} (${escapeHtml(s.member_no)})</span>
-                    <button onclick="removeChatRoomStudent('${s.id}')" style="background: none; border: none; color: #e74c3c; cursor: pointer;">✕</button>
-                </div>`).join('');
+        function selectStudentForChatRoom(id, name) {
+            if (selectedChatRoomStudents.length >= 3) { showToast('最多 3 位學員'); return; }
+            if (selectedChatRoomStudents.find(s => s.id === id)) { showToast('此學員已加入'); return; }
+            selectedChatRoomStudents.push({ id, name, member_no: id });
+            document.getElementById('chatRoomStudentSearch').value = '';
+            document.getElementById('chatRoomStudentDropdown').style.display = 'none';
+            renderChatRoomStudentTags();
         }
-        function removeChatRoomStudent(id) { selectedChatRoomStudents = selectedChatRoomStudents.filter(s => s.id !== id); renderChatRoomStudents(); }
+        function renderChatRoomStudentTags() {
+            const container = document.getElementById('chatRoomSelectedStudentTags');
+            if (selectedChatRoomStudents.length === 0) { container.innerHTML = ''; return; }
+            container.innerHTML = selectedChatRoomStudents.map(s =>
+                `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#42a5f5;color:white;border-radius:16px;font-size:13px;font-weight:500;">${escapeHtml(s.name)} (${escapeHtml(s.member_no)})<span onclick="removeChatRoomStudent('${escapeAttr(s.id)}')" style="cursor:pointer;margin-left:2px;font-size:16px;line-height:1;">&times;</span></span>`
+            ).join('');
+        }
+        function removeChatRoomStudent(id) { selectedChatRoomStudents = selectedChatRoomStudents.filter(s => s.id !== id); renderChatRoomStudentTags(); }
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('chatRoomStudentDropdown');
+            const input = document.getElementById('chatRoomStudentSearch');
+            if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) dropdown.style.display = 'none';
+        });
         async function createChatRoom() {
             if (selectedChatRoomCoaches.length === 0) { showToast('請至少選擇一位教練'); return; }
             try {
@@ -1510,16 +1569,25 @@
         async function exportChatRoom(requestId) {
             try {
                 showToast('匯出中...');
-                const result = await callEdge('backupChat', { request_id: requestId });
-                if (!result.success) { showToast(result.error || '匯出失敗'); return; }
-                const data = result.data, request = data.request || {}, messages = data.messages || [];
+                // 先取得請求資料和訊息
+                const requestResult = await callEdge('getRequest', { request_id: requestId });
+                const request = requestResult.data || {};
+                const messagesResult = await callEdge('getMessages', { request_id: requestId });
+                const messages = messagesResult.data || [];
+                // 同時備份到 Google Sheet
+                backupChatToSheet(requestId).catch(e => console.log('Backup during export:', e));
                 const exportDate = new Date().toLocaleString('zh-TW');
                 const courseName = courseTypeNames[request.course_type] || '-';
                 const backupStatusNames = { 'pending': '等待中', 'discussing': '討論中', 'with_student': '學員已加入', 'resolved': '已解決', 'cancel_pending': '待取消確認', 'cancelled': '已取消' };
                 const statusName = backupStatusNames[request.status] || '-';
                 const messagesHtml = messages.map(msg => {
                     const time = new Date(msg.created_at).toLocaleString('zh-TW');
-                    const senderType = msg.sender_type || 'system', senderName = msg.sender_name || '系統';
+                    const senderName = msg.sender_name || '系統';
+                    // 判斷發送者類型：依 sender_coach_id / sender_student_id / message_type
+                    let senderType = 'system';
+                    if (msg.message_type === 'admin' || msg.message_type === 'system') senderType = msg.message_type;
+                    else if (msg.sender_student_id) senderType = 'student';
+                    else if (msg.sender_coach_id) senderType = 'coach';
                     const content = (msg.content || '').replace(/\n/g, '<br>');
                     let bgColor = '#e8f5e9', align = 'flex-start', icon = '👨‍🏫';
                     if (senderType === 'student') { bgColor = '#e3f2fd'; align = 'flex-end'; icon = '👤'; }
