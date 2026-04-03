@@ -3542,12 +3542,8 @@ async function forceNotify() {
         }
 
         function handleKeydown(e) {
-            // 手機端不用 Enter 發送，避免誤觸
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
-                e.preventDefault();
-                sendMessage();
-            }
+            // LIFF 環境統一不用 Enter 發送，避免手機鍵盤誤觸
+            // 一律使用發送按鈕送出訊息
         }
 
         // ============ Typing Indicator ============
