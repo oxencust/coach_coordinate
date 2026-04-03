@@ -1912,8 +1912,9 @@ function leavePresenceChannel() {
             const chatInput = document.getElementById('chatInput');
             if (chatInput) {
                 chatInput.addEventListener('keydown', function(e) {
-                    // Enter 送出（不含 Shift）
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    // 手機端不用 Enter 發送，避免誤觸
+                    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
                         e.preventDefault(); // 防止換行
                         sendMessage();
                     }
