@@ -1231,6 +1231,7 @@
             const start = input.selectionStart, end = input.selectionEnd;
             input.value = input.value.substring(0, start) + emoji + input.value.substring(end);
             input.focus(); input.selectionStart = input.selectionEnd = start + emoji.length;
+            handleAdminTyping(); // 觸發「正在輸入」狀態
         }
         function switchEmojiTab(tabName) {
             document.querySelectorAll('.emoji-tab').forEach(t => t.classList.remove('active'));
@@ -1394,24 +1395,24 @@
             try {
                 const result = await callEdge('getParticipants', { request_id: requestId });
                 const members = result.data || [];
-                const coachMembers = members.filter(m => m.user_type === 'coach');
+                const coachMembers = members.filter(m => m.participant_type === 'coach');
                 document.getElementById('memberCoachList').innerHTML = coachMembers.map(m => {
-                    const c = coaches.find(c => c.id === m.user_id);
+                    const c = coaches.find(c => c.id === m.coach_id);
                     const name = m.participant_name || (c ? c.coach_name : '未知教練');
                     return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: white; border-radius: 6px; margin-bottom: 4px;">
                         <span>👨‍🏫 ${escapeHtml(name)}</span>
-                        <button onclick="removeMember('${m.user_id}', 'coach')" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 16px;">✕</button>
+                        <button onclick="removeMember('${m.coach_id}', 'coach')" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 16px;">✕</button>
                     </div>`;
                 }).join('') || '<p style="color: #999; font-size: 13px; margin: 0;">尚無教練</p>';
-                const studentMembers = members.filter(m => m.user_type === 'student');
+                const studentMembers = members.filter(m => m.participant_type === 'student');
                 document.getElementById('memberStudentList').innerHTML = studentMembers.map(m => {
-                    const name = m.participant_name || m.user_id || '未知學員';
+                    const name = m.participant_name || m.student_id || '未知學員';
                     return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: white; border-radius: 6px; margin-bottom: 4px;">
                         <span>👤 ${escapeHtml(name)}</span>
-                        <button onclick="removeMember('${m.user_id}', 'student')" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 16px;">✕</button>
+                        <button onclick="removeMember('${m.student_id}', 'student')" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 16px;">✕</button>
                     </div>`;
                 }).join('') || '<p style="color: #999; font-size: 13px; margin: 0;">尚無學員</p>';
-                const existingCoachIds = coachMembers.map(m => m.user_id);
+                const existingCoachIds = coachMembers.map(m => m.coach_id);
                 document.getElementById('addCoachSelect').innerHTML = '<option value="">選擇教練...</option>' +
                     coaches.filter(c => c.is_active !== false && !existingCoachIds.includes(c.id))
                         .map(c => `<option value="${c.id}" data-name="${escapeAttr(c.coach_name)}">${escapeHtml(c.coach_name)}</option>`).join('');
@@ -1484,10 +1485,10 @@
             try {
                 showToast('處理中...');
                 for (const coach of pendingMemberCoaches) {
-                    await callEdge('addParticipant', { request_id: currentManageRequestId, user_type: 'coach', user_id: coach.id, participant_name: coach.name || coach.coach_name });
+                    await callEdge('addParticipant', { request_id: currentManageRequestId, participant_type: 'coach', coach_id: coach.id, participant_name: coach.name || coach.coach_name });
                 }
                 for (const student of pendingMemberStudents) {
-                    await callEdge('addParticipant', { request_id: currentManageRequestId, user_type: 'student', user_id: student.id, participant_name: student.name });
+                    await callEdge('addParticipant', { request_id: currentManageRequestId, participant_type: 'student', student_id: student.id, participant_name: student.name });
                 }
                 pendingMemberCoaches = []; pendingMemberStudents = [];
                 showToast('✅ 成員已加入');
@@ -1497,7 +1498,8 @@
         async function removeMember(memberId, memberType) {
             if (!confirm(`確定要移除此${memberType === 'coach' ? '教練' : '學員'}嗎？`)) return;
             try {
-                const result = await callEdge('removeParticipant', { request_id: currentManageRequestId, user_type: memberType, user_id: memberId });
+                const idField = memberType === 'coach' ? 'coach_id' : 'student_id';
+                const result = await callEdge('removeParticipant', { request_id: currentManageRequestId, participant_type: memberType, [idField]: memberId });
                 if (!result.success) { showToast(result.error || '移除失敗'); return; }
                 showToast('✅ 已移除');
                 await openManageMembers(currentManageRequestId);
