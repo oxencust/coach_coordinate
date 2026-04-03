@@ -1031,8 +1031,10 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action, ...params })
             });
-            if (!res.ok) throw new Error('Edge Function error: ' + res.status);
-            return res.json();
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || json.message || 'Edge Function error: ' + res.status);
+            // 自動解包 {success, data} → data
+            return json.data !== undefined ? json.data : json;
         }
 
         // LIFF ID（學員端）
