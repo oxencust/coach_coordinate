@@ -1854,9 +1854,12 @@ function leavePresenceChannel() {
         
         // 發送表情
         function sendEmoji(emoji) {
-            sendQuick(emoji);
+            // 插入到對話框，不直接發送
+            const input = document.getElementById('chatInput');
+            input.value += emoji;
+            input.focus();
             closeEmojiPanel();
-            
+
             // 更新最近使用
             const index = recentEmojis.indexOf(emoji);
             if (index > -1) {
