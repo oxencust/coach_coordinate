@@ -2203,6 +2203,18 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // ============ Edge Function Config ============
+        const EDGE_FUNCTION_URL = 'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/chat-api';
+        async function callEdge(action, params = {}) {
+            const res = await fetch(EDGE_FUNCTION_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, ...params })
+            });
+            if (!res.ok) throw new Error('Edge Function error: ' + res.status);
+            return res.json();
+        }
+
         // ============ Config ============
         const COURSE_CONFIG = {
             pilates: { name: '皮拉提斯', icon: '🧘', color: 'pilates' },
@@ -2267,11 +2279,8 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
                let coach = null;
 let queryError = null;
 try {
-    const { data, error } = await supabaseClient
-        .from('coaches')
-        .select('*')
-        .eq('line_uid', lineUid)
-        .single();
+    const data = await callEdge('verifyCoach', { line_uid: lineUid });
+    const error = null;
     
     if (!error && data) {
         coach = {
@@ -2313,18 +2322,21 @@ try {
                     console.log('Step 5: Creating new coach application');
                     const avatar = displayName ? displayName.charAt(0) : '👤';
                     
-                    const { data: newCoach, error: insertError } = await supabaseClient
-                        .from('coaches')
-                        .insert({
+                    let newCoach, insertError;
+                    try {
+                        newCoach = await callEdge('createCoach', {
                             name: displayName,
                             avatar: avatar,
                             line_uid: lineUid,
                             status: 'pending',
                             is_active: true,
                             specialties: []
-                        })
-                        .select()
-                        .single();
+                        });
+                        insertError = null;
+                    } catch (e) {
+                        insertError = e;
+                        newCoach = null;
+                    }
                     
                     console.log('Insert result:', newCoach, 'Error:', insertError);
                     
@@ -2514,12 +2526,8 @@ await loadStudents();
         // ============ Load Data from Supabase ============
         async function loadCoaches() {
     try {
-        const { data, error } = await supabaseClient
-            .from('coaches')
-            .select('*')
-            .order('name');
-        
-        if (error) throw error;
+        const data = await callEdge('getCoaches', {});
+        const error = null;
         
         allCoaches = (data || []).map(c => ({
             ...c,
@@ -2549,12 +2557,8 @@ await loadStudents();
 
         async function loadStudents() {
     try {
-        const { data, error } = await supabaseClient
-            .from('students')
-            .select('*')
-            .order('name');
-        
-        if (error) throw error;
+        const data = await callEdge('getStudents', {});
+        const error = null;
         
         allStudents = (data || []).map(s => ({
             id: s.id,
@@ -2574,12 +2578,8 @@ await loadStudents();
 }
 
         async function loadRequests() {
-            const { data, error } = await supabaseClient
-                .from('substitute_requests_full')
-                .select('*')
-                .order('created_at', { ascending: false });
-            
-            if (error) throw error;
+            const data = await callEdge('getRequests', {});
+            const error = null;
             
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -2639,17 +2639,9 @@ await loadStudents();
         }
 
         async function loadMessages(requestId) {
-            const { data, error } = await supabaseClient
-                .from('messages')
-                .select('*')
-                .eq('request_id', requestId)
-                .order('created_at', { ascending: true });
-            
-            if (error) {
-                console.error('Load messages error:', error);
-                return [];
-            }
-            
+            try {
+                const data = await callEdge('getMessages', { request_id: requestId });
+
             return data.map(m => {
                 const time = new Date(m.created_at);
                 const timeStr = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
@@ -2680,16 +2672,17 @@ await loadStudents();
                     time: timeStr
                 };
             });
+            } catch (error) {
+                console.error('Load messages error:', error);
+                return [];
+            }
         }
 
         async function loadParticipants(requestId) {
-            const { data, error } = await supabaseClient
-                .from('request_participants')
-                .select('*')
-                .eq('request_id', requestId);
-            
-            if (error) {
-                console.error('Load participants error:', error);
+            try {
+                const data = await callEdge('getParticipants', { request_id: requestId });
+            if (!data) {
+                console.error('Load participants error');
                 return [];
             }
             
@@ -2699,6 +2692,10 @@ await loadStudents();
                 avatar: p.participant_name ? p.participant_name.charAt(0) : '?',
                 role: p.participant_type === 'student' ? 'student' : 'teacher'
             }));
+            } catch (error) {
+                console.error('Load participants error:', error);
+                return [];
+            }
         }
 
         function mapStatus(dbStatus) {
@@ -2910,24 +2907,21 @@ await loadStudents();
 
         // ============ Update Request Status ============
         async function updateRequestStatus(requestId, status, extraFields = {}) {
-            const updateData = { 
+            const updateData = {
                 status: status,
                 ...extraFields
             };
-            
-            const { data, error } = await supabaseClient
-                .from('substitute_requests')
-                .update(updateData)
-                .eq('id', requestId)
-                .select()
-                .single();
-            
-            if (error) {
+
+            try {
+                const data = await callEdge('updateRequestStatus', {
+                    request_id: requestId,
+                    ...updateData
+                });
+                return data;
+            } catch (error) {
                 console.error('Update request error:', error);
                 throw error;
             }
-            
-            return data;
         }
 
         // ============ Tab ============
@@ -3465,18 +3459,14 @@ async function forceNotify() {
 
         async function updatePresence() {
             if (!currentRequest || !currentUser.id) return;
-            
+
             try {
-                await supabaseClient
-                    .from('user_presence')
-                    .upsert({
-                        user_type: 'coach',
-                        user_id: currentUser.id,
-                        request_id: currentRequest.id,
-                        last_active_at: new Date().toISOString()
-                    }, {
-                        onConflict: 'user_type,user_id,request_id'
-                    });
+                await callEdge('updatePresence', {
+                    user_type: 'coach',
+                    user_id: currentUser.id,
+                    request_id: currentRequest.id,
+                    last_active_at: new Date().toISOString()
+                });
             } catch (err) {
                 console.log('Presence update error:', err);
             }
@@ -3738,12 +3728,14 @@ async function forceNotify() {
             addHint.style.display = 'none';
             
             try {
-               const { data: studentData, error: searchError } = await supabaseClient
-    .from('students')
-    .select('*')
-    .eq('id', memberNo)
-    .eq('name', name)
-    .single();
+               let studentData, searchError;
+                try {
+                    studentData = await callEdge('findStudent', { id: memberNo, name: name });
+                    searchError = null;
+                } catch (e) {
+                    searchError = e;
+                    studentData = null;
+                }
 
 if (searchError || !studentData) {
                     resultsContainer.innerHTML = `
@@ -3794,12 +3786,14 @@ if (searchError || !studentData) {
             try {
                 showToast('綁定學員中...');
                 
-                const { error } = await supabaseClient
-                    .from('substitute_requests')
-                    .update({ student_id: studentId })
-                    .eq('id', currentRequest.id);
-                
-                if (error) throw error;
+                try {
+                    await callEdge('updateRequestStudent', {
+                        request_id: currentRequest.id,
+                        student_id: studentId
+                    });
+                } catch (error) {
+                    throw error;
+                }
                 
                 currentRequest.student = student;
                 currentRequest.student_id = studentId;
@@ -3868,22 +3862,26 @@ if (searchError || !studentData) {
             try {
                 showToast('正在申請取消...');
                 
-                const { error } = await supabaseClient
-                    .from('substitute_requests')
-                    .update({ status: 'cancel_pending' })
-                    .eq('id', currentRequest.id);
-                
-                if (error) throw error;
-                
-                await supabaseClient
-                    .from('messages')
-                    .insert({
+                try {
+                    await callEdge('updateRequestStatus', {
+                        request_id: currentRequest.id,
+                        status: 'cancel_pending'
+                    });
+                } catch (error) {
+                    throw error;
+                }
+
+                try {
+                    await callEdge('sendMessage', {
                         request_id: currentRequest.id,
                         message_type: 'system',
                         system_subtype: 'cancel_requested',
                         content: `📤 ${currentUser.name} 已申請取消此代課請求\n原因：${cancelReason.trim()}\n等待管理員確認`
                     });
-                
+                } catch (error) {
+                    console.error('Send message error:', error);
+                }
+
                 showToast('✅ 已申請取消，等待管理員確認');
                 
                 await loadRequests();
@@ -3928,21 +3926,25 @@ if (searchError || !studentData) {
 祝您身體健康，我們下次見！💪
 - 衡點健康團隊`;
 
-                await supabaseClient
-                    .from('messages')
-                    .insert({
+                try {
+                    await callEdge('sendMessage', {
                         request_id: currentRequest.id,
                         message_type: 'system',
                         system_subtype: 'course_completed',
                         content: thankYouMessage
                     });
-                
-                const { error } = await supabaseClient
-                    .from('substitute_requests')
-                    .update({ status: 'resolved' })
-                    .eq('id', currentRequest.id);
-                
-                if (error) throw error;
+                } catch (error) {
+                    console.error('Send message error:', error);
+                }
+
+                try {
+                    await callEdge('updateRequestStatus', {
+                        request_id: currentRequest.id,
+                        status: 'resolved'
+                    });
+                } catch (error) {
+                    throw error;
+                }
                 
                 showToast('✅ 課程已完成，聊天室已結束');
                 
@@ -4149,13 +4151,15 @@ if (searchError || !studentData) {
                 
                 const result = await response.json();
                 
-                await supabaseClient
-                    .from('messages')
-                    .insert({
+                try {
+                    await callEdge('sendMessage', {
                         request_id: currentRequest.id,
                         message_type: 'system',
                         content: `👋 ${currentUser.name} 已離開聊天室`
                     });
+                } catch (error) {
+                    console.error('Send message error:', error);
+                }
                 
                 closeChat();
                 showToast('已離開聊天室');
@@ -4183,22 +4187,26 @@ if (searchError || !studentData) {
                     })
                 });
                 
-                await supabaseClient
-                    .from('substitute_requests')
-                    .update({ 
+                try {
+                    await callEdge('updateRequestStatus', {
+                        request_id: currentRequest.id,
                         status: 'resolved',
                         closed_at: new Date().toISOString()
-                    })
-                    .eq('id', currentRequest.id);
+                    });
+                } catch (error) {
+                    console.error('Update request error:', error);
+                }
                 
-                await supabaseClient
-                    .from('messages')
-                    .insert({
+                try {
+                    await callEdge('sendMessage', {
                         request_id: currentRequest.id,
                         message_type: 'system',
                         content: `✅ ${currentUser.name} 已結束聊天室`,
                         system_subtype: 'chat_ended'
                     });
+                } catch (error) {
+                    console.error('Send message error:', error);
+                }
 
                 closeModal('endChatModal');
                 
@@ -4323,13 +4331,15 @@ container.innerHTML = filtered.map(c => {
                     return;
                 }
                 
-                await supabaseClient
-                    .from('messages')
-                    .insert({
+                try {
+                    await callEdge('sendMessage', {
                         request_id: currentRequest.id,
                         message_type: 'system',
                         content: `👋 ${coachName} 已加入聊天室`
                     });
+                } catch (error) {
+                    console.error('Send message error:', error);
+                }
                 
                 closeModal('addCoachToChatModal');
                 showToast(`✅ ${coachName} 已加入聊天室`);
@@ -4675,9 +4685,9 @@ container.innerHTML = filtered.map(c => {
         }
 // ============ Supabase Operations ============
         async function createRequestToSupabase(data) {
-            const { data: request, error: requestError } = await supabaseClient
-                .from('substitute_requests')
-                .insert({
+            let request;
+            try {
+                request = await callEdge('createRequest', {
                     original_coach_id: currentUser.id,
                     substitute_coach_id: data.substitute_coach_id,
                     student_id: data.student_id,
@@ -4685,43 +4695,48 @@ container.innerHTML = filtered.map(c => {
                     course_date: data.course_date,
                     course_time: data.course_time,
                     status: 'discussing'
-                })
-                .select()
-                .single();
-            
-            if (requestError) throw requestError;
-            
-            await supabaseClient
-                .from('messages')
-                .insert({
+                });
+            } catch (requestError) {
+                throw requestError;
+            }
+
+            try {
+                await callEdge('sendMessage', {
                     request_id: request.id,
                     message_type: 'system',
                     system_subtype: 'request_created',
                     content: data.message
                 });
-            
+            } catch (error) {
+                console.error('Send message error:', error);
+            }
+
             // 新增原教練為參與者
-            await supabaseClient
-                .from('request_participants')
-                .insert({
+            try {
+                await callEdge('addParticipant', {
                     request_id: request.id,
                     coach_id: currentUser.id,
                     participant_name: currentUser.name,
                     participant_type: 'coach'
                 });
+            } catch (error) {
+                console.error('Add participant error:', error);
+            }
 
             // 新增代課教練為參與者
             if (data.substitute_coach_id) {
                 const substituteCoach = allCoaches.find(c => c.id === data.substitute_coach_id);
                 if (substituteCoach) {
-                    await supabaseClient
-                        .from('request_participants')
-                        .insert({
+                    try {
+                        await callEdge('addParticipant', {
                             request_id: request.id,
                             coach_id: data.substitute_coach_id,
                             participant_name: substituteCoach.name,
                             participant_type: 'coach'
                         });
+                    } catch (error) {
+                        console.error('Add substitute coach participant error:', error);
+                    }
                 }
             }
             
@@ -4730,20 +4745,18 @@ container.innerHTML = filtered.map(c => {
         }
 
         async function sendMessageToSupabase(requestId, content) {
-            const { data, error } = await supabaseClient
-                .from('messages')
-                .insert({
+            try {
+                const data = await callEdge('sendMessage', {
                     request_id: requestId,
                     sender_coach_id: currentUser.id,
                     sender_name: currentUser.name,
                     message_type: 'text',
                     content: content
-                })
-                .select()
-                .single();
-            
-            if (error) throw error;
-            return data;
+                });
+                return data;
+            } catch (error) {
+                throw error;
+            }
         }
 
         // ============ Modal ============
