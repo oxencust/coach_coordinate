@@ -3526,9 +3526,12 @@ async function forceNotify() {
         }
         
         function sendEmoji(emoji) {
-            sendQuick(emoji);
+            // 插入到對話框，不直接發送
+            const input = document.getElementById('chatInput');
+            input.value += emoji;
+            input.focus();
             closeEmojiPanel();
-            
+
             const index = recentEmojis.indexOf(emoji);
             if (index > -1) {
                 recentEmojis.splice(index, 1);
