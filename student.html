@@ -1022,7 +1022,19 @@
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uamlsaHB6dG5vd2FwbGdndmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDA0ODYsImV4cCI6MjA4MTI3NjQ4Nn0.X3e9DF3iT2KUR9ma3_Ins01vG607R155v0xia8hO_Qg';
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
+
+        // Edge Function for CRUD operations
+        const EDGE_FUNCTION_URL = 'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/chat-api';
+        async function callEdge(action, params = {}) {
+            const res = await fetch(EDGE_FUNCTION_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, ...params })
+            });
+            if (!res.ok) throw new Error('Edge Function error: ' + res.status);
+            return res.json();
+        }
+
         // LIFF ID（學員端）
         const LIFF_ID = '2008660081-81yzIz4L';
         
@@ -1134,11 +1146,8 @@ let cooldownTimer = null;
             
             try {
                 // 先載入代課請求，取得 student_id
-                const { data: request, error: requestError } = await supabaseClient
-                    .from('substitute_requests_full')
-                    .select('*')
-                    .eq('id', requestId)
-                    .single();
+                const request = await callEdge('getRequestDetail', { id: requestId });
+                const requestError = null;
                 
                 if (requestError || !request) {
                     document.getElementById('studentName').textContent = '找不到';
@@ -1152,13 +1161,9 @@ let cooldownTimer = null;
               // 從 Supabase 取得學員資料
 let student = null;
 try {
-    const { data, error } = await supabaseClient
-        .from('students')
-        .select('*')
-        .eq('id', request.student_id)
-        .single();
-    
-    if (!error && data) {
+    const data = await callEdge('findStudent', { id: request.student_id });
+
+    if (data) {
         student = {
             id: data.id,
             name: data.name || '',
@@ -1177,34 +1182,20 @@ if (!student) {
     return;
 }
 
-// 如果學員沒有 LINE UID，寫入 Supabase + 呼叫 GAS 回寫 Google Sheet
+// 如果學員沒有 LINE UID，寫入 Supabase
 if (!student.line_id) {
     console.log('自動綁定學員 LINE UID');
     try {
-        // 1. 先寫 Supabase（即時生效）
-        await supabaseClient
-            .from('students')
-            .update({ 
+        // 寫入 Supabase（即時生效）
+        await callEdge('updateStudent', {
+            id: student.id,
+            updates: {
                 line_uid: profile.userId,
                 line_display_name: profile.displayName,
                 updated_at: new Date().toISOString()
-            })
-            .eq('id', student.id);
-        
-        // 2. 回寫 Google Sheet 總表（GAS Web App，非阻塞）
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzRhdI--_uxPn4TGc6Esv-BFqj76uEFycJcY55szSdyVo4t7gz5etKimmV_kjQ4cUTc9Q/exec';
-        fetch(GAS_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'bindStudentLine',
-                studentId: student.id,
-                lineId: profile.userId,
-                lineDisplayName: profile.displayName
-            })
-        }).catch(e => console.log('Sheet 回寫 (non-blocking):', e));
-        
+            }
+        });
+
         showToast('已綁定您的 LINE 帳號 ✓');
     } catch (e) {
         console.error('Bind LINE error:', e);
@@ -1239,20 +1230,18 @@ if (currentRequest.status === 'resolved' || currentRequest.status === 'cancelled
                 // 如果狀態還不是 with-student，表示學員第一次加入
                 if (currentRequest.status !== 'with_student' && currentRequest.status !== 'resolved') {
                     // 更新狀態為 with-student
-                    await supabaseClient
-                        .from('substitute_requests')
-                        .update({ status: 'with_student' })
-                        .eq('id', requestId);
-                    
+                    await callEdge('updateRequest', {
+                        id: requestId,
+                        status: 'with_student'
+                    });
+
                     // 新增學員加入的系統訊息
-                    await supabaseClient
-                        .from('messages')
-                        .insert({
-                            request_id: requestId,
-                            message_type: 'system',
-                            system_subtype: 'student_joined',
-                            content: `📢 ${currentStudent.name} 已加入討論`
-                        });
+                    await callEdge('sendMessage', {
+                        request_id: requestId,
+                        message_type: 'system',
+                        system_subtype: 'student_joined',
+                        content: `📢 ${currentStudent.name} 已加入討論`
+                    });
                     
                     console.log('學員首次加入，已更新狀態');
                 }
@@ -1299,14 +1288,8 @@ window.addEventListener('beforeunload', () => {
         }
 
         async function loadRequest() {
-            const { data, error } = await supabaseClient
-                .from('substitute_requests_full')
-                .select('*')
-                .eq('id', requestId)
-                .single();
-            
-            if (error) throw error;
-            
+            const data = await callEdge('getRequestDetail', { id: requestId });
+
             currentRequest = data;
             
             // 更新 UI
@@ -1372,17 +1355,11 @@ window.addEventListener('beforeunload', () => {
         }
 
         async function loadMessages() {
-            const { data, error } = await supabaseClient
-                .from('messages')
-                .select('*')
-                .eq('request_id', requestId)
-                .order('created_at', { ascending: true });
-            
-            if (error) {
-                console.error('Load messages error:', error);
-                return;
-            }
-            
+            const data = await callEdge('getMessages', {
+                request_id: requestId,
+                order: { column: 'created_at', ascending: true }
+            });
+
             console.log('Loaded messages:', data);
             
             // 找到學員加入的訊息時間點
@@ -1597,15 +1574,13 @@ window.addEventListener('beforeunload', () => {
             stopTyping();
 
             try {
-                await supabaseClient
-                    .from('messages')
-                    .insert({
-                        request_id: requestId,
-                        sender_student_id: currentStudent.id,
-                        sender_name: currentStudent.name,
-                        message_type: 'text',
-                        content: content
-                    });
+                await callEdge('sendMessage', {
+                    request_id: requestId,
+                    sender_student_id: currentStudent.id,
+                    sender_name: currentStudent.name,
+                    message_type: 'text',
+                    content: content
+                });
                 
                 // 只推播一次：教練不在線 且 尚未推播過
                 if (!hasNotifiedCoaches) {
@@ -1625,11 +1600,10 @@ window.addEventListener('beforeunload', () => {
         
         // 通知教練（不等待結果）
         function notifyNewMessage(content, forceNotify = false) {
-            fetch(`${SUPABASE_URL}/functions/v1/notify-coaches`, {
+            fetch('https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/notify-coaches', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     request_id: requestId,
@@ -1644,22 +1618,16 @@ window.addEventListener('beforeunload', () => {
         // 檢查教練是否在聊天室（60秒內有活動視為在線）
         async function checkCoachesOnline() {
             if (!requestId) return true; // 預設當作在線，不推播
-            
+
             try {
                 const threshold = new Date(Date.now() - 60000).toISOString(); // 60秒前
-                
-                const { data, error } = await supabaseClient
-                    .from('user_presence')
-                    .select('user_id')
-                    .eq('request_id', requestId)
-                    .eq('user_type', 'coach')
-                    .gte('last_active_at', threshold);
-                
-                if (error) {
-                    console.log('Check presence error:', error);
-                    return true; // 出錯時預設在線，不推播
-                }
-                
+
+                const data = await callEdge('checkPresence', {
+                    request_id: requestId,
+                    user_type: 'coach',
+                    threshold: threshold
+                });
+
                 // 如果有教練在線，返回 true
                 return data && data.length > 0;
             } catch (err) {
@@ -1700,11 +1668,10 @@ async function forceNotify() {
         const courseDate = formatDate(currentRequest.course_date);
         const courseTime = currentRequest.course_time;
         
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-coaches`, {
+        const response = await fetch('https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/notify-coaches', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 request_id: requestId,
@@ -1763,18 +1730,14 @@ function startNotifyCooldown() {
 
         async function updatePresence() {
             if (!requestId || !currentStudent?.id) return;
-            
+
             try {
-                await supabaseClient
-                    .from('user_presence')
-                    .upsert({
-                        user_type: 'student',
-                        user_id: currentStudent.id,
-                        request_id: requestId,
-                        last_active_at: new Date().toISOString()
-                    }, {
-                        onConflict: 'user_type,user_id,request_id'
-                    });
+                await callEdge('updatePresence', {
+                    user_type: 'student',
+                    user_id: currentStudent.id,
+                    request_id: requestId,
+                    last_active_at: new Date().toISOString()
+                });
             } catch (err) {
                 console.log('Presence update error:', err);
             }
