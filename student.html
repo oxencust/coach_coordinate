@@ -1217,9 +1217,9 @@ currentStudent = {
                 
                 // 如果聊天室已結束或取消，顯示提示並跳出
 if (currentRequest.status === 'resolved' || currentRequest.status === 'cancelled') {
-    const msg = currentRequest.status === 'resolved' 
-        ? '課程完成，聊天室已關閉' 
-        : '此代課請求已取消';
+    const msg = currentRequest.status === 'resolved'
+        ? '✅ 課程完成，聊天室已關閉'
+        : '⚠️ 此代課請求已取消';
     alert(msg);
     if (liff.isInClient()) {
         liff.closeWindow();
@@ -1450,6 +1450,34 @@ window.addEventListener('beforeunload', () => {
                     }
                 )
                 .subscribe();
+
+            // 訂閱聊天室狀態變更（教練關閉時即時通知）
+            supabaseClient
+                .channel(`request-status-${requestId}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'substitute_requests',
+                        filter: `id=eq.${requestId}`
+                    },
+                    (payload) => {
+                        const newStatus = payload.new?.status;
+                        if (newStatus === 'resolved' || newStatus === 'cancelled') {
+                            const msg = newStatus === 'resolved'
+                                ? '✅ 課程完成，聊天室已關閉'
+                                : '⚠️ 此代課請求已取消';
+                            alert(msg);
+                            if (typeof liff !== 'undefined' && liff.isInClient()) {
+                                liff.closeWindow();
+                            } else {
+                                window.history.back();
+                            }
+                        }
+                    }
+                )
+                .subscribe();
         }
 
         // 訂閱教練在線狀態，教練上線時重置推播標記
@@ -1564,6 +1592,16 @@ window.addEventListener('beforeunload', () => {
             } else {
                 window.history.back();
             }
+        }
+
+        function disableChatInput(msg) {
+            const inputArea = document.querySelector('.input-area');
+            if (inputArea) {
+                inputArea.innerHTML = `<div style="text-align:center;padding:16px;color:#666;font-size:14px;">${msg}</div>`;
+            }
+            // 隱藏通知按鈕
+            const notifyBtn = document.querySelector('.notify-btn');
+            if (notifyBtn) notifyBtn.style.display = 'none';
         }
 
         async function sendMessage() {
@@ -1858,6 +1896,7 @@ function leavePresenceChannel() {
             const input = document.getElementById('chatInput');
             input.value += emoji;
             input.focus();
+            handleTyping(); // 觸發「正在輸入」狀態
             closeEmojiPanel();
 
             // 更新最近使用
