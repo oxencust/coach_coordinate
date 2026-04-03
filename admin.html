@@ -733,8 +733,9 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action, ...params })
             });
-            if (!res.ok) throw new Error('Edge Function error: ' + res.status);
-            return res.json();
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || json.message || 'Edge Function error: ' + res.status);
+            return json;
         }
         const LIFF_ID = '2008660081-KUxKYrh2';
 
