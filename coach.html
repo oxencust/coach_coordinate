@@ -3530,6 +3530,7 @@ async function forceNotify() {
             const input = document.getElementById('chatInput');
             input.value += emoji;
             input.focus();
+            handleTyping(); // 觸發「正在輸入」狀態
             closeEmojiPanel();
 
             const index = recentEmojis.indexOf(emoji);
