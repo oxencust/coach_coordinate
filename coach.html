@@ -3262,12 +3262,14 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
             c.scrollTop = c.scrollHeight;
         }
 
+        let coachSending = false;
         async function sendMessage() {
             const input = document.getElementById('chatInput');
             const content = input.value.trim();
-            if (!content || !currentRequest) return;
+            if (!content || !currentRequest || coachSending) return;
+            coachSending = true;
             input.value = '';
-            
+
             stopTyping();
 
             try {
@@ -3282,9 +3284,9 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
             } catch (error) {
                 console.error('Send message error:', error);
                 showToast('發送失敗，請重試');
-            }
+            } finally { coachSending = false; }
         }
-        
+
         function notifyNewMessage(content, forceNotify = false) {
             const skipStudent = !currentRequest.studentJoined;
 
@@ -3521,8 +3523,13 @@ async function forceNotify() {
         }
 
         function handleKeydown(e) {
-            // LIFF 環境統一不用 Enter 發送，避免手機鍵盤誤觸
-            // 一律使用發送按鈕送出訊息
+            // 電腦環境：Enter 送出，Shift+Enter 換行
+            // 手機 LIFF 環境：不用 Enter 發送，避免鍵盤誤觸
+            const isDesktop = (typeof liff !== 'undefined' && liff.isInClient) ? !liff.isInClient() : true;
+            if (isDesktop && e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
         }
 
         // ============ Typing Indicator ============
