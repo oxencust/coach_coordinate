@@ -738,6 +738,14 @@
             if (!res.ok) throw new Error(json.error || json.message || 'Edge Function error: ' + res.status);
             return json;
         }
+        async function callFunction(fnName, params = {}) {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            return res.json().catch(() => ({}));
+        }
         const LIFF_ID = '2008660081-KUxKYrh2';
 
         const courseTypeNames = { 'pilates': '皮拉提斯', 'weight': '重量訓練', 'stretch': '伸展課程', 'ai': 'AI 體態分析' };
@@ -1311,14 +1319,28 @@
                 const requestResult = await callEdge('getRequest', { request_id: requestId });
                 const request = requestResult.data;
                 if (!request) return;
-                let studentName = request.student_name || '', studentNo = request.student_no || '';
+                let studentName = request.student_name || '';
+                let studentNo = request.student_no || '';
+                // 如果 student_name 為空，從 participants 查詢
+                if (!studentName) {
+                    try {
+                        const membersResult = await callEdge('getParticipants', { request_id: requestId });
+                        const members = membersResult.data || [];
+                        const studentMembers = members.filter(m => m.participant_type === 'student');
+                        if (studentMembers.length > 0) {
+                            studentName = studentMembers.map(m => m.participant_name || '').filter(Boolean).join('、') || '';
+                            studentNo = studentMembers.map(m => m.student_id || '').filter(Boolean).join('、') || '';
+                        }
+                    } catch (e) { console.log('Get participants for backup:', e); }
+                }
                 const messagesResult = await callEdge('getMessages', { request_id: requestId });
                 const messages = messagesResult.data || [];
                 const conversationLines = (messages || []).map(msg => {
                     const time = new Date(msg.created_at).toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit' });
-                    return `【${msg.sender_name || msg.sender_type || '系統'} ${time}】${(msg.content || '').replace(/\n/g, ' ')}`;
+                    return `【${msg.sender_name || '系統'} ${time}】${(msg.content || '').replace(/\n/g, ' ')}`;
                 });
-                const courseDate = request.course_date || new Date(request.created_at).toISOString().split('T')[0];
+                // course_date 可能存在不同欄位名
+                const courseDate = request.course_date || request.courseDate || (request.created_at ? new Date(request.created_at).toISOString().split('T')[0] : '');
                 const courseType = courseTypeNames[request.course_type] || request.course_type || '-';
                 const backupStatusNames = { 'pending': '等待中', 'discussing': '討論中', 'with_student': '學員已加入', 'resolved': '已解決', 'cancel_pending': '待取消確認', 'cancelled': '已取消' };
                 const status = backupStatusNames[request.status] || request.status || '-';
@@ -1694,23 +1716,14 @@ async function adminNotify(targetType) {
     if (btn) { btn.disabled = true; btn.textContent = '發送中...'; }
     
     try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/send-chat-notify`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({
-                request_id: currentChatRoomId,
-                sender_type: 'admin',
-                sender_id: currentAdmin.id,
-                sender_name: currentAdmin.name || '管理員',
-                target_type: targetType,
-                action: 'notify'
-            })
+        const result = await callFunction('send-chat-notify', {
+            request_id: currentChatRoomId,
+            sender_type: 'admin',
+            sender_id: currentAdmin.id,
+            sender_name: currentAdmin.name || '管理員',
+            target_type: targetType,
+            action: 'notify'
         });
-        
-        const result = await response.json();
         
         if (result.success) {
             showToast(`✅ 已通知${targetName}（${result.notified} 人）`);
