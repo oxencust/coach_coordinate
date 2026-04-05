@@ -1201,7 +1201,7 @@
         }
 
         // ============ Typing ============
-        let adminTypingChannel = null, adminTypingTimeout = null, adminIsTyping = false;
+        let adminTypingChannel = null, adminTypingTimeout = null, adminIsTyping = false, adminTypingThrottle = false;
         function subscribeToAdminTyping(requestId) {
             if (adminTypingChannel) adminTypingChannel.unsubscribe();
             adminTypingChannel = supabaseClient.channel(`typing-${requestId}`)
@@ -1219,9 +1219,11 @@
         }
         function handleAdminTyping() {
             if (!adminTypingChannel) return;
-            if (!adminIsTyping) {
+            if (!adminIsTyping && !adminTypingThrottle) {
                 adminIsTyping = true;
+                adminTypingThrottle = true;
                 adminTypingChannel.send({ type: 'broadcast', event: 'typing', payload: { user_id: 'admin', user_name: '管理員', is_typing: true } });
+                setTimeout(() => { adminTypingThrottle = false; }, 500);
             }
             if (adminTypingTimeout) clearTimeout(adminTypingTimeout);
             adminTypingTimeout = setTimeout(() => stopAdminTyping(), 2000);
@@ -1250,18 +1252,21 @@
             if (target) target.classList.add('active');
         }
 
+        let adminSending = false;
         async function sendAdminMessage() {
             const input = document.getElementById('adminMessageInput');
             const content = input.value.trim();
-            if (!content || !currentChatRoomId) return;
+            if (!content || !currentChatRoomId || adminSending) return;
+            adminSending = true;
             stopAdminTyping();
             try {
+                input.value = '';
                 await callEdge('sendMessage', {
                     request_id: currentChatRoomId, sender_type: 'admin',
                     sender_name: '客服小編', message_type: 'text', content
                 });
-                input.value = '';
-            } catch (error) { console.error('Send error:', error); showToast('發送失敗'); }
+            } catch (error) { console.error('Send error:', error); showToast('發送失敗'); input.value = content; }
+            finally { adminSending = false; }
         }
 
         // ============ Cancel / Delete Request ============
