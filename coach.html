@@ -2216,6 +2216,15 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
             // 自動解包 {success, data} → data
             return json.data !== undefined ? json.data : json;
         }
+        // 呼叫其他 Edge Function（不帶 Authorization）
+        async function callFunction(fnName, params = {}) {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            return res.json().catch(() => ({}));
+        }
 
         // ============ Config ============
         const COURSE_CONFIG = {
@@ -2840,6 +2849,7 @@ await loadStudents();
                         });
                         
                         setTimeout(() => {
+                            if (!studentPresenceChannel) return;
                             const state = studentPresenceChannel.presenceState();
                             const onlineStudents = [];
                             for (const key in state) {
@@ -2865,47 +2875,36 @@ await loadStudents();
         }
 
         function updateStudentStatusUI(onlineStudents) {
-    const statusBar = document.getElementById('studentStatusBar');
-    const statusText = document.getElementById('studentStatusText');
-    
-    if (!currentRequest) {
-        statusBar.classList.remove('show');
-        return;
-    }
-    
-    // 即時顯示學員狀態
-    statusBar.classList.add('show');
-    
-    // 檢查學員是否已加入聊天室
-    const studentJoined = currentRequest.studentJoined || currentRequest.status === 'with-student';
-    
-    if (onlineStudents.length > 0) {
-    // 學員在線（不管 studentJoined 狀態，Presence 偵測到就是在線）
-    statusBar.classList.remove('offline');
-    statusBar.classList.add('online');
-    statusText.textContent = onlineStudents.length === 1 
-        ? '🟢 學員在線' 
-        : `🟢 ${onlineStudents.length} 位學員在線（${onlineStudents.join('、')}）`;
-} else if (!studentJoined) {
-    statusBar.classList.remove('online');
-    statusBar.classList.add('offline');
-    statusText.textContent = '⏳ 學員尚未加入聊天室';
-        // 學員在線
-        statusBar.classList.remove('offline');
-        statusBar.classList.add('online');
-        if (onlineStudents.length === 1) {
-            statusText.textContent = '🟢 學員在線';
-        } else {
-            const names = onlineStudents.join('、');
-            statusText.textContent = `🟢 ${onlineStudents.length} 位學員在線（${names}）`;
+            const statusBar = document.getElementById('studentStatusBar');
+            const statusText = document.getElementById('studentStatusText');
+
+            if (!currentRequest) {
+                statusBar.classList.remove('show');
+                return;
+            }
+
+            statusBar.classList.add('show');
+            const studentJoined = currentRequest.studentJoined || currentRequest.status === 'with_student' || currentRequest.status === 'with-student';
+
+            if (onlineStudents.length > 0) {
+                // 學員在線
+                statusBar.classList.remove('offline');
+                statusBar.classList.add('online');
+                statusText.textContent = onlineStudents.length === 1
+                    ? '🟢 學員在線'
+                    : `🟢 ${onlineStudents.length} 位學員在線（${onlineStudents.join('、')}）`;
+            } else if (!studentJoined) {
+                // 學員尚未加入
+                statusBar.classList.remove('online');
+                statusBar.classList.add('offline');
+                statusText.textContent = '⏳ 學員未加入';
+            } else {
+                // 學員已加入但目前離線
+                statusBar.classList.remove('online');
+                statusBar.classList.add('offline');
+                statusText.textContent = '⚪ 學員已離開聊天室';
+            }
         }
-    } else {
-        // 學員已加入但離線
-        statusBar.classList.remove('online');
-        statusBar.classList.add('offline');
-        statusText.textContent = '⚪ 學員已離開聊天室';
-    }
-}
 
         // ============ Update Request Status ============
         async function updateRequestStatus(requestId, status, extraFields = {}) {
@@ -3288,22 +3287,15 @@ if (currentRequest.status !== 'resolved' && currentRequest.status !== 'cancelled
         
         function notifyNewMessage(content, forceNotify = false) {
             const skipStudent = !currentRequest.studentJoined;
-            
-            fetch(`${SUPABASE_URL}/functions/v1/notify-new-message`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                },
-                body: JSON.stringify({
-                    request_id: currentRequest.id,
-                    sender_type: 'coach',
-                    sender_id: currentUser.id,
-                    sender_name: currentUser.name,
-                    message_content: content,
-                    force_notify: forceNotify,
-                    skip_student: skipStudent
-                })
+
+            callFunction('notify-new-message', {
+                request_id: currentRequest.id,
+                sender_type: 'coach',
+                sender_id: currentUser.id,
+                sender_name: currentUser.name,
+                message_content: content,
+                force_notify: forceNotify,
+                skip_student: skipStudent
             }).catch(err => console.log('Notify error:', err));
         }
 
@@ -3314,22 +3306,14 @@ let notifyCooldownEnd = 0;
 async function checkNotifyStatus() {
     if (!currentRequest) return;
     try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/send-chat-notify`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({
-                request_id: currentRequest.id,
-                sender_type: 'coach',
-                sender_id: currentUser.id,
-                sender_name: currentUser.name,
-                target_type: 'student',
-                action: 'check'
-            })
+        const result = await callFunction('send-chat-notify', {
+            request_id: currentRequest.id,
+            sender_type: 'coach',
+            sender_id: currentUser.id,
+            sender_name: currentUser.name,
+            target_type: 'student',
+            action: 'check'
         });
-        const result = await response.json();
         updateNotifyUI(result);
     } catch (err) {
         console.log('Check notify status error:', err);
@@ -3421,24 +3405,15 @@ async function forceNotify() {
     if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
  
     try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/send-chat-notify`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({
-                request_id: currentRequest.id,
-                sender_type: 'coach',
-                sender_id: currentUser.id,
-                sender_name: currentUser.name,
-                target_type: targetType,
-                action: 'notify'
-            })
+        const result = await callFunction('send-chat-notify', {
+            request_id: currentRequest.id,
+            sender_type: 'coach',
+            sender_id: currentUser.id,
+            sender_name: currentUser.name,
+            target_type: targetType,
+            action: 'notify'
         });
- 
-        const result = await response.json();
- 
+
         if (result.success) {
             showToast(`✅ 已通知${targetName}（${result.notified} 人）`);
             updateNotifyUI(result);
@@ -3980,22 +3955,10 @@ if (searchError || !studentData) {
             try {
                 showToast('正在通知學員...');
                 
-                const response = await fetch(
-                    `${SUPABASE_URL}/functions/v1/notify-student`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${supabaseClient.supabaseKey}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            request_id: currentRequest.id,
-                            substitute_coach_id: currentUser.id
-                        })
-                    }
-                );
-                
-                const data = await response.json();
+                const data = await callFunction('notify-student', {
+                    request_id: currentRequest.id,
+                    substitute_coach_id: currentUser.id
+                });
                 
                 if (data.success) {
                     showToast('✅ 已通知學員：' + data.student_name);
@@ -4026,22 +3989,10 @@ if (searchError || !studentData) {
             try {
                 showToast('正在發送邀請...');
                 
-                const response = await fetch(
-                    `${SUPABASE_URL}/functions/v1/invite-student`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${supabaseClient.supabaseKey}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            request_id: currentRequest.id,
-                            coach_id: currentUser.id
-                        })
-                    }
-                );
-                
-                const data = await response.json();
+                const data = await callFunction('invite-student', {
+                    request_id: currentRequest.id,
+                    coach_id: currentUser.id
+                });
                 
                 if (data.success) {
                     closeModal('inviteStudentModal');
@@ -4071,20 +4022,11 @@ if (searchError || !studentData) {
             if (!currentRequest) return;
             
             try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        action: 'list',
-                        request_id: currentRequest.id
-                    })
+                const participants = await callEdge('getParticipants', {
+                    request_id: currentRequest.id
                 });
-                
-                const result = await response.json();
-                const activeCoaches = (result.data || []).filter(m => m.member_type === 'coach' && m.is_active);
+                const participantList = Array.isArray(participants) ? participants : (participants.data || []);
+                const activeCoaches = participantList.filter(m => m.member_type === 'coach' && m.is_active);
                 
                 if (activeCoaches.length <= 1) {
                     const courseDate = currentRequest.course_date;
@@ -4138,22 +4080,12 @@ if (searchError || !studentData) {
         
         async function leaveChat() {
             if (!currentRequest) return;
-            
+
             try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        action: 'leave',
-                        request_id: currentRequest.id,
-                        member_id: currentUser.id
-                    })
+                await callEdge('removeParticipant', {
+                    request_id: currentRequest.id,
+                    member_id: currentUser.id
                 });
-                
-                const result = await response.json();
                 
                 try {
                     await callEdge('sendMessage', {
@@ -4178,17 +4110,9 @@ if (searchError || !studentData) {
             if (!currentRequest) return;
 
             try {
-                await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        action: 'leave',
-                        request_id: currentRequest.id,
-                        member_id: currentUser.id
-                    })
+                await callEdge('removeParticipant', {
+                    request_id: currentRequest.id,
+                    member_id: currentUser.id
                 });
                 
                 try {
@@ -4243,19 +4167,11 @@ if (searchError || !studentData) {
             
             let currentMembers = [];
             try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        action: 'list',
-                        request_id: currentRequest.id
-                    })
+                const participants = await callEdge('getParticipants', {
+                    request_id: currentRequest.id
                 });
-                const result = await response.json();
-                currentMembers = (result.data || [])
+                const participantList = Array.isArray(participants) ? participants : (participants.data || []);
+                currentMembers = participantList
                     .filter(m => m.member_type === 'coach' && m.is_active)
                     .map(m => m.member_id);
             } catch (e) {
@@ -4314,18 +4230,10 @@ container.innerHTML = filtered.map(c => {
             try {
                 showToast('新增教練中...');
                 
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-chat-members`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        action: 'add',
-                        request_id: currentRequest.id,
-                        member_type: 'coach',
-                        member_id: coachId
-                    })
+                const addResult = await callEdge('addParticipant', {
+                    request_id: currentRequest.id,
+                    member_type: 'coach',
+                    member_id: coachId
                 });
                 
                 const result = await response.json();
