@@ -768,7 +768,7 @@
                 const displayName = profile.displayName;
 
                 // 查詢 staff 表
-                const staffResult = await callEdge('verifyStaff', { line_id: lineUid });
+                const staffResult = await callEdge('verifyStaff', { lineUid: lineUid });
                 const staff = staffResult.data;
 
                 if (staff) {
@@ -777,7 +777,7 @@
                             id: staff.id,
                             name: staff.nickname || staff.name || displayName,
                             line_uid: lineUid,
-                            role: staff.permission_level || staff.role || 'staff',
+                            permission_level: staff.permission_level,
                             staff_data: staff
                         };
                         sessionStorage.setItem('staffLineUid', lineUid);
@@ -842,14 +842,14 @@
             const lineUid = sessionStorage.getItem('staffLineUid');
             if (lineUid) {
                 try {
-                    const staffResult = await callEdge('verifyStaff', { line_id: lineUid });
+                    const staffResult = await callEdge('verifyStaff', { lineUid: lineUid });
                     const data = staffResult.data;
                     if (data) {
                         currentAdmin = {
                             id: data.id,
                             name: data.nickname || data.name,
                             line_uid: lineUid,
-                            role: data.permission_level || data.role || 'staff',
+                            permission_level: data.permission_level || 'employee',
                             staff_data: data
                         };
                         showAdminUI(currentAdmin.name);
@@ -863,14 +863,14 @@
                 await liff.init({ liffId: LIFF_ID });
                 if (liff.isLoggedIn()) {
                     const profile = await liff.getProfile();
-                    const staffResult = await callEdge('verifyStaff', { line_id: profile.userId });
+                    const staffResult = await callEdge('verifyStaff', { lineUid: profile.userId });
                     const staff = staffResult.data;
                     if (staff) {
                         currentAdmin = {
                             id: staff.id,
                             name: staff.nickname || staff.name || profile.displayName,
                             line_uid: profile.userId,
-                            role: staff.permission_level || staff.role || 'staff',
+                            permission_level: staff.permission_level,
                             staff_data: staff
                         };
                         sessionStorage.setItem('staffLineUid', profile.userId);
@@ -938,7 +938,7 @@
                 const result = await callEdge('getCoaches');
                 const data = result.data || [];
                 coaches = (data || []).map(c => ({
-                    ...c, coach_name: c.name || '', line_id: c.line_uid || '',
+                    ...c, coach_name: c.name || '', line_uid: c.line_uid || '',
                     is_active: c.is_active === true,
                     specialties: (() => {
                         const raw = c.specialties;
