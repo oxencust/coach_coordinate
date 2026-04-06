@@ -2297,7 +2297,7 @@ try {
         coach = {
             ...data,
             coach_name: data.name || '',
-            line_id: data.line_uid || '',
+            line_uid: data.line_uid || '',
             is_active: data.is_active === true,
             status: data.status || 'approved',
             specialties: (() => {
@@ -2399,7 +2399,7 @@ try {
             currentUser.id = coach.id;
             currentUser.name = coach.coach_name;
             currentUser.avatar = coach.avatar;
-            currentUser.lineUid = coach.line_id;
+            currentUser.lineUid = coach.line_uid;
             currentUser.specialties = coach.specialties || [];
             
             document.getElementById('userAvatarSmall').textContent = currentUser.avatar;
@@ -2544,7 +2544,7 @@ await loadStudents();
             ...c,
             name: c.name || '',
             coach_name: c.name || '',
-            line_id: c.line_uid || '',
+            line_uid: c.line_uid || '',
             is_active: c.is_active === true,
             specialties: (() => {
                 const raw = c.specialties;
@@ -2577,7 +2577,7 @@ await loadStudents();
             code: s.id || '',
             phone: s.phone || '',
             avatar: s.name?.charAt(0) || '?',
-            line_id: s.line_uid || '',
+            line_uid: s.line_uid || '',
             nickname: s.line_display_name || '',
             notes: s.fitness_goal || ''
         }));
@@ -3806,8 +3806,8 @@ if (searchError || !studentData) {
             const studentId = currentRequest.student?.id || currentRequest.student_id;
             
             const student = allStudents.find(s => s.id === studentId);
-            const hasLineUid = student && student.line_id && student.line_id.trim() !== '';
-            
+            const hasLineUid = student && student.line_uid && student.line_uid.trim() !== '';
+
             const hintEl = document.getElementById('inviteHint');
             const lineBtnEl = document.getElementById('lineInviteBtn');
             
