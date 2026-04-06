@@ -1169,7 +1169,7 @@ try {
         student = {
             id: data.id,
             name: data.name || '',
-            line_id: data.line_uid || '',
+            line_uid: data.line_uid || '',
             nickname: data.line_display_name || '',
             phone: data.phone || ''
         };
@@ -1185,7 +1185,7 @@ if (!student) {
 }
 
 // 如果學員沒有 LINE UID，寫入 Supabase
-if (!student.line_id) {
+if (!student.line_uid) {
     console.log('自動綁定學員 LINE UID');
     try {
         // 寫入 Supabase（即時生效）
@@ -1202,7 +1202,7 @@ if (!student.line_id) {
     } catch (e) {
         console.error('Bind LINE error:', e);
     }
-} else if (student.line_id !== profile.userId) {
+} else if (student.line_uid !== profile.userId) {
     console.error('LINE UID 不符');
     alert('此連結已綁定其他帳號，請聯繫教練或行政人員');
     return;
