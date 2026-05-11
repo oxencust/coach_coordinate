@@ -8,6 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <!-- Hendia API helper (Sprint 3 Phase 5 — Zeabur cutover) -->
+    <script src="../../_shared/callApi.js"></script>
     <style>
         :root {
             --white: #ffffff;
@@ -1756,7 +1758,7 @@ async function adminNotify(targetType) {
     if (btn) { btn.disabled = true; btn.textContent = '發送中...'; }
     
     try {
-        const result = await callFunction('send-chat-notify', {
+        const result = await HendiaApi.callApi('send-chat-notify', {
             request_id: currentChatRoomId,
             sender_type: 'admin',
             sender_id: currentAdmin.id,
