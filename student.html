@@ -10,6 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- LINE LIFF SDK -->
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <!-- Hendia API helper (Sprint 3 Phase 5 — Zeabur cutover) -->
+    <script src="../../_shared/callApi.js"></script>
     <style>
         :root {
             --white: #ffffff;
@@ -1675,19 +1677,13 @@ window.addEventListener('beforeunload', () => {
         
         // 通知教練（不等待結果）
         function notifyNewMessage(content, forceNotify = false) {
-            fetch('https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/notify-coaches', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    request_id: requestId,
-                    sender_id: currentStudent.id,
-                    sender_name: currentStudent.name,
-                    message_content: content,
-                    force_notify: forceNotify
-                })
-            }).catch(err => console.log('Notify error:', err));
+            HendiaApi.callApi('notify-coaches', {
+                request_id: requestId,
+                sender_id: currentStudent.id,
+                sender_name: currentStudent.name,
+                message_content: content,
+                force_notify: forceNotify
+            }, { fireAndForget: true });
         }
         
         // 檢查教練是否在聊天室（60秒內有活動視為在線）
@@ -1743,24 +1739,17 @@ async function forceNotify() {
         const courseDate = formatDate(currentRequest.course_date);
         const courseTime = currentRequest.course_time;
         
-        const response = await fetch('https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/notify-coaches', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                request_id: requestId,
-                sender_id: currentStudent.id,
-                sender_name: currentStudent.name,
-                sender_type: 'student',
-                course_type: courseTypeName,
-                course_date: courseDate,
-                course_time: courseTime,
-                force_notify: true
-            })
+        const result = await HendiaApi.callApi('notify-coaches', {
+            request_id: requestId,
+            sender_id: currentStudent.id,
+            sender_name: currentStudent.name,
+            sender_type: 'student',
+            course_type: courseTypeName,
+            course_date: courseDate,
+            course_time: courseTime,
+            force_notify: true
         });
-        
-        const result = await response.json();
+
         if (result.notified > 0) {
             showToast(`已通知 ${result.notified} 位教練 ✓`);
         } else {
