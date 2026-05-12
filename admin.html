@@ -775,14 +775,9 @@
             if (!res.ok) throw new Error(json.error || json.message || 'Edge Function error: ' + res.status);
             return json;
         }
-        async function callFunction(fnName, params = {}) {
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(params)
-            });
-            return res.json().catch(() => ({}));
-        }
+        // Sprint 3 Phase 5 Wave 1：legacy callFunction() helper 已移除（無 caller）
+        // 所有 Edge Function 呼叫改走 _shared/callApi.js 提供的 HendiaApi.callApi(serviceName, payload)
+        // 自帶 Zeabur 路由、Edge fallback、killswitch 與 per-service 開關
         const LIFF_ID = '2008660081-KUxKYrh2';
 
         const courseTypeNames = { 'pilates': '皮拉提斯', 'weight': '重量訓練', 'stretch': '伸展課程', 'ai': 'AI 體態分析' };
