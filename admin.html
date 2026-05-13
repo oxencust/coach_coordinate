@@ -729,7 +729,10 @@
         const SUPABASE_URL = 'https://mnjilhpztnowaplggvkk.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uamlsaHB6dG5vd2FwbGdndmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDA0ODYsImV4cCI6MjA4MTI3NjQ4Nn0.X3e9DF3iT2KUR9ma3_Ins01vG607R155v0xia8hO_Qg';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        const EDGE_FUNCTION_URL = 'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/chat-api';
+        // 2026-05-13 Sprint 3 Phase 5 Wave 4 cutover：chat-api 從 Supabase Edge 切到 Zeabur
+        // Rollback：URL 改回 'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/chat-api' 即可
+        // 管理端：第 2 支切（4 支前端中第 2 順位），體驗排程已先切並驗證
+        const EDGE_FUNCTION_URL = 'https://chat-hendia.zeabur.app/';
         async function callEdge(action, params = {}) {
   // ── Sprint 0 Phase 1 + Phase 3: staffLineUid + LINE ID Token ──
   let _uid = null;
