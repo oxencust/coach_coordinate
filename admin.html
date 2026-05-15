@@ -779,8 +779,14 @@
             if (!res.ok) throw new Error(json.error || json.message || 'Edge Function error: ' + res.status);
             return json;
         }
+        // 2026-05-15 補做 send-chat-notify cutover（callApi.js 早已登錄 zeabur，但此 helper 從沒走過）
+        // rollback：把 SEND_CHAT_NOTIFY_OVERRIDE 內 1 行 entry 註解掉即回 Edge
+        const SEND_CHAT_NOTIFY_OVERRIDE = {
+            'send-chat-notify': 'https://send-chat-notify-hendia.zeabur.app/notify'
+        };
         async function callFunction(fnName, params = {}) {
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
+            const _url = SEND_CHAT_NOTIFY_OVERRIDE[fnName] || `${SUPABASE_URL}/functions/v1/${fnName}`;
+            const res = await fetch(_url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },
                 body: JSON.stringify(params)
@@ -1762,7 +1768,11 @@ async function adminNotify(targetType) {
     if (btn) { btn.disabled = true; btn.textContent = '發送中...'; }
     
     try {
-        const result = await HendiaApi.callApi('send-chat-notify', {
+        // 2026-05-15 fix: 原本走 HendiaApi.callApi 但 _shared/callApi.js GitHub Pages
+        // 部署相對路徑斷掉導致 ReferenceError；改用同檔案內 callFunction helper
+        // （與 行政系統/(新)協調聊天室管理系統.txt 對齊）
+        // callFunction 已加 SEND_CHAT_NOTIFY_OVERRIDE → 直接走 zeabur
+        const result = await callFunction('send-chat-notify', {
             request_id: currentChatRoomId,
             sender_type: 'admin',
             sender_id: currentAdmin.id,
