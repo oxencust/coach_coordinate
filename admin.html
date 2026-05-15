@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <!-- Hendia API helper (Sprint 3 Phase 5 — Zeabur cutover) -->
-    <script src="_shared/callApi.js"></script>
+    <script src="../../_shared/callApi.js"></script>
     <style>
         :root {
             --white: #ffffff;
@@ -729,6 +729,7 @@
         const SUPABASE_URL = 'https://mnjilhpztnowaplggvkk.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uamlsaHB6dG5vd2FwbGdndmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDA0ODYsImV4cCI6MjA4MTI3NjQ4Nn0.X3e9DF3iT2KUR9ma3_Ins01vG607R155v0xia8hO_Qg';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // 2026-05-15 補同步：chat-api Wave 4 cutover（mirror+.txt 已寫但 hendia-liff 漏推）
         // 2026-05-13 Sprint 3 Phase 5 Wave 4 cutover：chat-api 從 Supabase Edge 切到 Zeabur
         // Rollback：URL 改回 'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/chat-api' 即可
         // 管理端：第 2 支切（4 支前端中第 2 順位），體驗排程已先切並驗證
@@ -767,7 +768,7 @@
   const _body = { action, ...(params || {}) };
   if (_uid && !_body.lineUid) _body.lineUid = _uid;
 
-            const _headers = { 'Content-Type': 'application/json' };
+            const _headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY };
   if (_idToken) _headers['X-Line-IdToken'] = _idToken;
   const res = await fetch(EDGE_FUNCTION_URL, {
     method: 'POST',
@@ -778,9 +779,14 @@
             if (!res.ok) throw new Error(json.error || json.message || 'Edge Function error: ' + res.status);
             return json;
         }
-        // Sprint 3 Phase 5 Wave 1：legacy callFunction() helper 已移除（無 caller）
-        // 所有 Edge Function 呼叫改走 _shared/callApi.js 提供的 HendiaApi.callApi(serviceName, payload)
-        // 自帶 Zeabur 路由、Edge fallback、killswitch 與 per-service 開關
+        async function callFunction(fnName, params = {}) {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },
+                body: JSON.stringify(params)
+            });
+            return res.json().catch(() => ({}));
+        }
         const LIFF_ID = '2008660081-KUxKYrh2';
 
         const courseTypeNames = { 'pilates': '皮拉提斯', 'weight': '重量訓練', 'stretch': '伸展課程', 'ai': 'AI 體態分析' };
