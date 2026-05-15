@@ -11,7 +11,7 @@
     <!-- LINE LIFF SDK -->
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <!-- Hendia API helper (Sprint 3 Phase 5 — Zeabur cutover) -->
-    <script src="_shared/callApi.js"></script>
+    <script src="../../_shared/callApi.js"></script>
     <style>
         :root {
             --white: #ffffff;
@@ -1026,6 +1026,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // Edge Function for CRUD operations
+        // 2026-05-15 補同步：chat-api Wave 4 cutover（mirror 已寫但 live 漏推）
         // 2026-05-13 Sprint 3 Phase 5 Wave 4 cutover：chat-api 從 Supabase Edge 切到 Zeabur
         // Rollback：URL 改回 'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/chat-api' 即可
         // 學員端：第 4 支切（最後一支），體驗排程 + 管理端 + 教練端皆已先切並驗證
