@@ -11,7 +11,7 @@
     <!-- LINE LIFF SDK -->
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <!-- Hendia API helper (Sprint 3 Phase 5 — Zeabur cutover) -->
-    <script src="_shared/callApi.js"></script>
+    <script src="../../_shared/callApi.js"></script>
     <style>
         :root {
             --white: #ffffff;
@@ -2206,10 +2206,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ============ Edge Function Config ============
-        // 2026-05-13 Sprint 3 Phase 5 Wave 4 cutover：chat-api 從 Supabase Edge 切到 Zeabur
-        // Rollback：URL 改回 'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/chat-api' 即可
-        // 教練端：第 3 支切（4 支前端中第 3 順位），體驗排程 + 管理端皆已先切並驗證
-        const EDGE_FUNCTION_URL = 'https://chat-hendia.zeabur.app/';
+        const EDGE_FUNCTION_URL = 'https://mnjilhpztnowaplggvkk.supabase.co/functions/v1/chat-api';
         async function callEdge(action, params = {}) {
   // ── Sprint 0 Phase 1 + Phase 3: staffLineUid + LINE ID Token ──
   let _uid = null;
@@ -2244,7 +2241,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   const _body = { action, ...(params || {}) };
   if (_uid && !_body.lineUid) _body.lineUid = _uid;
 
-            const _headers = { 'Content-Type': 'application/json' };
+            const _headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY };
   if (_idToken) _headers['X-Line-IdToken'] = _idToken;
   const res = await fetch(EDGE_FUNCTION_URL, {
     method: 'POST',
@@ -2256,11 +2253,19 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
             // 自動解包 {success, data} → data
             return json.data !== undefined ? json.data : json;
         }
-        // 呼叫其他 Edge Function（不帶 Authorization）
+        // 呼叫其他 Edge Function
+        // 2026-05-15 Wave5 #4 cutover：3 顆 LINE 推播 webhook 已遷至 notify-hendia.zeabur.app
+        // rollback：把 NOTIFY_ZEABUR_OVERRIDE 內 3 行 entry 註解掉即回 Edge
+        const NOTIFY_ZEABUR_OVERRIDE = {
+            'notify-new-message': 'https://notify-hendia.zeabur.app/notify-new-message',
+            'notify-student':     'https://notify-hendia.zeabur.app/notify-student',
+            'invite-student':     'https://notify-hendia.zeabur.app/invite-student'
+        };
         async function callFunction(fnName, params = {}) {
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
+            const _url = NOTIFY_ZEABUR_OVERRIDE[fnName] || `${SUPABASE_URL}/functions/v1/${fnName}`;
+            const res = await fetch(_url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },
                 body: JSON.stringify(params)
             });
             return res.json().catch(() => ({}));
