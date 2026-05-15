@@ -2258,11 +2258,13 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
         }
         // 呼叫其他 Edge Function
         // 2026-05-15 Wave5 #4 cutover：3 顆 LINE 推播 webhook 已遷至 notify-hendia.zeabur.app
-        // rollback：把 NOTIFY_ZEABUR_OVERRIDE 內 3 行 entry 註解掉即回 Edge
+        // 2026-05-15 補做 send-chat-notify cutover（callApi.js 早已登錄 zeabur，但此 helper 從沒走過）
+        // rollback：把對應 entry 註解掉即回 Edge
         const NOTIFY_ZEABUR_OVERRIDE = {
             'notify-new-message': 'https://notify-hendia.zeabur.app/notify-new-message',
             'notify-student':     'https://notify-hendia.zeabur.app/notify-student',
-            'invite-student':     'https://notify-hendia.zeabur.app/invite-student'
+            'invite-student':     'https://notify-hendia.zeabur.app/invite-student',
+            'send-chat-notify':   'https://send-chat-notify-hendia.zeabur.app/notify'
         };
         async function callFunction(fnName, params = {}) {
             const _url = NOTIFY_ZEABUR_OVERRIDE[fnName] || `${SUPABASE_URL}/functions/v1/${fnName}`;
@@ -3356,7 +3358,8 @@ let notifyCooldownEnd = 0;
 async function checkNotifyStatus() {
     if (!currentRequest) return;
     try {
-        const result = await HendiaApi.callApi('send-chat-notify', {
+        // 2026-05-15 fix: 改走 callFunction（與 .txt 對齊；HendiaApi 因 _shared/callApi.js GitHub Pages 部署相對路徑斷掉而 undefined）
+        const result = await callFunction('send-chat-notify', {
             request_id: currentRequest.id,
             sender_type: 'coach',
             sender_id: currentUser.id,
@@ -3453,9 +3456,10 @@ async function forceNotify() {
     if (!confirm(`📢 確定要通知${targetName}返回聊天室嗎？`)) return;
  
     if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
- 
+
     try {
-        const result = await HendiaApi.callApi('send-chat-notify', {
+        // 2026-05-15 fix: 改走 callFunction（與 .txt 對齊；HendiaApi 因 _shared/callApi.js GitHub Pages 部署相對路徑斷掉而 undefined）
+        const result = await callFunction('send-chat-notify', {
             request_id: currentRequest.id,
             sender_type: 'coach',
             sender_id: currentUser.id,
