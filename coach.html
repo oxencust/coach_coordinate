@@ -2380,34 +2380,12 @@ try {
                         showUnauthorizedScreen(displayName);
                     }
                 } else {
-                    console.log('Step 5: Creating new coach application');
-                    const avatar = displayName ? displayName.charAt(0) : '👤';
-                    
-                    let newCoach, insertError;
-                    try {
-                        newCoach = await callEdge('createCoach', {
-                            name: displayName,
-                            avatar: avatar,
-                            line_uid: lineUid,
-                            status: 'pending',
-                            is_active: true,
-                            specialties: []
-                        });
-                        insertError = null;
-                    } catch (e) {
-                        insertError = e;
-                        newCoach = null;
-                    }
-                    
-                    console.log('Insert result:', newCoach, 'Error:', insertError);
-                    
-                    if (insertError) {
-                        console.error('Insert error:', insertError);
-                        showErrorScreen('申請失敗', insertError.message || JSON.stringify(insertError));
-                        return;
-                    }
-                    
-                    showApplySuccessScreen(displayName);
+                    // 2026-05-17：移除「自動 createCoach 開 pending 申請」fallback
+                    //   原因：coach.html 是給「已開通的教練」用的，不該由 LIFF 自動建 coach 記錄
+                    //   非教練 LINE uid 進入 → 顯示 unauthorized 畫面，請聯絡管理員
+                    //   配套：chat-service createCoach action 已同步刪除（避免後門直接 POST 亂建）
+                    console.log('Step 5: Not a coach, show unauthorized screen');
+                    showUnauthorizedScreen(displayName);
                 }
                 
             } catch (error) {
